@@ -19,7 +19,7 @@ export type Nota = NotaLista & {
 };
 
 /** Regra central de isolamento: empresa só enxerga NF do próprio CNPJ. */
-function visivel(u: Usuario) {
+export function visivel(u: Usuario) {
   return ehInterno(u) ? sql`true` : sql`n.emit_cnpj = ${u.empresa_cnpj ?? "-"}`;
 }
 
