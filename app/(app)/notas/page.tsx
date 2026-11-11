@@ -4,6 +4,7 @@ import { etapasAtivas, prazoReprovada } from "@/lib/fluxo";
 import { buscarNotas, listarEmpresas, POR_PAGINA, type Filtros } from "@/lib/notas";
 import { cnpj, data, dias, moeda } from "@/lib/format";
 import { Farol, Selo, Vazio } from "@/components/ui";
+import { AbasBusca } from "@/components/AbasBusca";
 
 export const metadata = { title: "Notas fiscais — Tramitação de NF" };
 
@@ -24,14 +25,14 @@ export default async function Notas({ searchParams }: PageProps<"/notas">) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="titulo">{interno ? "Notas fiscais" : "Minhas notas fiscais"}</h1>
+        <AbasBusca atual="notas" />
         <a href={`/api/notas/csv?${qs({ pagina: "" })}`} className="botao-sec">Exportar planilha (CSV)</a>
       </div>
 
       <form className="cartao grid grid-cols-2 gap-3 p-4 md:grid-cols-4 lg:grid-cols-6" action="/notas">
         <label className="col-span-2">
           <span className="rotulo">Pesquisa livre</span>
-          <input name="q" defaultValue={f.q} className="campo" placeholder="Nº da NF, chave, empresa, CNPJ, OC, empenho, produto…" />
+          <input name="q" defaultValue={f.q} className="campo" placeholder="Nº da NF, chave, empresa, CNPJ, OC, empenho…" />
         </label>
         <label>
           <span className="rotulo">Situação</span>
