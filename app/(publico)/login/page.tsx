@@ -10,7 +10,8 @@ export default async function Login() {
   if (!(await existeAlgumUsuario())) redirect("/setup");
   return (
     <>
-      <h2 className="mb-4 text-lg font-bold text-slate-800">Acesso ao sistema</h2>
+      <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Entrar</h2>
+      <p className="mb-6 mt-1 text-sm text-slate-500">Use seu NIP ou o CNPJ da empresa e a sua senha.</p>
       <FormAcao acao={acaoEntrar} botao="Entrar" className="space-y-4" classeBotao="botao w-full">
         <div>
           <label className="rotulo" htmlFor="login">Usuário (NIP ou CNPJ)</label>
@@ -21,7 +22,7 @@ export default async function Login() {
           <input id="senha" name="senha" type="password" className="campo" autoComplete="current-password" required />
         </div>
       </FormAcao>
-      <p className="mt-4 text-center text-xs text-slate-500">Esqueceu a senha? Procure o administrador do sistema.</p>
+      <p className="mt-6 text-center text-xs text-slate-500">Esqueceu a senha? Procure o administrador do sistema.</p>
     </>
   );
 }

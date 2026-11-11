@@ -11,6 +11,7 @@ Substitui o sistema antigo em Streamlit + Google Planilhas (`controledepfard-v2`
 - **Busca por itens** (ex.: “camisa M”): mostra os produtos encontrados e as NF em que aparecem, ignorando acentos e aceitando palavras parecidas
 - **Gerencial**: NF em cada setor por situação de prazo, as mais antigas de cada setor, evolução mensal dos tempos com tendência, NF despachadas por setor por dia e visão por fornecedor
 - **Relatório mensal**: recebidas, finalizadas, reprovadas (%), tempo médio total e por etapa, por empresa
+- **Manual do usuário** dentro do sistema, adaptado a cada perfil
 - **Importação** da planilha antiga (usuários, notas, histórico e observações)
 
 ## Como publicar (gratuito)

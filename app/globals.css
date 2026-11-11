@@ -1,26 +1,38 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-marinha: #1a237e;
-  --color-marinha-clara: #283593;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --color-marinha: #14306b;
+  --color-marinha-clara: #1d4290;
+  --font-sans: var(--fonte-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
 body {
-  background: #f4f5f9;
-  color: #1f2430;
+  background: #f4f6fa;
+  color: #0f172a;
+  font-feature-settings: "cv11", "ss01";
 }
 
 @layer components {
-  .cartao { @apply rounded-xl border border-slate-200 bg-white shadow-sm; }
-  .campo { @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-marinha focus:ring-2 focus:ring-marinha/20; }
-  .rotulo { @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500; }
-  .botao { @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-marinha px-4 py-2 text-sm font-semibold text-white transition hover:bg-marinha-clara disabled:cursor-not-allowed disabled:opacity-50; }
-  .botao-sec { @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50; }
-  .botao-perigo { @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50; }
+  .cartao { @apply rounded-xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_1px_3px_rgba(15,23,42,0.03)]; }
+  .campo { @apply h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-[inset_0_1px_1px_rgba(15,23,42,0.03)] outline-none transition placeholder:text-slate-400 focus:border-marinha-clara focus:ring-4 focus:ring-marinha-clara/10; }
+  textarea.campo { @apply h-auto py-2; }
+  select.campo { @apply pr-8; }
+  .rotulo { @apply mb-1.5 block text-xs font-medium text-slate-600; }
+  .botao { @apply inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg bg-marinha px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-marinha-clara focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-marinha-clara/20 disabled:cursor-not-allowed disabled:opacity-50; }
+  .botao-sec { @apply inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-200 disabled:cursor-not-allowed disabled:opacity-50; }
+  .botao-perigo { @apply inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-4 text-sm font-semibold text-red-700 shadow-sm transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50; }
   .tabela { @apply w-full text-left text-sm; }
-  .tabela th { @apply border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500; }
-  .tabela td { @apply border-b border-slate-100 px-3 py-2 align-top; }
+  .tabela th { @apply border-b border-slate-200 bg-slate-50/80 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500; }
+  .tabela td { @apply border-b border-slate-100 px-4 py-3 align-top text-slate-700; }
+  .tabela tbody tr:last-child td { @apply border-b-0; }
+  .tabela tbody tr { @apply transition-colors; }
   .tabela tbody tr:hover { @apply bg-slate-50/70; }
-  .titulo { @apply text-xl font-bold text-slate-800; }
+  .titulo { @apply text-2xl font-semibold tracking-tight text-slate-900; }
+  .subtitulo { @apply mt-1 text-sm text-slate-500; }
+  .secao { @apply text-sm font-semibold text-slate-900; }
+}
+
+@media print {
+  body { background: #fff; }
+  .cartao { box-shadow: none; }
 }

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { exigirUsuario } from "@/lib/auth";
 import { relatorioMensal } from "@/lib/relatorios";
 import { data, dias, mesAtual, moeda, nomeMes } from "@/lib/format";
-import { Indicador } from "@/components/ui";
+import { Indicador, Cabecalho } from "@/components/ui";
 import { BotaoImprimir } from "@/components/BotaoImprimir";
 
 export const metadata = { title: "Relatórios — Tramitação de NF" };
@@ -30,17 +30,13 @@ export default async function Relatorios({ searchParams }: PageProps<"/relatorio
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="titulo">Relatório mensal — {nomeMes(mes)}</h1>
-          <p className="text-sm text-slate-500">Datas no horário de Brasília. Tempos em dias corridos.</p>
-        </div>
+      <Cabecalho titulo={`Relatório mensal — ${nomeMes(mes)}`} descricao="Indicadores do mês para prestação de contas. Datas no horário de Brasília; tempos em dias corridos.">
         <form className="flex items-end gap-2 print:hidden" action="/relatorios">
           <label><span className="rotulo">Mês</span><input type="month" name="mes" defaultValue={mes} className="campo" /></label>
           <button className="botao">Ver</button>
           <BotaoImprimir />
         </form>
-      </div>
+      </Cabecalho>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Indicador titulo="NF recebidas no mês" valor={r.recebidas} detalhe={moeda(r.valor_recebido)} />
@@ -55,7 +51,7 @@ export default async function Relatorios({ searchParams }: PageProps<"/relatorio
       </p>
 
       <div className="cartao overflow-x-auto">
-        <h2 className="px-5 pt-5 text-sm font-bold uppercase tracking-wide text-slate-500">Tempo médio por etapa</h2>
+        <h2 className="px-5 pt-5 text-[15px] font-semibold text-slate-900">Tempo médio por etapa</h2>
         <table className="tabela mt-3">
           <thead><tr><th>Etapa</th><th>Passagens concluídas</th><th>Tempo médio</th><th className="w-1/4"></th><th>Prazo</th><th>Maior tempo</th><th>Fora do prazo</th></tr></thead>
           <tbody>
@@ -78,7 +74,7 @@ export default async function Relatorios({ searchParams }: PageProps<"/relatorio
       </div>
 
       <div className="cartao overflow-x-auto">
-        <h2 className="px-5 pt-5 text-sm font-bold uppercase tracking-wide text-slate-500">Últimos 12 meses</h2>
+        <h2 className="px-5 pt-5 text-[15px] font-semibold text-slate-900">Últimos 12 meses</h2>
         <table className="tabela mt-3">
           <thead><tr><th>Mês</th><th>Recebidas</th><th className="w-1/5"></th><th>Finalizadas</th><th>Reprovadas</th><th>% reprovação</th><th>Tempo médio</th></tr></thead>
           <tbody>
@@ -99,7 +95,7 @@ export default async function Relatorios({ searchParams }: PageProps<"/relatorio
 
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="cartao overflow-x-auto">
-          <h2 className="px-5 pt-5 text-sm font-bold uppercase tracking-wide text-slate-500">Por empresa no mês</h2>
+          <h2 className="px-5 pt-5 text-[15px] font-semibold text-slate-900">Por empresa no mês</h2>
           <table className="tabela mt-3">
             <thead><tr><th>Empresa</th><th>Recebidas</th><th>Finalizadas</th><th>Reprovadas</th><th className="text-right">Valor recebido</th></tr></thead>
             <tbody>
@@ -116,7 +112,7 @@ export default async function Relatorios({ searchParams }: PageProps<"/relatorio
           </table>
         </div>
         <div className="cartao overflow-x-auto">
-          <h2 className="px-5 pt-5 text-sm font-bold uppercase tracking-wide text-slate-500">Reprovações do mês</h2>
+          <h2 className="px-5 pt-5 text-[15px] font-semibold text-slate-900">Reprovações do mês</h2>
           <table className="tabela mt-3">
             <thead><tr><th>NF</th><th>Empresa</th><th>Data</th><th>Motivo</th></tr></thead>
             <tbody>

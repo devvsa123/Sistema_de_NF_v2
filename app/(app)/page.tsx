@@ -5,7 +5,7 @@ import { etapasAtivas, etapasDoUsuario, podeArmazenar, podeTratarReprovadas, pra
 import { contagemFilas, fila } from "@/lib/notas";
 import { dias, farol, moeda, data } from "@/lib/format";
 import { FilaTabela, type BotaoFila, type LinhaFila } from "@/components/FilaTabela";
-import { Indicador, Vazio } from "@/components/ui";
+import { Indicador, Vazio, Cabecalho } from "@/components/ui";
 
 export default async function MinhaFila({ searchParams }: PageProps<"/">) {
   const u = await exigirUsuario();
@@ -53,6 +53,7 @@ export default async function MinhaFila({ searchParams }: PageProps<"/">) {
 
   return (
     <div className="space-y-4">
+      <Cabecalho titulo="Minha fila" descricao="Notas fiscais aguardando ação nas etapas em que você atua. Selecione as NF e use os botões no fim da lista para tramitar." />
       <div className="flex flex-wrap gap-1.5">
         {abas.map((a) => (
           <Link

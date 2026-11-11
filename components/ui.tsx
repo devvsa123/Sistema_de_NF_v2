@@ -12,7 +12,8 @@ const CORES_STATUS: Record<string, string> = {
 
 export function Selo({ nota, paraEmpresa = false }: { nota: { status: string; etapa_nome?: string | null }; paraEmpresa?: boolean }) {
   return (
-    <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${CORES_STATUS[nota.status] ?? ""}`}>
+    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${CORES_STATUS[nota.status] ?? ""}`}>
+      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
       {situacao(nota, paraEmpresa)}
     </span>
   );
@@ -26,18 +27,31 @@ export function Farol({ dias, prazo }: { dias: number; prazo: number }) {
   return <span title={`${NOME_FAROL[f]} (prazo: ${prazo} dias)`} className={`inline-block h-2.5 w-2.5 rounded-full ${CORES_FAROL[f]}`} />;
 }
 
-export function Indicador({ titulo, valor, detalhe, cor = "text-marinha" }: { titulo: string; valor: ReactNode; detalhe?: ReactNode; cor?: string }) {
+export function Indicador({ titulo, valor, detalhe, cor = "text-slate-900" }: { titulo: string; valor: ReactNode; detalhe?: ReactNode; cor?: string }) {
   return (
-    <div className="cartao px-4 py-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{titulo}</p>
-      <p className={`mt-1 text-2xl font-bold ${cor}`}>{valor}</p>
-      {detalhe && <p className="mt-0.5 text-xs text-slate-500">{detalhe}</p>}
+    <div className="cartao px-5 py-4">
+      <p className="text-[13px] font-medium text-slate-500">{titulo}</p>
+      <p className={`mt-1.5 text-[26px] font-semibold leading-tight tracking-tight tabular-nums ${cor}`}>{valor}</p>
+      {detalhe && <p className="mt-1 text-xs text-slate-500">{detalhe}</p>}
+    </div>
+  );
+}
+
+/** Cabeçalho padrão das páginas: título, descrição e ações à direita. */
+export function Cabecalho({ titulo, descricao, children }: { titulo: ReactNode; descricao?: ReactNode; children?: ReactNode }) {
+  return (
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 pb-5">
+      <div className="min-w-0">
+        <h1 className="titulo">{titulo}</h1>
+        {descricao && <p className="subtitulo max-w-3xl">{descricao}</p>}
+      </div>
+      {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
     </div>
   );
 }
 
 export function Vazio({ children }: { children: ReactNode }) {
-  return <div className="cartao px-6 py-10 text-center text-sm text-slate-500">{children}</div>;
+  return <div className="cartao border-dashed px-6 py-12 text-center text-sm text-slate-500">{children}</div>;
 }
 
 export function Voltar({ href, children }: { href: string; children: ReactNode }) {

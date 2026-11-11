@@ -9,7 +9,7 @@ export default async function TrocarSenha() {
   const u = await exigirUsuario({ permitirTrocaPendente: true });
   return (
     <>
-      <h2 className="text-lg font-bold text-slate-800">Trocar senha</h2>
+      <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Trocar senha</h2>
       <p className="mb-4 mt-1 text-sm text-slate-500">
         {u.deve_trocar_senha ? "Por segurança, defina uma nova senha antes de continuar." : `Usuário: ${u.nome}`}
       </p>

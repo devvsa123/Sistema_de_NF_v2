@@ -3,7 +3,7 @@ import { ehInterno, exigirUsuario } from "@/lib/auth";
 import { buscarItens, contarNotasSemItens, ITENS_POR_PAGINA, normalizar, termos, type FiltrosItens } from "@/lib/itens";
 import { listarEmpresas } from "@/lib/notas";
 import { data, moeda, numero } from "@/lib/format";
-import { Selo, Vazio } from "@/components/ui";
+import { Selo, Vazio, Cabecalho } from "@/components/ui";
 import { AbasBusca } from "@/components/AbasBusca";
 
 export const metadata = { title: "Itens das notas — Tramitação de NF" };
@@ -48,10 +48,10 @@ export default async function BuscaItens({ searchParams }: PageProps<"/notas/ite
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <AbasBusca atual="itens" />
+      <Cabecalho titulo={interno ? "Notas fiscais" : "Minhas notas fiscais"} descricao="Pesquise as notas pelo número, chave, empresa, OC ou empenho, ou procure pelos itens comprados.">
         {r.total > 0 && <a href={`/api/itens/csv?${qs({ pagina: "" })}`} className="botao-sec">Exportar planilha (CSV)</a>}
-      </div>
+      </Cabecalho>
+      <AbasBusca atual="itens" />
 
       <form className="cartao grid grid-cols-2 gap-3 p-4 md:grid-cols-4 lg:grid-cols-6" action="/notas/itens">
         <label className="col-span-2 lg:col-span-3">
@@ -94,7 +94,7 @@ export default async function BuscaItens({ searchParams }: PageProps<"/notas/ite
 
       <p className="text-xs text-slate-500">
         A pesquisa ignora acentos e aceita palavras parecidas (“camisa” também encontra “camiseta”). Tamanhos e números curtos, como M, GG ou 42, precisam aparecer como palavra inteira.
-        Procura na descrição e no código do produto.
+        Procura no nome do produto, na descrição completa informada pela empresa (informações adicionais do item) e no código.
         {cobertura.sem > 0 && ` ${cobertura.sem.toLocaleString("pt-BR")} de ${cobertura.total.toLocaleString("pt-BR")} NF ainda não têm os itens cadastrados (sem XML ou PDF da consulta) e não aparecem aqui.`}
       </p>
 
@@ -128,7 +128,10 @@ export default async function BuscaItens({ searchParams }: PageProps<"/notas/ite
                         <span className="block text-xs text-slate-400">Recebida {data(i.recebida_em)}{i.oc ? ` · OC ${i.oc}` : ""}</span>
                       </td>
                     )}
-                    <td className="min-w-64"><Destaque texto={i.descricao ?? ""} q={q} /></td>
+                    <td className="min-w-72">
+                      <span className="font-medium text-slate-800"><Destaque texto={i.descricao ?? ""} q={q} /></span>
+                      {i.infad && <span className="mt-0.5 block whitespace-pre-wrap text-xs leading-relaxed text-slate-600"><Destaque texto={i.infad} q={q} /></span>}
+                    </td>
                     <td className="whitespace-nowrap text-xs">{i.codigo ? <Destaque texto={i.codigo} q={q} /> : "—"}</td>
                     <td className="whitespace-nowrap text-right tabular-nums">{numero(i.qtd, Number.isInteger(i.qtd) ? 0 : 2)}</td>
                     <td>{i.un}</td>

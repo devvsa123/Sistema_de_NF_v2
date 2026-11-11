@@ -24,7 +24,7 @@ export type FiltrosItens = { q?: string; situacao?: string; cnpj?: string; de?: 
 
 export type ItemEncontrado = {
   nota_id: number; numero: string; emit_nome: string; emit_cnpj: string; status: string; etapa_nome: string | null; recebida_em: Date; oc: string | null;
-  n: number; codigo: string | null; descricao: string; un: string | null; qtd: number; vunit: number; vtotal: number; ncm: string | null;
+  n: number; codigo: string | null; descricao: string; infad: string | null; un: string | null; qtd: number; vunit: number; vtotal: number; ncm: string | null;
 };
 
 export const ITENS_POR_PAGINA = 100;
@@ -58,7 +58,7 @@ function base(u: Usuario, f: FiltrosItens) {
     with it as (
       select n.id as nota_id, n.numero, n.emit_nome, n.emit_cnpj, n.status, e.nome as etapa_nome, n.recebida_em, n.oc,
              i.value as item, i.ordinality as ord,
-             lower(unaccent(coalesce(i.value->>'descricao', '') || ' ' || coalesce(i.value->>'codigo', ''))) as txt
+             lower(unaccent(coalesce(i.value->>'descricao', '') || ' ' || coalesce(i.value->>'infAd', '') || ' ' || coalesce(i.value->>'codigo', ''))) as txt
       from notas n
       left join etapas e on e.id = n.etapa_id
       cross join lateral jsonb_array_elements(case when jsonb_typeof(n.itens) = 'array' then n.itens else '[]'::jsonb end) with ordinality i
@@ -73,7 +73,7 @@ export async function buscarItens(u: Usuario, f: FiltrosItens, todos = false) {
   const pagina = Math.max(1, Number(f.pagina) || 1);
   const sel = sql`
     select nota_id, numero, emit_nome, emit_cnpj, status, etapa_nome, recebida_em, oc, (item->>'n')::int as n,
-           item->>'codigo' as codigo, item->>'descricao' as descricao, item->>'un' as un, item->>'ncm' as ncm,
+           item->>'codigo' as codigo, item->>'descricao' as descricao, item->>'infAd' as infad, item->>'un' as un, item->>'ncm' as ncm,
            coalesce((item->>'qtd')::numeric, 0)::float8 as qtd, coalesce((item->>'vUnit')::numeric, 0)::float8 as vunit,
            coalesce((item->>'vTotal')::numeric, 0)::float8 as vtotal
     from achados order by pontos desc, recebida_em desc, nota_id desc, ord`;

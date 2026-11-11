@@ -10,7 +10,7 @@ export default async function Setup() {
   if (await existeAlgumUsuario()) redirect("/login");
   return (
     <>
-      <h2 className="text-lg font-bold text-slate-800">Configuração inicial</h2>
+      <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Configuração inicial</h2>
       <p className="mb-4 mt-1 text-sm text-slate-500">Crie o primeiro usuário administrador. Esta tela deixa de existir depois disso.</p>
       <FormAcao acao={acaoSetup} botao="Criar administrador" className="space-y-4" classeBotao="botao w-full">
         <div>

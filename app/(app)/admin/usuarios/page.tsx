@@ -1,3 +1,4 @@
+import { Cabecalho } from "@/components/ui";
 import Link from "next/link";
 import { exigirAdmin } from "@/lib/auth";
 import { sql } from "@/lib/db";
@@ -16,10 +17,9 @@ export default async function Usuarios({ searchParams }: PageProps<"/admin/usuar
     from usuarios u where ${papel ? sql`u.papel = ${papel}` : sql`true`} order by u.ativo desc, u.papel = 'empresa', u.nome`;
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="titulo">Usuários</h1>
+      <Cabecalho titulo="Usuários" descricao="Quem acessa o sistema, com qual perfil e em quais etapas pode tramitar.">
         <Link href="/admin/usuarios/novo" className="botao">+ Novo usuário</Link>
-      </div>
+      </Cabecalho>
       <div className="flex flex-wrap gap-1.5 text-sm">
         {[["", "Todos"], ...Object.entries(PAPEL)].map(([k, v]) => (
           <Link key={k} href={k ? `/admin/usuarios?papel=${k}` : "/admin/usuarios"}

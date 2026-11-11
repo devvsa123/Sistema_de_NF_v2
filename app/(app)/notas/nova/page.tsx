@@ -1,3 +1,4 @@
+import { Cabecalho } from "@/components/ui";
 import { redirect } from "next/navigation";
 import { exigirUsuario, podeCadastrar } from "@/lib/auth";
 import { etapasAtivas } from "@/lib/fluxo";
@@ -14,13 +15,10 @@ export default async function NovaNota() {
   const sobMedida = etapas.find((e) => e.entrada_sob_medida);
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <h1 className="titulo">Cadastrar notas fiscais</h1>
-        <p className="mt-1 text-sm text-slate-600">
+      <Cabecalho titulo="Cadastrar notas fiscais" descricao={<>
           As notas entram na etapa <strong>{etapas[0]?.nome ?? "—"}</strong>
           {sobMedida && <> (material sob medida entra direto em <strong>{sobMedida.nome}</strong>)</>}.
-        </p>
-      </div>
+        </>} />
       <EnvioXml />
       <p className="text-sm text-slate-600">
         <strong>Sem acesso ao XML?</strong> No Portal da NF-e (nfe.fazenda.gov.br → Consultar NF-e), abra a nota pela chave de acesso, clique em imprimir e

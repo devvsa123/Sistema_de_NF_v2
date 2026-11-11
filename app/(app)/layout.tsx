@@ -1,51 +1,56 @@
-import Image from "next/image";
 import Link from "next/link";
 import { exigirUsuario, podeCadastrar } from "@/lib/auth";
-import { Nav } from "@/components/Nav";
+import { Lateral, type GrupoMenu } from "@/components/Nav";
+import { Icone } from "@/components/Icone";
 import { acaoSair } from "@/app/acoes/auth";
 
 const PAPEL: Record<string, string> = { admin: "Administrador", interno: "Usuário interno", consulta: "Consulta", empresa: "Fornecedor" };
 
 export default async function LayoutApp({ children }: LayoutProps<"/">) {
   const u = await exigirUsuario();
-  const itens = [
-    ...(u.papel === "admin" || u.papel === "interno" ? [{ href: "/", rotulo: "Minha fila" }] : []),
-    { href: "/notas", rotulo: u.papel === "empresa" ? "Minhas notas" : "Notas fiscais" },
-    ...(podeCadastrar(u) ? [{ href: "/notas/nova", rotulo: "Cadastrar NF" }] : []),
-    ...(u.papel !== "empresa" ? [{ href: "/gerencial", rotulo: "Gerencial" }, { href: "/relatorios", rotulo: "Relatórios" }] : []),
-    ...(u.papel === "admin"
-      ? [
-          { href: "/admin/caminho", rotulo: "Caminho" },
-          { href: "/admin/usuarios", rotulo: "Usuários" },
-          { href: "/admin/importar", rotulo: "Importar" },
-        ]
+  const operador = u.papel === "admin" || u.papel === "interno";
+  const grupos: GrupoMenu[] = [
+    {
+      titulo: "Operação",
+      itens: [
+        ...(operador ? [{ href: "/", rotulo: "Minha fila", icone: "fila" }] : []),
+        { href: "/notas", rotulo: u.papel === "empresa" ? "Minhas notas" : "Notas fiscais", icone: "notas" },
+        ...(podeCadastrar(u) ? [{ href: "/notas/nova", rotulo: "Cadastrar NF", icone: "novo" }] : []),
+      ],
+    },
+    ...(u.papel !== "empresa"
+      ? [{ titulo: "Análises", itens: [{ href: "/gerencial", rotulo: "Gerencial", icone: "grafico" }, { href: "/relatorios", rotulo: "Relatório mensal", icone: "relatorio" }] }]
       : []),
+    ...(u.papel === "admin"
+      ? [{
+          titulo: "Administração",
+          itens: [
+            { href: "/admin/caminho", rotulo: "Caminho da tramitação", icone: "caminho" },
+            { href: "/admin/usuarios", rotulo: "Usuários", icone: "usuarios" },
+            { href: "/admin/importar", rotulo: "Importar planilha", icone: "importar" },
+          ],
+        }]
+      : []),
+    { titulo: "Ajuda", itens: [{ href: "/manual", rotulo: "Manual do usuário", icone: "manual" }] },
   ];
+  const botao = "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white";
   return (
     <div className="min-h-screen">
-      <header className="bg-marinha text-white print:hidden">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2.5">
-          <Link href="/" className="flex items-center gap-2.5">
-            <Image src="/brasao.png" alt="" width={148} height={192} className="h-9 w-auto" />
-            <span className="leading-tight">
-              <span className="block text-sm font-bold">Tramitação de NF</span>
-              <span className="block text-[11px] text-white/70">DepFMRJ</span>
-            </span>
-          </Link>
-          <Nav itens={itens} />
-          <div className="ml-auto flex items-center gap-3 text-sm">
-            <span className="text-right leading-tight">
-              <span className="block font-semibold">{u.nome}</span>
-              <span className="block text-[11px] text-white/70">{PAPEL[u.papel]}</span>
-            </span>
-            <Link href="/trocar-senha" className="rounded-lg px-2 py-1 text-white/85 hover:bg-white/15">Senha</Link>
+      <Lateral
+        grupos={grupos}
+        usuario={{ nome: u.nome, papel: PAPEL[u.papel] }}
+        rodape={
+          <div className="mt-1 space-y-0.5">
+            <Link href="/trocar-senha" className={botao}><Icone nome="senha" className="h-4 w-4 text-slate-500" /> Trocar senha</Link>
             <form action={acaoSair}>
-              <button className="cursor-pointer rounded-lg border border-white/30 px-3 py-1 hover:bg-white/15">Sair</button>
+              <button className={`${botao} cursor-pointer`}><Icone nome="sair" className="h-4 w-4 text-slate-500" /> Sair</button>
             </form>
           </div>
-        </div>
-      </header>
-      <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
+        }
+      />
+      <div className="lg:pl-64 print:pl-0">
+        <main className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
+      </div>
     </div>
   );
 }

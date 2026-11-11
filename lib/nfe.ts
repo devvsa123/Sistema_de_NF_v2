@@ -181,7 +181,7 @@ export function lerNFe(xml: string): NFLida {
 export function textoBusca(n: {
   numero: string; chave?: string | null; emit_nome: string; emit_cnpj: string; oc?: string | null; empenho?: string | null; itens?: ItemNF[] | null;
 }) {
-  return [n.numero, n.chave, n.emit_nome, n.emit_cnpj, n.oc, n.empenho, ...(n.itens ?? []).flatMap((i) => [i.codigo, i.descricao])]
+  return [n.numero, n.chave, n.emit_nome, n.emit_cnpj, n.oc, n.empenho, ...(n.itens ?? []).flatMap((i) => [i.codigo, i.descricao, i.infAd])]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();

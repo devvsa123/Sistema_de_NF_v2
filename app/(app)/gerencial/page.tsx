@@ -4,7 +4,8 @@ import { exigirUsuario } from "@/lib/auth";
 import { etapasAtivas, prazoReprovada } from "@/lib/fluxo";
 import { diasDoPeriodo, evolucaoTempos, hojeSP, periodo, porFornecedor, produtividade, somarDias, tendencia, visaoGeral } from "@/lib/gerencial";
 import { cnpj, data, dias, moeda, nomeMes } from "@/lib/format";
-import { Indicador, Vazio } from "@/components/ui";
+import { Indicador, Vazio, Cabecalho } from "@/components/ui";
+import { Abas } from "@/components/AbasBusca";
 import { BarrasEmpilhadas, COR, ColunasDiarias, Legenda, LinhaComFaixa } from "@/components/graficos";
 
 export const metadata = { title: "Gerencial — Tramitação de NF" };
@@ -26,7 +27,7 @@ function Cartao({ titulo, children, acao }: { titulo: string; children: React.Re
   return (
     <section className="cartao p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">{titulo}</h2>
+        <h2 className="text-[15px] font-semibold text-slate-900">{titulo}</h2>
         {acao}
       </div>
       {children}
@@ -62,20 +63,8 @@ export default async function Gerencial({ searchParams }: PageProps<"/gerencial"
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="titulo">Gerencial</h1>
-          <p className="text-sm text-slate-500">Situação e desempenho da tramitação. Tempos em dias corridos; datas no horário de Brasília. Passe o mouse sobre os gráficos para ver os valores.</p>
-        </div>
-      </div>
-      <nav className="flex flex-wrap gap-1.5 print:hidden">
-        {ABAS.map(([k, nome]) => (
-          <Link key={k} href={`/gerencial?aba=${k}`}
-            className={`rounded-full px-3.5 py-1.5 text-sm font-semibold ring-1 ring-inset ${k === aba ? "bg-marinha text-white ring-marinha" : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50"}`}>
-            {nome}
-          </Link>
-        ))}
-      </nav>
+      <Cabecalho titulo="Gerencial" descricao="Situação e desempenho da tramitação. Tempos em dias corridos; datas no horário de Brasília. Passe o mouse sobre os gráficos para ver os valores." />
+      <Abas atual={aba} itens={ABAS.map(([k, nome]) => [k, `/gerencial?aba=${k}`, nome] as const)} />
       {aba === "visao" && <AbaVisao de={p("de")} ate={p("ate")} />}
       {aba === "tempos" && <AbaTempos metrica={p("metrica")} meses={p("meses")} />}
       {aba === "produtividade" && <AbaProdutividade de={p("de")} ate={p("ate")} />}
@@ -330,7 +319,7 @@ async function AbaProdutividade({ de: deP, ate: ateP }: { de?: string; ate?: str
       {resumo.map((r) => (
         <section key={r.e.id} id={`setor-${r.e.id}`} className="cartao scroll-mt-4 p-5">
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">{r.e.nome} — NF despachadas por dia</h2>
+            <h2 className="text-[15px] font-semibold text-slate-900">{r.e.nome} — NF despachadas por dia</h2>
             <span className="text-xs text-slate-500">Fins de semana sombreados</span>
           </div>
           {r.total === 0 ? <p className="text-sm text-slate-500">Nenhuma NF despachada por este setor no período.</p> : (

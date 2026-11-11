@@ -105,6 +105,21 @@ function conferirChave(chave: string) {
   return (dv >= 10 ? 0 : dv) === Number(chave[43]);
 }
 
+/** "Informações adicionais do produto" (descrição completa informada pela empresa), quando a consulta traz esse campo. */
+function infAdItem(L: Leitor, ini: number, fim: number): string | undefined {
+  const pos = L.achar("Informações Adicionais do Produto", ini, fim) ?? L.achar("Informações Adicionais", ini, fim);
+  if (!pos) return undefined;
+  const partes: string[] = [];
+  for (let i = pos.linha + 1; i < fim && partes.length < 8; i++) {
+    const it = L.linhas[i].itens;
+    if (it.length !== 1) break;
+    if (semAcento(it[0].s) === "descricao") continue;
+    if (it[0].x < pos.x - 2) break;
+    partes.push(it[0].s);
+  }
+  return partes.join(" ").trim() || undefined;
+}
+
 export const TAMANHO_MAX_PDF = 2 * 1024 * 1024;
 
 export async function lerPdfPortal(bytes: Uint8Array): Promise<NFLida> {
@@ -190,6 +205,7 @@ export async function lerPdfPortal(bytes: Uint8Array): Promise<NFLida> {
       vUnit: numBR(L.valor("Valor unitário de comercialização", ini, fimItem)),
       vTotal: numBR(it[it.length - 1].s),
       pedido: L.valor("Número do pedido de compra", ini, fimItem) || undefined,
+      infAd: infAdItem(L, ini, fimItem),
     });
   });
   if (!itens.length) throw new Error("Não encontrei os produtos no PDF. Confira se a consulta foi impressa completa (todas as abas).");

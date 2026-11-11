@@ -1,3 +1,4 @@
+import { Cabecalho } from "@/components/ui";
 import { exigirAdmin } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { Importador } from "@/components/Importador";
@@ -10,10 +11,7 @@ export default async function Importar() {
   const [c] = await sql`select (select count(*)::int from notas) as notas, (select count(*)::int from usuarios) as usuarios`;
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <div>
-        <h1 className="titulo">Importar dados do sistema antigo</h1>
-        <p className="mt-1 text-sm text-slate-600">Hoje o banco tem <strong>{c.notas}</strong> nota(s) e <strong>{c.usuarios}</strong> usuário(s).</p>
-      </div>
+      <Cabecalho titulo="Importar dados do sistema antigo" descricao={<>Hoje o banco tem <strong>{c.notas}</strong> nota(s) e <strong>{c.usuarios}</strong> usuário(s).</>} />
       <ol className="cartao list-decimal space-y-1.5 p-5 pl-9 text-sm text-slate-700">
         <li>No Google Planilhas, abra a planilha <strong>Laboratório</strong> e use <em>Arquivo → Fazer download → Microsoft Excel (.xlsx)</em>.</li>
         <li>Selecione o arquivo abaixo e importe primeiro os <strong>usuários</strong>, depois as <strong>notas</strong>.</li>

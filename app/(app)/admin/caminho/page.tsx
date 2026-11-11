@@ -1,3 +1,4 @@
+import { Cabecalho } from "@/components/ui";
 import { exigirAdmin } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { etapasAtivas, prazoReprovada } from "@/lib/fluxo";
@@ -17,13 +18,10 @@ export default async function Caminho() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
-      <div>
-        <h1 className="titulo">Caminho da tramitação</h1>
-        <p className="mt-1 text-sm text-slate-600">
+      <Cabecalho titulo="Caminho da tramitação" descricao={<>
           As NF percorrem as etapas na ordem abaixo. Os usuários só conseguem enviar a NF para a <strong>etapa seguinte</strong> ou devolvê-la para a{" "}
           <strong>etapa anterior</strong>. Depois da última etapa a NF é finalizada. Alterações valem imediatamente; as NF em andamento permanecem na etapa em que estão.
-        </p>
-      </div>
+        </>} />
 
       <div className="flex flex-wrap items-center gap-1.5 text-sm">
         <span className="rounded-full bg-slate-200 px-3 py-1 font-medium text-slate-600">Cadastro</span>
@@ -74,7 +72,7 @@ export default async function Caminho() {
       ))}
 
       <div className="cartao p-4">
-        <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">Adicionar etapa</h2>
+        <h2 className="mb-3 text-[15px] font-semibold text-slate-900">Adicionar etapa</h2>
         <FormAcao acao={acaoSalvarEtapa} botao="Adicionar ao final" className="grid items-end gap-3 sm:grid-cols-[1fr_9rem_auto]">
           <label><span className="rotulo">Nome</span><input name="nome" className="campo" required maxLength={60} /></label>
           <label><span className="rotulo">Prazo (dias)</span><input name="prazo_dias" type="number" min={1} max={365} defaultValue={5} className="campo" required /></label>
@@ -83,7 +81,7 @@ export default async function Caminho() {
       </div>
 
       <div className="cartao p-4">
-        <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">NF reprovadas</h2>
+        <h2 className="mb-3 text-[15px] font-semibold text-slate-900">NF reprovadas</h2>
         <FormAcao acao={acaoPrazoReprovada} botao="Salvar" className="flex flex-wrap items-end gap-3" classeBotao="botao-sec">
           <label><span className="rotulo">Prazo para retirada pelo fornecedor (dias)</span><input name="prazo" type="number" min={1} max={365} defaultValue={prazoReprov} className="campo w-40" /></label>
         </FormAcao>

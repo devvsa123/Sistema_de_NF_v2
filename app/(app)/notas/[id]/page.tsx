@@ -98,7 +98,7 @@ export default async function DetalheNota({ params }: PageProps<"/notas/[id]">) 
 
       {/* Caminho da tramitação */}
       <div className="cartao overflow-x-auto p-5">
-        <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-500">Caminho da tramitação</h2>
+        <h2 className="mb-4 text-[15px] font-semibold text-slate-900">Caminho da tramitação</h2>
         <ol className="flex min-w-max items-start">
           {etapas.map((e, i) => {
             const p = porEtapa.get(e.id);
@@ -142,14 +142,14 @@ export default async function DetalheNota({ params }: PageProps<"/notas/[id]">) 
 
       {botoes.length > 0 && (
         <div className="cartao border-marinha/30 p-5">
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">Tramitar</h2>
+          <h2 className="mb-3 text-[15px] font-semibold text-slate-900">Tramitar</h2>
           <AcoesNota id={nota.id} botoes={botoes} />
         </div>
       )}
 
       {d && (
         <div className="cartao p-5">
-          <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-500">Dados da NF-e{nota.fonte === "pdf" && <span className="ml-2 font-normal normal-case text-slate-400">lidos do PDF da consulta no Portal da NF-e</span>}</h2>
+          <h2 className="mb-4 text-[15px] font-semibold text-slate-900">Dados da NF-e{nota.fonte === "pdf" && <span className="ml-2 font-normal normal-case text-slate-400">lidos do PDF da consulta no Portal da NF-e</span>}</h2>
           <dl className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <Campo rotulo="Natureza da operação">{nota.natureza}</Campo>
             <Campo rotulo="Protocolo de autorização">{d.protocolo && `${d.protocolo}${d.autorizadaEm ? " · " + dataHora(d.autorizadaEm) : ""}`}</Campo>
@@ -181,7 +181,7 @@ export default async function DetalheNota({ params }: PageProps<"/notas/[id]">) 
 
       {itens.length > 0 && (
         <div className="cartao overflow-x-auto">
-          <h2 className="px-5 pt-5 text-sm font-bold uppercase tracking-wide text-slate-500">Itens da nota ({itens.length})</h2>
+          <h2 className="px-5 pt-5 text-[15px] font-semibold text-slate-900">Itens da nota ({itens.length})</h2>
           <table className="tabela mt-3">
             <thead>
               <tr><th>#</th><th>Código</th><th>Descrição</th><th>NCM</th><th>CFOP</th><th className="text-right">Qtd.</th><th>Un.</th><th className="text-right">Vl. unitário</th><th className="text-right">Vl. total</th></tr>
@@ -191,7 +191,7 @@ export default async function DetalheNota({ params }: PageProps<"/notas/[id]">) 
                 <tr key={i.n}>
                   <td>{i.n}</td>
                   <td className="whitespace-nowrap">{i.codigo}</td>
-                  <td>{i.descricao}{i.infAd && <span className="block text-xs text-slate-400">{i.infAd}</span>}</td>
+                  <td className="min-w-72"><span className="font-medium">{i.descricao}</span>{i.infAd && <span className="mt-0.5 block whitespace-pre-wrap text-xs leading-relaxed text-slate-600">{i.infAd}</span>}</td>
                   <td>{i.ncm}</td>
                   <td>{i.cfop}</td>
                   <td className="text-right tabular-nums">{numero(i.qtd, Number.isInteger(i.qtd) ? 0 : 2)}</td>
@@ -215,7 +215,7 @@ export default async function DetalheNota({ params }: PageProps<"/notas/[id]">) 
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="cartao p-5 lg:col-span-2">
-          <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-500">{interno ? "Histórico e observações" : "Movimentações"}</h2>
+          <h2 className="mb-4 text-[15px] font-semibold text-slate-900">{interno ? "Histórico e observações" : "Movimentações"}</h2>
           <ol className="space-y-3 border-l-2 border-slate-200 pl-4">
             {historico.map((e) => (
               <li key={e.id} className="relative">
@@ -234,7 +234,7 @@ export default async function DetalheNota({ params }: PageProps<"/notas/[id]">) 
         {(u.papel === "admin" || u.papel === "interno") && (
           <div className="space-y-4">
             <div className="cartao p-5">
-              <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">Nova observação</h2>
+              <h2 className="mb-3 text-[15px] font-semibold text-slate-900">Nova observação</h2>
               <FormAcao acao={acaoObservacao} botao="Registrar" className="space-y-3">
                 <input type="hidden" name="id" value={nota.id} />
                 <textarea name="texto" className="campo" rows={3} maxLength={2000} required />
@@ -243,7 +243,7 @@ export default async function DetalheNota({ params }: PageProps<"/notas/[id]">) 
 
             {podeCadastrar(u) && (
               <details className="cartao p-5">
-                <summary className="cursor-pointer text-sm font-bold uppercase tracking-wide text-slate-500">Editar OC e observações</summary>
+                <summary className="cursor-pointer text-[15px] font-semibold text-slate-900">Editar OC e observações</summary>
                 <FormAcao acao={acaoEditarNota} botao="Salvar" className="mt-3 space-y-3">
                   <input type="hidden" name="id" value={nota.id} />
                   <label className="block"><span className="rotulo">OC</span><input name="oc" defaultValue={nota.oc ?? ""} className="campo" maxLength={60} /></label>
@@ -255,7 +255,7 @@ export default async function DetalheNota({ params }: PageProps<"/notas/[id]">) 
 
             {u.papel === "admin" && (
               <details className="cartao p-5">
-                <summary className="cursor-pointer text-sm font-bold uppercase tracking-wide text-slate-500">Ajuste do administrador</summary>
+                <summary className="cursor-pointer text-[15px] font-semibold text-slate-900">Ajuste do administrador</summary>
                 <p className="mt-2 text-xs text-slate-500">Coloca a NF diretamente em qualquer etapa ou situação. Fica registrado no histórico.</p>
                 <FormAcao acao={acaoAjusteAdmin} botao="Aplicar ajuste" className="mt-3 space-y-3" classeBotao="botao-perigo" confirmar="Confirma o ajuste desta NF?">
                   <input type="hidden" name="id" value={nota.id} />
