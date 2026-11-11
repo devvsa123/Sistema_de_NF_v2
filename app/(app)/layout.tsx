@@ -12,7 +12,7 @@ export default async function LayoutApp({ children }: LayoutProps<"/">) {
     ...(u.papel === "admin" || u.papel === "interno" ? [{ href: "/", rotulo: "Minha fila" }] : []),
     { href: "/notas", rotulo: u.papel === "empresa" ? "Minhas notas" : "Notas fiscais" },
     ...(podeCadastrar(u) ? [{ href: "/notas/nova", rotulo: "Cadastrar NF" }] : []),
-    ...(u.papel !== "empresa" ? [{ href: "/relatorios", rotulo: "Relatórios" }] : []),
+    ...(u.papel !== "empresa" ? [{ href: "/gerencial", rotulo: "Gerencial" }, { href: "/relatorios", rotulo: "Relatórios" }] : []),
     ...(u.papel === "admin"
       ? [
           { href: "/admin/caminho", rotulo: "Caminho" },

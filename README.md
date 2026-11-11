@@ -8,6 +8,7 @@ Substitui o sistema antigo em Streamlit + Google Planilhas (`controledepfard-v2`
 - **Caminho da tramitação configurável** pelo administrador; usuários só movem a NF uma etapa para frente ou para trás
 - **Perfis de acesso**: administrador, interno (por etapa), consulta e fornecedor (vê apenas as NF do próprio CNPJ)
 - **Pesquisa** por número, chave, empresa, OC, empenho, produto, período, valor, situação e atraso; exportação em CSV
+- **Gerencial**: NF em cada setor por situação de prazo, as mais antigas de cada setor, evolução mensal dos tempos com tendência, NF despachadas por setor por dia e visão por fornecedor
 - **Relatório mensal**: recebidas, finalizadas, reprovadas (%), tempo médio total e por etapa, por empresa
 - **Importação** da planilha antiga (usuários, notas, histórico e observações)
 
@@ -43,10 +44,12 @@ npm run dev
 | `lib/nfe.ts` | Leitura do XML da NF-e |
 | `lib/nfe-pdf.ts` | Leitura do PDF da consulta completa do Portal da NF-e |
 | `lib/relatorios.ts` | Indicadores mensais |
+| `lib/gerencial.ts` | Análises da área Gerencial |
 | `lib/importar.ts` | Importação da planilha antiga |
 | `app/` | Telas e ações |
 
 ## Ainda não incluído
 
 - Agendamento de entregas (próxima etapa)
-- Geração do relatório de perícia em `.docx` e a página “Análise IA” do sistema antigo
+- Geração do relatório de perícia em `.docx`
+- Análise das observações (aba “Análise de Problemas” do sistema antigo)
