@@ -115,8 +115,9 @@ export async function importarNotas(linhas: Linha[]): Promise<ResultadoImportaca
       const valor = lerValor(l["VALOR DA NOTA"]);
       const oc = s(l["OC"]) && s(l["OC"]) !== "0" ? s(l["OC"]) : null;
 
-      const [dup] = await sql`select id from notas where origem = 'importacao' and numero = ${numero || nup} and emit_cnpj = ${cnpj}
-                               and valor = ${valor} and coalesce(chave, '') = ${chave ?? ""} limit 1`;
+      // identificação da linha: a mesma NF pode aparecer mais de uma vez na planilha (__rep = nº da repetição)
+      const legado = `${chave ?? ""}|${numero || nup}|${cnpj}|${valor.toFixed(2)}|${Number(l["__rep"]) || 1}`;
+      const [dup] = await sql`select id from notas where legado_chave = ${legado} limit 1`;
       if (dup) { r.ignoradas++; continue; }
 
       const eventos: Ev[] = [];
@@ -216,11 +217,11 @@ export async function importarNotas(linhas: Linha[]): Promise<ResultadoImportaca
       await sql.begin(async (tx) => {
         await tx`insert into empresas (cnpj, nome) values (${cnpj}, ${nome}) on conflict (cnpj) do nothing`;
         const [n] = await tx`insert into notas (chave, numero, emit_cnpj, emit_nome, valor, oc, sob_medida, status, etapa_id, etapa_desde, recebida_em,
-              concluida_em, arrecadada_em, armazenada_em, reprov_visual, reprov_laboratorial, obs_oc, busca, origem)
+              concluida_em, arrecadada_em, armazenada_em, reprov_visual, reprov_laboratorial, obs_oc, busca, origem, legado_chave)
             values (${chave}, ${nota.numero}, ${cnpj}, ${nome}, ${valor}, ${oc}, ${semAcento(s(l["Sob Medida"])) === "sim"}, ${atual.status}, ${atual.etapa_id},
               ${ultimoMov}, ${recebida}, ${concluida}, ${lerData(l["Arrecadação"])}, ${lerData(l["Armazenado"])},
               ${atual.status === "reprovada" ? flag(l["PERÍCIA VISUAL"]) : null}, ${atual.status === "reprovada" ? flag(l["PERÍCIA LABORATORIAL"]) : null},
-              ${obsOc}, ${textoBusca(nota)}, 'importacao')
+              ${obsOc}, ${textoBusca(nota)}, 'importacao', ${legado})
             returning id`;
         const todos = [...eventos, ...extras].map((e) => ({ ...e, nota_id: n.id as number }));
         await tx`insert into eventos ${tx(todos, "nota_id", "tipo", "movimento", "de_nome", "para_etapa_id", "para_status", "para_nome", "usuario_nome", "texto", "criado_em")}`;

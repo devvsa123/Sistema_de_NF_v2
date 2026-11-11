@@ -137,7 +137,7 @@ export type PreviaXml = { nf: NFLida; existente: { id: number; tem_xml: boolean 
 
 export async function analisarXml(xml: string): Promise<PreviaXml> {
   const nf = lerNFe(xml);
-  const [existente] = await sql`select id, tem_xml from notas where chave = ${nf.chave} order by id limit 1`;
+  const [existente] = await sql`select id, tem_xml from notas where chave = ${nf.chave} order by (status in ('em_tramite','reprovada')) desc, id desc limit 1`;
   return { nf, existente: (existente as PreviaXml["existente"]) ?? null };
 }
 

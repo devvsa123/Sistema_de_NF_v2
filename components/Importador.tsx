@@ -45,6 +45,15 @@ export function Importador() {
         throw new Error(`Não encontrei a aba "${aba}" no arquivo. Baixe a planilha inteira em Arquivo > Fazer download > Microsoft Excel (.xlsx).`);
       }
       const linhas = paraLinhas(dados);
+      if (aba === "BancoDeDados") {
+        // a mesma NF pode aparecer em mais de uma linha: numera as repetições para importar todas
+        const vistas = new Map<string, number>();
+        for (const l of linhas) {
+          const k = [l["NUP"], l["Nº NOTA"], l["CNPJ"], l["VALOR DA NOTA"]].map((v) => String(v ?? "").trim()).join("|");
+          vistas.set(k, (vistas.get(k) ?? 0) + 1);
+          l.__rep = vistas.get(k)!;
+        }
+      }
       const colunaChave = aba === "Login" ? "usuario" : "Nº NOTA";
       if (!linhas.length || !(colunaChave in linhas[0])) throw new Error(`A aba "${aba}" não tem a coluna "${colunaChave}" na primeira linha.`);
       const total: ResultadoImportacao = { importadas: 0, ignoradas: 0, erros: [] };
