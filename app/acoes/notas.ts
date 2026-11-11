@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { exigirUsuario, podeCadastrar } from "@/lib/auth";
 import { ajustarComoAdmin, executarAcao, registrarEvento, type Acao, type OpcoesAcao } from "@/lib/fluxo";
-import { analisarXml, cadastrarManual, cadastrarPorXml, obterNota } from "@/lib/notas";
+import { analisarDocumento, cadastrarManual, cadastrarPorDocumento, obterNota, type Documento } from "@/lib/notas";
 import { textoBusca } from "@/lib/nfe";
 import type { Estado } from "@/components/FormAcao";
 
@@ -69,15 +69,21 @@ export async function acaoAjusteAdmin(_: Estado, f: FormData): Promise<Estado> {
   return { ok: "NF ajustada." };
 }
 
-export async function acaoAnalisarXml(xml: string) {
+const LIMITE_DOC = 2.9 * 1024 * 1024;
+function documento(tipo: string, conteudo: string): Documento {
+  if ((tipo !== "xml" && tipo !== "pdf") || typeof conteudo !== "string" || !conteudo || conteudo.length > LIMITE_DOC) throw new Error("Arquivo inválido ou maior que 2 MB.");
+  return { tipo, conteudo };
+}
+
+export async function acaoAnalisarDocumento(tipo: string, conteudo: string) {
   const u = await exigirUsuario();
   if (!podeCadastrar(u)) return { erro: "Seu perfil não permite cadastrar NF." };
   try {
-    const { nf, existente } = await analisarXml(xml);
+    const { nf, existente, bloqueio } = await analisarDocumento(documento(tipo, conteudo));
     return {
       previa: {
         chave: nf.chave, numero: nf.numero, serie: nf.serie, emit_cnpj: nf.emit_cnpj, emit_nome: nf.emit_nome, valor: nf.valor,
-        data_emissao: nf.data_emissao, oc: nf.oc, empenho: nf.empenho, itens: nf.itens.length, existente,
+        data_emissao: nf.data_emissao, oc: nf.oc, empenho: nf.empenho, itens: nf.itens.length, existente, bloqueio,
       },
     };
   } catch (e) {
@@ -85,10 +91,10 @@ export async function acaoAnalisarXml(xml: string) {
   }
 }
 
-export async function acaoCadastrarXml(xml: string, op: { oc?: string; sobMedida?: boolean; obs?: string }) {
+export async function acaoCadastrarDocumento(tipo: string, conteudo: string, op: { oc?: string; sobMedida?: boolean; obs?: string }) {
   const u = await exigirUsuario();
   try {
-    const r = await cadastrarPorXml(u, xml, { oc: String(op.oc ?? "").slice(0, 60), sobMedida: !!op.sobMedida, obs: String(op.obs ?? "").slice(0, 2000) });
+    const r = await cadastrarPorDocumento(u, documento(tipo, conteudo), { oc: String(op.oc ?? "").slice(0, 60), sobMedida: !!op.sobMedida, obs: String(op.obs ?? "").slice(0, 2000) });
     revalidatePath("/", "layout");
     return { ok: r };
   } catch (e) {

@@ -12,7 +12,7 @@ import { acaoAjusteAdmin, acaoEditarNota, acaoObservacao } from "@/app/acoes/not
 
 const TIPO: Record<string, string> = {
   cadastro: "Cadastro", avanco: "Avanço", retorno: "Devolução", reprovacao: "Reprovação", retirada: "Retirada", finalizacao: "Finalização",
-  ajuste: "Ajuste do administrador", observacao: "Observação", arrecadacao: "Arrecadação", armazenagem: "Armazenagem", xml: "XML",
+  ajuste: "Ajuste do administrador", observacao: "Observação", arrecadacao: "Arrecadação", armazenagem: "Armazenagem", xml: "Dados da NF-e",
 };
 
 function Campo({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
@@ -51,7 +51,7 @@ export default async function DetalheNota({ params }: PageProps<"/notas/[id]">) 
     reprovar: { acao: "reprovar", rotulo: "Reprovar", estilo: "perigo" },
     arrecadar: { acao: "arrecadar", rotulo: "Marcar como arrecadada", estilo: "sec" },
     avancar: { acao: "avancar", rotulo: proxima ? `Enviar para ${proxima.nome} →` : "Finalizar ✓" },
-    reabrir: { acao: "reabrir", rotulo: `← Devolver para ${nota.etapa_nome}`, estilo: "sec" },
+    reabrir: { acao: "reabrir", rotulo: `← Voltar para ${nota.etapa_nome}`, estilo: "sec" },
     retirar: { acao: "retirar", rotulo: "Retirada pelo fornecedor" },
     armazenar: { acao: "armazenar", rotulo: "Marcar como armazenada", estilo: "sec" },
   };
@@ -149,7 +149,7 @@ export default async function DetalheNota({ params }: PageProps<"/notas/[id]">) 
 
       {d && (
         <div className="cartao p-5">
-          <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-500">Dados da NF-e</h2>
+          <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-500">Dados da NF-e{nota.fonte === "pdf" && <span className="ml-2 font-normal normal-case text-slate-400">lidos do PDF da consulta no Portal da NF-e</span>}</h2>
           <dl className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <Campo rotulo="Natureza da operação">{nota.natureza}</Campo>
             <Campo rotulo="Protocolo de autorização">{d.protocolo && `${d.protocolo}${d.autorizadaEm ? " · " + dataHora(d.autorizadaEm) : ""}`}</Campo>
@@ -205,11 +205,11 @@ export default async function DetalheNota({ params }: PageProps<"/notas/[id]">) 
         </div>
       )}
 
-      {!nota.tem_xml && podeCadastrar(u) && (
+      {!nota.fonte && podeCadastrar(u) && (
         <p className="rounded-lg border border-dashed border-slate-300 bg-white px-4 py-3 text-sm text-slate-600">
-          Esta NF ainda não tem XML. {nota.chave && /^\d{44}$/.test(nota.chave)
-            ? <>Envie o arquivo em <Link href="/notas/nova" className="font-medium text-marinha hover:underline">Cadastrar NF</Link> — ele será anexado automaticamente pela chave de acesso.</>
-            : "Como foi cadastrada sem chave de acesso, o XML não pode ser associado automaticamente."}
+          Esta NF ainda não tem os dados da NF-e. {nota.chave && /^\d{44}$/.test(nota.chave)
+            ? <>Envie o XML ou o PDF da consulta na SEFAZ em <Link href="/notas/nova" className="font-medium text-marinha hover:underline">Cadastrar NF</Link> — ele será anexado automaticamente pela chave de acesso.</>
+            : "Como foi cadastrada sem chave de acesso, o arquivo não pode ser associado automaticamente."}
         </p>
       )}
 

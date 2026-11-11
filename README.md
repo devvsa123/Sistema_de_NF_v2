@@ -3,7 +3,7 @@
 Substitui o sistema antigo em Streamlit + Google Planilhas (`controledepfard-v2`).
 
 - **Next.js** (hospedagem gratuita na Vercel) + **Postgres** (gratuito no Neon)
-- Cadastro de NF pelo **XML da NF-e** (um ou vários arquivos), com dados e itens extraídos automaticamente
+- Cadastro de NF pelo **XML da NF-e** ou pelo **PDF da consulta no Portal da NF-e** (um ou vários arquivos), com dados e itens extraídos automaticamente
 - **Fila de trabalho** por etapa, com semáforo de prazo e tramitação em lote
 - **Caminho da tramitação configurável** pelo administrador; usuários só movem a NF uma etapa para frente ou para trás
 - **Perfis de acesso**: administrador, interno (por etapa), consulta e fornecedor (vê apenas as NF do próprio CNPJ)
@@ -41,6 +41,7 @@ npm run dev
 | `lib/fluxo.ts` | Regras de tramitação (quem pode mover o quê, para onde) |
 | `lib/notas.ts` | Consultas e cadastro de NF; isolamento por CNPJ para fornecedores |
 | `lib/nfe.ts` | Leitura do XML da NF-e |
+| `lib/nfe-pdf.ts` | Leitura do PDF da consulta completa do Portal da NF-e |
 | `lib/relatorios.ts` | Indicadores mensais |
 | `lib/importar.ts` | Importação da planilha antiga |
 | `app/` | Telas e ações |
