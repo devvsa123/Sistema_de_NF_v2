@@ -163,6 +163,11 @@ export default async function Manual() {
       id: "gerencial", titulo: "Gerencial", para: INTERNOS, conteudo: <>
         <Lista>
           <li><B>Visão geral</B>: NF em cada setor por situação do prazo, as 10 mais antigas de cada setor e os números do período escolhido.</li>
+          <li><B>Alertas</B>: o que pede ação agora — NF paradas há mais do dobro do prazo, setores acumulando, NF ultrapassadas na fila, reprovadas sem retirada, arrecadadas sem armazenagem, idas e voltas e NF que devem estourar o prazo total.</li>
+          <li><B>Fluxo e gargalos</B>: quanto entrou e saiu de cada setor, a fila hoje, a espera prevista para quem chega (lei de Little) e o gargalo atual; o estoque de NF por setor dia a dia; chegadas × saídas por semana.</li>
+          <li><B>Fila (FIFO)</B>: se cada setor está despachando na ordem de chegada, quais NF foram ultrapassadas por outras mais novas e o envelhecimento da fila por faixa de dias.</li>
+          <li><B>Previsão</B>: data prevista de finalização de cada NF em trâmite, pelo tempo típico das etapas que faltam, e quantas devem finalizar em 7, 15 e 30 dias.</li>
+          <li><B>Retrabalho</B>: devoluções e reprovações por setor, percentual de NF finalizadas de primeira e as NF com idas e voltas.</li>
           <li><B>Tempos de tramitação</B>: evolução mês a mês do tempo total ou de um setor, com a faixa onde está a maioria das NF e a tendência (aumento ou redução).</li>
           <li><B>Produtividade diária</B>: quantas NF cada setor despachou por dia no período, média por dia útil e quem tramitou.</li>
           <li><B>Fornecedores</B>: NF recebidas, valores, reprovação e tempo médio por empresa.</li>

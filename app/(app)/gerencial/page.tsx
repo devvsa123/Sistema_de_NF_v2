@@ -6,14 +6,20 @@ import { diasDoPeriodo, evolucaoTempos, hojeSP, periodo, porFornecedor, produtiv
 import { cnpj, data, dias, moeda, nomeMes } from "@/lib/format";
 import { Indicador, Vazio, Cabecalho } from "@/components/ui";
 import { Abas } from "@/components/AbasBusca";
+import { AbaAlertas, AbaFila, AbaFluxo, AbaPrevisao, AbaRetrabalho } from "./gestao";
 import { BarrasEmpilhadas, COR, ColunasDiarias, Legenda, LinhaComFaixa } from "@/components/graficos";
 
 export const metadata = { title: "Gerencial — Tramitação de NF" };
 
 const ABAS = [
   ["visao", "Visão geral"],
-  ["tempos", "Tempos de tramitação"],
-  ["produtividade", "Produtividade diária"],
+  ["alertas", "Alertas"],
+  ["fluxo", "Fluxo e gargalos"],
+  ["fila", "Fila (FIFO)"],
+  ["previsao", "Previsão"],
+  ["tempos", "Tempos"],
+  ["produtividade", "Produtividade"],
+  ["retrabalho", "Retrabalho"],
   ["fornecedores", "Fornecedores"],
 ] as const;
 
@@ -69,6 +75,11 @@ export default async function Gerencial({ searchParams }: PageProps<"/gerencial"
       {aba === "tempos" && <AbaTempos metrica={p("metrica")} meses={p("meses")} />}
       {aba === "produtividade" && <AbaProdutividade de={p("de")} ate={p("ate")} />}
       {aba === "fornecedores" && <AbaFornecedores de={p("de")} ate={p("ate")} />}
+      {aba === "alertas" && <AbaAlertas />}
+      {aba === "fluxo" && <AbaFluxo janela={p("janela")} />}
+      {aba === "fila" && <AbaFila janela={p("janela")} />}
+      {aba === "previsao" && <AbaPrevisao />}
+      {aba === "retrabalho" && <AbaRetrabalho janela={p("janela")} />}
     </div>
   );
 }

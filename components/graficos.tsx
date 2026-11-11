@@ -175,3 +175,97 @@ export function ColunasDiarias({ dias, unidade = "NF" }: { dias: { data: string;
     </svg>
   );
 }
+
+/** Cores categóricas em ordem fixa (paleta validada para daltonismo). A cor segue a etapa, pela posição no caminho. */
+export const CATEGORICAS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"];
+export const COR_OUTROS = "#94a3b8";
+
+/** Áreas empilhadas por dia (estoque de NF por setor). */
+export function AreasEmpilhadas({
+  dias, series,
+}: {
+  dias: string[];
+  series: { nome: string; cor: string; valores: number[] }[];
+}) {
+  const W = 760, H = 280, m = { t: 12, r: 12, b: 28, l: 36 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const totais = dias.map((_, i) => series.reduce((s, x) => s + x.valores[i], 0));
+  const { topo, passos } = marcas(Math.max(1, ...totais));
+  const x = (i: number) => m.l + (dias.length === 1 ? iw / 2 : (i / (dias.length - 1)) * iw);
+  const y = (v: number) => m.t + ih - (v / topo) * ih;
+  const acum = dias.map(() => 0);
+  const camadas = series.map((s) => {
+    const base = [...acum];
+    s.valores.forEach((v, i) => (acum[i] += v));
+    const topoS = [...acum];
+    const d = topoS.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ") + " " +
+      base.map((_, k) => { const i = base.length - 1 - k; return `L${x(i).toFixed(1)},${y(base[i]).toFixed(1)}`; }).join(" ") + " Z";
+    return { ...s, d };
+  });
+  const cada = Math.max(1, Math.ceil(dias.length / 9));
+  const largura = iw / Math.max(1, dias.length - 1);
+  const rot = (d: string) => d.slice(8, 10) + "/" + d.slice(5, 7);
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label="Estoque de NF por setor ao longo do tempo">
+      {passos.map((v) => (
+        <g key={v}>
+          <line x1={m.l} x2={W - m.r} y1={y(v)} y2={y(v)} stroke={COR.grade} />
+          <text x={m.l - 6} y={y(v) + 4} textAnchor="end" fontSize={11} fill={COR.eixo}>{fmt(v, 0)}</text>
+        </g>
+      ))}
+      {camadas.map((c) => <path key={c.nome} d={c.d} fill={c.cor} fillOpacity={0.85} stroke="#fff" strokeWidth={1} />)}
+      {dias.map((d, i) => (
+        <g key={d}>
+          {i % cada === 0 && <text x={x(i)} y={H - 8} textAnchor="middle" fontSize={10} fill={COR.eixo}>{rot(d)}</text>}
+          <rect x={x(i) - largura / 2} y={m.t} width={largura} height={ih} fill="transparent">
+            <title>{`${rot(d)} — total ${totais[i]} NF\n` + series.filter((s) => s.valores[i]).map((s) => `${s.nome}: ${s.valores[i]}`).join("\n")}</title>
+          </rect>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/** Várias linhas na mesma escala (ex.: chegadas × saídas por semana). */
+export function Linhas({
+  rotulos, series, unidade = "NF",
+}: {
+  rotulos: string[];
+  series: { nome: string; cor: string; valores: number[]; tracejada?: boolean }[];
+  unidade?: string;
+}) {
+  const W = 760, H = 240, m = { t: 16, r: 40, b: 28, l: 36 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const { topo, passos } = marcas(Math.max(1, ...series.flatMap((s) => s.valores)));
+  const x = (i: number) => m.l + (rotulos.length === 1 ? iw / 2 : (i / (rotulos.length - 1)) * iw);
+  const y = (v: number) => m.t + ih - (v / topo) * ih;
+  const cada = Math.max(1, Math.ceil(rotulos.length / 10));
+  const largura = iw / Math.max(1, rotulos.length - 1);
+  const ult = rotulos.length - 1;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label="Séries semanais">
+      {passos.map((v) => (
+        <g key={v}>
+          <line x1={m.l} x2={W - m.r} y1={y(v)} y2={y(v)} stroke={COR.grade} />
+          <text x={m.l - 6} y={y(v) + 4} textAnchor="end" fontSize={11} fill={COR.eixo}>{fmt(v, 0)}</text>
+        </g>
+      ))}
+      {series.map((s) => (
+        <g key={s.nome}>
+          <path d={s.valores.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ")} fill="none" stroke={s.cor}
+            strokeWidth={2} strokeDasharray={s.tracejada ? "5 4" : undefined} strokeLinejoin="round" />
+          {s.valores.map((v, i) => <circle key={i} cx={x(i)} cy={y(v)} r={3.5} fill={s.cor} stroke="#fff" strokeWidth={1.5} />)}
+          <text x={x(ult) + 6} y={y(s.valores[ult]) + 4} fontSize={11} fontWeight={600} fill="#1f2430">{s.valores[ult]}</text>
+        </g>
+      ))}
+      {rotulos.map((r, i) => (
+        <g key={i}>
+          {i % cada === 0 && <text x={x(i)} y={H - 8} textAnchor="middle" fontSize={10} fill={COR.eixo}>{r}</text>}
+          <rect x={x(i) - largura / 2} y={m.t} width={largura} height={ih} fill="transparent">
+            <title>{`${r}\n` + series.map((s) => `${s.nome}: ${s.valores[i]} ${unidade}`).join("\n")}</title>
+          </rect>
+        </g>
+      ))}
+    </svg>
+  );
+}
