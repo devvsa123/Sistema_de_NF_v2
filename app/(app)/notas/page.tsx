@@ -71,9 +71,9 @@ export default async function Notas({ searchParams }: PageProps<"/notas">) {
           <input name="vmax" defaultValue={f.vmax} className="campo" inputMode="decimal" />
         </label>
         <label>
-          <span className="rotulo">XML</span>
+          <span className="rotulo">Dados da NF-e</span>
           <select name="xml" defaultValue={f.xml ?? ""} className="campo">
-            <option value="">Tanto faz</option><option value="sim">Com XML</option><option value="nao">Sem XML</option>
+            <option value="">Tanto faz</option><option value="sim">Com XML ou PDF</option><option value="nao">Sem dados</option>
           </select>
         </label>
         {interno && (
@@ -107,7 +107,7 @@ export default async function Notas({ searchParams }: PageProps<"/notas">) {
                 <tr key={n.id}>
                   <td className="whitespace-nowrap">
                     <Link href={`/notas/${n.id}`} className="font-semibold text-marinha hover:underline">{n.numero}</Link>
-                    {n.tem_xml && <span title="XML anexado" className="ml-1.5 rounded bg-slate-100 px-1 text-[10px] font-semibold text-slate-500">XML</span>}
+                    {n.fonte && <span title={n.fonte === "xml" ? "XML anexado" : "Dados lidos do PDF da consulta na SEFAZ"} className="ml-1.5 rounded bg-slate-100 px-1 text-[10px] font-semibold uppercase text-slate-500">{n.fonte}</span>}
                   </td>
                   {interno && (
                     <td className="max-w-64">
