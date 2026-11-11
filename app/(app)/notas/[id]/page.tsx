@@ -51,7 +51,7 @@ export default async function DetalheNota({ params }: PageProps<"/notas/[id]">) 
     reprovar: { acao: "reprovar", rotulo: "Reprovar", estilo: "perigo" },
     arrecadar: { acao: "arrecadar", rotulo: "Marcar como arrecadada", estilo: "sec" },
     avancar: { acao: "avancar", rotulo: proxima ? `Enviar para ${proxima.nome} →` : "Finalizar ✓" },
-    reabrir: { acao: "reabrir", rotulo: `← Devolver para ${nota.etapa_nome}`, estilo: "sec" },
+    reabrir: { acao: "reabrir", rotulo: `← Voltar para ${nota.etapa_nome}`, estilo: "sec" },
     retirar: { acao: "retirar", rotulo: "Retirada pelo fornecedor" },
     armazenar: { acao: "armazenar", rotulo: "Marcar como armazenada", estilo: "sec" },
   };

@@ -34,7 +34,10 @@ export default async function MinhaFila({ searchParams }: PageProps<"/">) {
     if (etapa.exige_arrecadacao) botoes.push({ acao: "arrecadar", rotulo: "Marcar como arrecadada", estilo: "sec" });
     botoes.push({ acao: "avancar", rotulo: proxima ? `Enviar para ${proxima.nome} →` : "Finalizar ✓" });
   } else if (aba.chave === "reprovadas") {
-    botoes.push({ acao: "reabrir", rotulo: "← Devolver para a etapa", estilo: "sec" }, { acao: "retirar", rotulo: "Retirada pelo fornecedor" });
+    // a NF reprovada volta para a etapa em que foi reprovada (normalmente a Perícia)
+    const origens = [...new Set(notas.map((n) => n.etapa_nome).filter(Boolean))];
+    const destino = origens.length === 1 ? origens[0] : "a etapa em que foi reprovada";
+    botoes.push({ acao: "reabrir", rotulo: `← Voltar para ${destino}`, estilo: "sec" }, { acao: "retirar", rotulo: "Retirada pelo fornecedor" });
   } else botoes.push({ acao: "armazenar", rotulo: "Marcar como armazenada" });
 
   const linhas: LinhaFila[] = notas.map((n) => ({
