@@ -139,7 +139,7 @@ export default async function Manual() {
         <Lista>
           <li>Confira a <B>OC</B> sugerida e marque <B>Sob medida</B> quando for o caso, depois clique em <B>Cadastrar</B>.</li>
           <li>Se a NF já existir sem os dados (por exemplo, importada da planilha antiga), o arquivo é <B>anexado</B> a ela sem alterar a tramitação.</li>
-          <li>Sem XML nem PDF? Use <B>Cadastrar manualmente</B> no fim da página.</li>
+          <li>Sem XML nem PDF? Use <B>cadastrar pela chave de acesso</B> no fim da página: digite ou cole a chave e o sistema confere a chave e preenche número, CNPJ e empresa. Falta só digitar o valor (e a OC).</li>
         </Lista>
       </>,
     },

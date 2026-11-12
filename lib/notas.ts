@@ -3,6 +3,7 @@ import { sql } from "./db";
 import { ehInterno, podeCadastrar, type Usuario } from "./auth";
 import { etapasAtivas, registrarEvento } from "./fluxo";
 import { lerPdfPortal } from "./nfe-pdf";
+import { lerChave } from "./chave";
 import { lerNFe, textoBusca, type DadosNF, type ItemNF, type NFLida } from "./nfe";
 import { soDigitos } from "./format";
 
@@ -195,6 +196,10 @@ export async function cadastrarManual(
   const chave = d.chave?.trim() ? (soDigitos(d.chave).length === 44 ? soDigitos(d.chave) : d.chave.trim()) : null;
   if (!d.numero.trim() || !cnpj || !d.nome.trim()) throw new Error("Preencha número, CNPJ e nome da empresa.");
   if (!(d.valor >= 0)) throw new Error("Valor inválido.");
+  if (chave && /^\d{44}$/.test(chave)) {
+    const r = lerChave(chave);
+    if (!r.ok) throw new Error(r.erro);
+  }
   if (chave) {
     const [dup] = await sql`select id from notas where chave = ${chave} limit 1`;
     if (dup) throw new Error("Já existe uma NF cadastrada com esta chave de acesso.");
