@@ -267,7 +267,7 @@ export default async function DetalheNota({ params }: PageProps<"/notas/[id]">) 
                 <summary className="cursor-pointer text-[15px] font-semibold text-slate-900">Editar OC e observações</summary>
                 <FormAcao acao={acaoEditarNota} botao="Salvar" className="mt-3 space-y-3">
                   <input type="hidden" name="id" value={nota.id} />
-                  <label className="block"><span className="rotulo">OC</span><input name="oc" defaultValue={nota.oc ?? ""} className="campo" maxLength={60} /></label>
+                  <label className="block"><span className="rotulo">OC *</span><input name="oc" defaultValue={nota.oc ?? ""} className="campo" maxLength={60} required /></label>
                   <label className="block"><span className="rotulo">Observações da OC</span><textarea name="obs_oc" defaultValue={nota.obs_oc ?? ""} className="campo" rows={3} /></label>
                   <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="sob_medida" defaultChecked={nota.sob_medida} /> Material sob medida</label>
                 </FormAcao>

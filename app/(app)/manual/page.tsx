@@ -137,7 +137,8 @@ export default async function Manual() {
         </Passos>
         <Dica tipo="atencao">O DANFE enviado pelo fornecedor não serve: só o PDF da consulta completa do Portal da NF-e é lido. O sistema confere a chave de acesso e a soma dos itens e recusa arquivos inconsistentes.</Dica>
         <Lista>
-          <li>Confira a <B>OC</B> sugerida e marque <B>Sob medida</B> quando for o caso, depois clique em <B>Cadastrar</B>.</li>
+          <li>O sistema procura a <B>OC</B> nos dados adicionais da nota (escrita como “OC”, “O.C.”, “Ordem de Compra” ou “Pedido”, sempre com 7 dígitos) e preenche sozinha. Quando a nota não informa a OC, o campo fica em destaque e é preciso digitá-la: <B>nenhuma NF é cadastrada sem OC</B>.</li>
+          <li>Marque <B>Sob medida</B> quando for o caso e clique em <B>Cadastrar</B>.</li>
           <li>Se a NF já existir sem os dados (por exemplo, importada da planilha antiga), o arquivo é <B>anexado</B> a ela sem alterar a tramitação.</li>
           <li>Sem XML nem PDF? Use <B>Cadastrar manualmente</B> no fim da página.</li>
         </Lista>

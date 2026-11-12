@@ -32,7 +32,7 @@ export default async function NovaNota() {
           <label><span className="rotulo">Valor total (R$)</span><input name="valor" className="campo" required inputMode="decimal" placeholder="1.234,56" /></label>
           <label><span className="rotulo">CNPJ da empresa</span><input name="cnpj" className="campo" required maxLength={20} /></label>
           <label><span className="rotulo">Nome da empresa</span><input name="nome" className="campo" required maxLength={200} /></label>
-          <label><span className="rotulo">OC</span><input name="oc" className="campo" maxLength={60} /></label>
+          <label><span className="rotulo">OC (ordem de compra) *</span><input name="oc" className="campo" maxLength={60} required inputMode="numeric" placeholder="7 dígitos, ex.: 1173226" /></label>
           <label className="flex items-end gap-2 pb-2 text-sm"><input type="checkbox" name="sob_medida" /> Material sob medida</label>
           <label className="sm:col-span-2"><span className="rotulo">Observação</span><input name="obs" className="campo" maxLength={2000} /></label>
           <span className="sm:col-span-2" />

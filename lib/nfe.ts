@@ -1,6 +1,7 @@
 import "server-only";
 import { XMLParser } from "fast-xml-parser";
 import { soDigitos } from "./format";
+import { extrairOC } from "./oc";
 
 export type ItemNF = {
   n: number;
@@ -121,7 +122,6 @@ export function lerNFe(xml: string): NFLida {
 
   const infCpl = txt(infAdic.infCpl);
   const pedido = txt(compra.xPed) || itens.find((i) => i.pedido)?.pedido || "";
-  const ocNoTexto = infCpl.match(/\bO\.?\s?C\.?\s*(?:n[ºo°.]*)?\s*[:\-]?\s*(\d{5,9})\b/i)?.[1] ?? "";
   const empenho = txt(compra.xNEmp) || (infCpl.match(/\b(20\d{2}\s?NE\s?\d{5,6})\b/i)?.[1] ?? "").replace(/\s/g, "");
 
   const totais: Record<string, number> = {};
@@ -170,7 +170,7 @@ export function lerNFe(xml: string): NFLida {
     valor: totais.vNF,
     data_emissao: emissao && !isNaN(Date.parse(emissao)) ? new Date(emissao).toISOString() : null,
     natureza: txt(ide.natOp),
-    oc: /^\d{5,9}$/.test(pedido) ? pedido : ocNoTexto,
+    oc: extrairOC(txt(compra.xPed), ...itens.map((i) => i.pedido), infCpl, ...itens.map((i) => i.infAd), txt(infAdic.infAdFisco)),
     empenho,
     dados,
     itens,

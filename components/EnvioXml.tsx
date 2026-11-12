@@ -7,7 +7,7 @@ import { cnpj, data, moeda } from "@/lib/format";
 
 type Previa = {
   chave: string; numero: string; serie: string; emit_cnpj: string; emit_nome: string; valor: number; data_emissao: string | null;
-  oc: string; empenho: string; itens: number; existente: { id: number; tem_xml: boolean; fonte: string | null } | null; bloqueio: string | null;
+  oc: string; empenho: string; itens: number; existente: { id: number; tem_xml: boolean; fonte: string | null; oc: string | null } | null; bloqueio: string | null;
 };
 type Item = {
   arquivo: string; tipo: "xml" | "pdf"; conteudo: string; previa?: Previa; erro?: string; oc: string; sobMedida: boolean;
@@ -42,7 +42,7 @@ export function EnvioXml() {
       const r = await acaoAnalisarDocumento(tipo, conteudo);
       if (r.erro || !r.previa) novos.push({ ...base, erro: r.erro ?? "Não foi possível ler o arquivo." });
       else if (r.previa.bloqueio) novos.push({ ...base, previa: r.previa, erro: r.previa.bloqueio, id: r.previa.existente?.id });
-      else novos.push({ ...base, conteudo, previa: r.previa, oc: r.previa.oc, estado: "pronto" });
+      else novos.push({ ...base, conteudo, previa: r.previa, oc: r.previa.oc || r.previa.existente?.oc || "", estado: "pronto" });
     }
     setItens((l) => [...l.filter((x) => x.estado !== "erro" || x.previa), ...novos]);
     setLendo(false);
@@ -62,6 +62,7 @@ export function EnvioXml() {
   }
 
   const prontos = itens.filter((i) => i.estado === "pronto").length;
+  const semOc = itens.filter((i) => i.estado === "pronto" && !i.oc.trim()).length;
 
   return (
     <div className="space-y-4">
@@ -88,6 +89,11 @@ export function EnvioXml() {
                 <p className="text-xs text-slate-400">
                   Emissão {data(it.previa.data_emissao)} · {it.previa.itens} item(ns){it.previa.empenho ? ` · Empenho ${it.previa.empenho}` : ""} · {it.arquivo}
                 </p>
+                {!it.previa.oc && !it.previa.existente?.oc && it.estado === "pronto" && (
+                  <p className="mt-2 rounded-md bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-800">
+                    Esta NF não informa o número da OC nos dados adicionais. Digite a OC ao lado para poder cadastrar.
+                  </p>
+                )}
                 {it.previa.existente && it.estado === "pronto" && (
                   <p className="mt-1 text-xs font-medium text-amber-700">NF já cadastrada — os dados deste arquivo serão anexados a ela, sem alterar a tramitação.</p>
                 )}
@@ -95,8 +101,12 @@ export function EnvioXml() {
               {it.estado === "pronto" || it.estado === "enviando" ? (
                 <div className="flex flex-wrap items-end gap-3">
                   <label>
-                    <span className="rotulo">OC</span>
-                    <input className="campo w-36" value={it.oc} maxLength={60} onChange={(e) => mudar(i, { oc: e.target.value })} disabled={enviando} />
+                    <span className="rotulo">OC *</span>
+                    <input className={`campo w-36 ${!it.oc.trim() ? "!border-amber-400 bg-amber-50 ring-4 ring-amber-100" : ""}`} value={it.oc} maxLength={60}
+                      inputMode="numeric" placeholder="Digite a OC" onChange={(e) => mudar(i, { oc: e.target.value })} disabled={enviando} aria-invalid={!it.oc.trim()} />
+                    <span className={`mt-1 block text-[11px] ${it.previa.oc ? "text-emerald-700" : "text-amber-700"}`}>
+                      {it.previa.oc ? (it.oc === it.previa.oc ? "✓ identificada na NF" : `na NF: ${it.previa.oc}`) : it.previa.existente?.oc ? "OC já cadastrada" : "não consta na NF"}
+                    </span>
                   </label>
                   {!it.previa.existente && (
                     <label className="flex items-center gap-2 pb-2 text-sm">
@@ -120,9 +130,12 @@ export function EnvioXml() {
       ))}
 
       {prontos > 0 && (
-        <button className="botao" onClick={cadastrar} disabled={enviando}>
-          {enviando ? "Cadastrando…" : `Cadastrar ${prontos} nota(s)`}
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button className="botao" onClick={cadastrar} disabled={enviando || semOc > 0}>
+            {enviando ? "Cadastrando…" : `Cadastrar ${prontos} nota(s)`}
+          </button>
+          {semOc > 0 && <span className="text-sm font-medium text-amber-800">Falta a OC em {semOc} nota(s). Digite para continuar.</span>}
+        </div>
       )}
     </div>
   );

@@ -49,6 +49,7 @@ export async function acaoEditarNota(_: Estado, f: FormData): Promise<Estado> {
   if (!podeCadastrar(u)) return { erro: "Seu perfil não permite editar a NF." };
   const id = Number(f.get("id"));
   const oc = campo(f, "oc").slice(0, 60) || null;
+  if (!oc) return { erro: "A OC não pode ficar em branco." };
   const [n] = await sql`select numero, chave, emit_nome, emit_cnpj, empenho, itens from notas where id = ${id}`;
   if (!n) return { erro: "NF não encontrada." };
   await sql`update notas set oc = ${oc}, obs_oc = ${campo(f, "obs_oc").slice(0, 2000) || null}, sob_medida = ${f.get("sob_medida") === "on"},

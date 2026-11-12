@@ -135,12 +135,12 @@ async function etapaInicial(sobMedida: boolean) {
 }
 
 export type Documento = { tipo: "xml" | "pdf"; conteudo: string }; // PDF vem em base64
-export type PreviaXml = { nf: NFLida; existente: { id: number; tem_xml: boolean; fonte: string | null } | null; bloqueio: string | null };
+export type PreviaXml = { nf: NFLida; existente: { id: number; tem_xml: boolean; fonte: string | null; oc: string | null } | null; bloqueio: string | null };
 
 /** Lê o XML da NF-e ou o PDF da consulta do Portal da NF-e e verifica se a nota já existe. */
 export async function analisarDocumento(doc: Documento): Promise<PreviaXml> {
   const nf = doc.tipo === "pdf" ? await lerPdfPortal(new Uint8Array(Buffer.from(doc.conteudo, "base64"))) : lerNFe(doc.conteudo);
-  const [existente] = await sql`select id, tem_xml, fonte from notas where chave = ${nf.chave}
+  const [existente] = await sql`select id, tem_xml, fonte, oc from notas where chave = ${nf.chave}
                                 order by (status in ('em_tramite','reprovada')) desc, id desc limit 1`;
   const e = (existente as PreviaXml["existente"]) ?? null;
   const bloqueio = !e ? null
@@ -156,7 +156,8 @@ export async function cadastrarPorDocumento(u: Usuario, doc: Documento, op: { oc
   const { nf, existente, bloqueio } = await analisarDocumento(doc);
   if (bloqueio) throw new Error(bloqueio);
   const xml = doc.tipo === "xml" ? doc.conteudo : null;
-  const oc = op.oc?.trim() || nf.oc || null;
+  const oc = op.oc?.trim() || nf.oc || existente?.oc || null;
+  if (!oc) throw new Error(`NF ${nf.numero}: a nota não traz o número da OC. Digite a OC para cadastrar.`);
   const busca = textoBusca({ ...nf, oc });
 
   if (existente) {
@@ -194,6 +195,7 @@ export async function cadastrarManual(
   const cnpj = soDigitos(d.cnpj);
   const chave = d.chave?.trim() ? (soDigitos(d.chave).length === 44 ? soDigitos(d.chave) : d.chave.trim()) : null;
   if (!d.numero.trim() || !cnpj || !d.nome.trim()) throw new Error("Preencha número, CNPJ e nome da empresa.");
+  if (!d.oc?.trim()) throw new Error("Informe a OC (ordem de compra) da NF.");
   if (!(d.valor >= 0)) throw new Error("Valor inválido.");
   if (chave) {
     const [dup] = await sql`select id from notas where chave = ${chave} limit 1`;

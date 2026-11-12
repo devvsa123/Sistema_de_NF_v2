@@ -1,6 +1,7 @@
 import "server-only";
 import { getDocumentProxy } from "unpdf";
 import { soDigitos } from "./format";
+import { extrairOC } from "./oc";
 import type { DadosNF, ItemNF, NFLida } from "./nfe";
 
 /**
@@ -257,7 +258,6 @@ export async function lerPdfPortal(bytes: Uint8Array): Promise<NFLida> {
   }
 
   const pedido = itens.find((i) => i.pedido)?.pedido ?? "";
-  const ocNoTexto = infCpl.match(/\bO\.?\s?C\.?\s*(?:n[ºo°.]*)?\s*[:\-]?\s*(\d{5,9})\b/i)?.[1] ?? "";
   const empenho = (infCpl.match(/\b(20\d{2}\s?NE\s?\d{5,6})\b/i)?.[1] ?? "").replace(/\s/g, "");
   const municipio = (s: string) => s.replace(/^\d+\s*-\s*/, "");
 
@@ -296,7 +296,7 @@ export async function lerPdfPortal(bytes: Uint8Array): Promise<NFLida> {
     valor: totais.vNF,
     data_emissao: emissao ? new Date(`${emissao[3]}-${emissao[2]}-${emissao[1]}T${emissao[4] ?? "12:00:00"}${emissao[5] ?? "-03:00"}`).toISOString() : null,
     natureza: L.valor("Natureza da Operação", sDados, sEmit),
-    oc: /^\d{5,9}$/.test(pedido) ? pedido : ocNoTexto,
+    oc: extrairOC(...itens.map((i) => i.pedido), infCpl, ...itens.map((i) => i.infAd)),
     empenho,
     dados,
     itens,
