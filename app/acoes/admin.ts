@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
-import { exigirAdmin, hashSenha, validarSenhaNova } from "@/lib/auth";
+import { exigirAdmin, exigirGestorUsuarios, hashSenha, validarSenhaNova } from "@/lib/auth";
 import { soDigitos } from "@/lib/format";
 import { importarNotas, importarUsuarios, type Linha } from "@/lib/importar";
 import type { Estado } from "@/components/FormAcao";
@@ -90,7 +90,8 @@ export async function acaoPrazoReprovada(_: Estado, f: FormData): Promise<Estado
 // ---------- Usuários ----------
 
 export async function acaoSalvarUsuario(_: Estado, f: FormData): Promise<Estado> {
-  const admin = await exigirAdmin();
+  const quem = await exigirGestorUsuarios();
+  const geral = quem.papel === "admin";
   const id = Number(f.get("id")) || null;
   const login = soDigitos(campo(f, "login"));
   const nome = campo(f, "nome").slice(0, 120);
@@ -99,7 +100,19 @@ export async function acaoSalvarUsuario(_: Estado, f: FormData): Promise<Estado>
   const ativo = id ? marcado(f, "ativo") : true;
   if (!login || !nome) return { erro: "Informe nome e login (NIP ou CNPJ, somente números)." };
   if (!["admin", "interno", "consulta", "empresa"].includes(papel)) return { erro: "Perfil inválido." };
-  if (id === admin.id && (papel !== "admin" || !ativo)) return { erro: "Você não pode remover o seu próprio acesso de administrador." };
+
+  const [alvo] = id ? await sql`select papel, gerencia_usuarios, ativo from usuarios where id = ${id}` : [];
+  if (id && !alvo) return { erro: "Usuário não encontrado." };
+  if (!geral) {
+    // o administrador de usuários não mexe em administradores nem cria novos
+    if (papel === "admin") return { erro: "Somente o administrador geral pode criar outro administrador geral." };
+    if (alvo && (alvo.papel === "admin" || alvo.gerencia_usuarios)) return { erro: "Somente o administrador geral altera os administradores." };
+  }
+  if (id === quem.id && (papel !== quem.papel || !ativo)) return { erro: "Você não pode alterar o seu próprio perfil ou desativar o seu acesso." };
+  if (alvo?.papel === "admin" && (papel !== "admin" || !ativo)) {
+    const [r] = await sql`select count(*)::int as n from usuarios where papel = 'admin' and ativo and id <> ${id}`;
+    if (r.n === 0) return { erro: "O sistema precisa ter pelo menos um administrador geral ativo." };
+  }
   if (!id && !senha) return { erro: "Defina uma senha inicial." };
   if (senha) {
     const erro = validarSenhaNova(senha, senha);
@@ -109,11 +122,12 @@ export async function acaoSalvarUsuario(_: Estado, f: FormData): Promise<Estado>
   if (papel === "empresa" && cnpjEmpresa!.length !== 14) return { erro: "Para fornecedores, informe o CNPJ com 14 dígitos." };
   const etapas = papel === "interno" ? f.getAll("etapas").map(Number).filter(Boolean) : [];
   const hash = senha ? await hashSenha(senha) : null;
+  const gerencia = (papel === "interno" || papel === "consulta") && (geral ? marcado(f, "gerencia_usuarios") : !!alvo?.gerencia_usuarios);
   try {
     await sql.begin(async (tx) => {
       if (cnpjEmpresa) await tx`insert into empresas (cnpj, nome) values (${cnpjEmpresa}, ${nome}) on conflict (cnpj) do nothing`;
       const dados = {
-        login, nome, papel, empresa_cnpj: cnpjEmpresa, ativo,
+        login, nome, papel, empresa_cnpj: cnpjEmpresa, ativo, gerencia_usuarios: gerencia,
         pode_cadastrar: papel === "interno" && marcado(f, "pode_cadastrar"),
         trata_reprovadas: papel === "interno" && marcado(f, "trata_reprovadas"),
       };
@@ -122,7 +136,7 @@ export async function acaoSalvarUsuario(_: Estado, f: FormData): Promise<Estado>
         await tx`update usuarios set ${tx(dados)} where id = ${id}`;
         if (hash) {
           await tx`update usuarios set senha_hash = ${hash}, senha_legado_sha256 = null, deve_trocar_senha = ${marcado(f, "deve_trocar")}, falhas_login = 0, bloqueado_ate = null where id = ${id}`;
-          await tx`delete from sessoes where usuario_id = ${id} and usuario_id <> ${admin.id}`;
+          await tx`delete from sessoes where usuario_id = ${id} and usuario_id <> ${quem.id}`;
         }
         if (!ativo) await tx`delete from sessoes where usuario_id = ${id}`;
       } else {

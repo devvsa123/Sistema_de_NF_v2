@@ -1,18 +1,19 @@
 import { Cabecalho } from "@/components/ui";
 import Link from "next/link";
-import { exigirAdmin } from "@/lib/auth";
+import { exigirGestorUsuarios } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { login } from "@/lib/format";
 
 export const metadata = { title: "Usuários — Administração" };
 
-const PAPEL: Record<string, string> = { admin: "Administrador", interno: "Interno", consulta: "Consulta (vê tudo)", empresa: "Fornecedor" };
+const PAPEL: Record<string, string> = { admin: "Administrador geral", interno: "Interno", consulta: "Consulta (vê tudo)", empresa: "Fornecedor" };
 
 export default async function Usuarios({ searchParams }: PageProps<"/admin/usuarios">) {
-  await exigirAdmin();
+  const quem = await exigirGestorUsuarios();
+  const geral = quem.papel === "admin";
   const papel = String((await searchParams).papel ?? "");
   const usuarios = await sql`
-    select u.id, u.login, u.nome, u.papel, u.ativo, u.pode_cadastrar, u.trata_reprovadas, u.deve_trocar_senha,
+    select u.id, u.login, u.nome, u.papel, u.ativo, u.pode_cadastrar, u.trata_reprovadas, u.gerencia_usuarios, u.deve_trocar_senha,
            (select string_agg(e.nome, ', ' order by e.ordem) from usuario_etapas ue join etapas e on e.id = ue.etapa_id and e.ativo where ue.usuario_id = u.id) as etapas
     from usuarios u where ${papel ? sql`u.papel = ${papel}` : sql`true`} order by u.ativo desc, u.papel = 'empresa', u.nome`;
   return (
@@ -39,12 +40,13 @@ export default async function Usuarios({ searchParams }: PageProps<"/admin/usuar
                 <td>{PAPEL[u.papel]}</td>
                 <td className="text-xs text-slate-600">
                   {u.papel === "interno" && [u.etapas, u.pode_cadastrar && "Cadastra NF", u.trata_reprovadas && "Trata reprovadas"].filter(Boolean).join(" · ")}
+                  {u.gerencia_usuarios && <span className="ml-1 inline-flex rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700 ring-1 ring-inset ring-violet-200">Administrador de usuários</span>}
                   {u.papel === "empresa" && "Somente as NF do próprio CNPJ"}
                   {u.papel === "admin" && "Acesso total"}
                   {u.papel === "consulta" && "Consulta todas as NF e relatórios"}
                 </td>
                 <td className="text-xs">{u.ativo ? (u.deve_trocar_senha ? "Ativo · troca de senha pendente" : "Ativo") : "Inativo"}</td>
-                <td><Link href={`/admin/usuarios/${u.id}`} className="font-medium text-marinha hover:underline">Editar</Link></td>
+                <td>{geral || (u.papel !== "admin" && !u.gerencia_usuarios) ? <Link href={`/admin/usuarios/${u.id}`} className="font-medium text-marinha hover:underline">Editar</Link> : <span className="text-xs text-slate-400">só o administrador geral</span>}</td>
               </tr>
             ))}
           </tbody>

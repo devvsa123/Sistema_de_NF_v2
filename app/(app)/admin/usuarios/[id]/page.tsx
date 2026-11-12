@@ -1,5 +1,5 @@
-import { notFound } from "next/navigation";
-import { exigirAdmin } from "@/lib/auth";
+import { notFound, redirect } from "next/navigation";
+import { exigirGestorUsuarios } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { etapasAtivas } from "@/lib/fluxo";
 import { FormAcao } from "@/components/FormAcao";
@@ -9,11 +9,13 @@ import { acaoSalvarUsuario } from "@/app/acoes/admin";
 export const metadata = { title: "Usuário — Administração" };
 
 export default async function EditarUsuario({ params }: PageProps<"/admin/usuarios/[id]">) {
-  await exigirAdmin();
+  const quem = await exigirGestorUsuarios();
+  const geral = quem.papel === "admin";
   const { id } = await params;
   const novo = id === "novo";
   const [u] = novo ? [null] : await sql`select u.*, coalesce((select array_agg(etapa_id) from usuario_etapas where usuario_id = u.id), '{}') as etapas from usuarios u where u.id = ${Number(id) || 0}`;
   if (!novo && !u) notFound();
+  if (!geral && u && (u.papel === "admin" || u.gerencia_usuarios)) redirect("/admin/usuarios");
   const etapas = await etapasAtivas();
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -32,7 +34,7 @@ export default async function EditarUsuario({ params }: PageProps<"/admin/usuari
             ["interno", "Interno", "Tramita NF nas etapas marcadas abaixo e consulta todas as NF."],
             ["consulta", "Consulta", "Vê todas as NF e relatórios, sem tramitar (ex.: COMRJ)."],
             ["empresa", "Fornecedor", "Vê somente as NF emitidas pelo próprio CNPJ, sem observações internas."],
-            ["admin", "Administrador", "Acesso total: caminho, usuários, ajustes e todas as etapas."],
+            ...(geral ? [["admin", "Administrador geral", "Acesso total: configurações, caminho, modelo do laudo, importação, usuários e ajustes."]] : []),
           ].map(([valor, nome, desc]) => (
             <label key={valor} className="flex items-start gap-2 text-sm">
               <input type="radio" name="papel" value={valor} defaultChecked={(u?.papel ?? "interno") === valor} className="mt-1" required />
@@ -40,6 +42,13 @@ export default async function EditarUsuario({ params }: PageProps<"/admin/usuari
             </label>
           ))}
         </fieldset>
+
+        {geral && (
+          <label className="flex items-start gap-2 rounded-lg border border-violet-200 bg-violet-50/60 p-3 text-sm">
+            <input type="checkbox" name="gerencia_usuarios" defaultChecked={u?.gerencia_usuarios} className="mt-1" />
+            <span><strong>Administrador de usuários</strong> — <span className="text-slate-600">pode cadastrar e editar usuários e empresas (exceto administradores). Vale para os perfis Interno e Consulta.</span></span>
+          </label>
+        )}
 
         <fieldset className="space-y-2 rounded-lg bg-slate-50 p-3">
           <legend className="rotulo">Somente para perfil Interno</legend>

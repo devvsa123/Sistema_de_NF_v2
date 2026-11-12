@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { exigirUsuario, podeCadastrar } from "@/lib/auth";
+import { exigirUsuario, podeCadastrar, podeGerirUsuarios } from "@/lib/auth";
 import { Lateral, type GrupoMenu } from "@/components/Nav";
 import { Icone } from "@/components/Icone";
 import { acaoSair } from "@/app/acoes/auth";
 
-const PAPEL: Record<string, string> = { admin: "Administrador", interno: "Usuário interno", consulta: "Consulta", empresa: "Fornecedor" };
+const PAPEL: Record<string, string> = { admin: "Administrador geral", interno: "Usuário interno", consulta: "Consulta", empresa: "Fornecedor" };
 
 export default async function LayoutApp({ children }: LayoutProps<"/">) {
   const u = await exigirUsuario();
@@ -31,7 +31,9 @@ export default async function LayoutApp({ children }: LayoutProps<"/">) {
             { href: "/admin/importar", rotulo: "Importar planilha", icone: "importar" },
           ],
         }]
-      : []),
+      : podeGerirUsuarios(u)
+        ? [{ titulo: "Administração", itens: [{ href: "/admin/usuarios", rotulo: "Usuários e empresas", icone: "usuarios" }] }]
+        : []),
     { titulo: "Ajuda", itens: [{ href: "/manual", rotulo: "Manual do usuário", icone: "manual" }] },
   ];
   const botao = "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white";
@@ -39,7 +41,7 @@ export default async function LayoutApp({ children }: LayoutProps<"/">) {
     <div className="min-h-screen">
       <Lateral
         grupos={grupos}
-        usuario={{ nome: u.nome, papel: PAPEL[u.papel] }}
+        usuario={{ nome: u.nome, papel: u.gerencia_usuarios && u.papel !== "admin" ? "Administrador de usuários" : PAPEL[u.papel] }}
         rodape={
           <div className="mt-1 space-y-0.5">
             <Link href="/trocar-senha" className={botao}><Icone nome="senha" className="h-4 w-4 text-slate-500" /> Trocar senha</Link>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { exigirUsuario, podeCadastrar, type Usuario } from "@/lib/auth";
+import { exigirUsuario, podeCadastrar, podeGerirUsuarios, type Usuario } from "@/lib/auth";
 import { etapasAtivas, prazoReprovada } from "@/lib/fluxo";
 import { Cabecalho } from "@/components/ui";
 
@@ -56,7 +56,8 @@ export default async function Manual() {
           <li><B>Usuário interno</B>: tramita as NF nas etapas em que foi habilitado e consulta todas as notas. Alguns também cadastram NF ou tratam as reprovadas.</li>
           <li><B>Consulta</B>: vê todas as notas, a área Gerencial e os relatórios, sem tramitar.</li>
           <li><B>Fornecedor</B>: vê somente as NF emitidas pelo próprio CNPJ, sem observações internas.</li>
-          <li><B>Administrador</B>: acesso total, inclusive caminho da tramitação, usuários e ajustes.</li>
+          <li><B>Administrador geral</B>: acesso total, inclusive caminho da tramitação, modelo do laudo, importação, usuários e ajustes.</li>
+          <li><B>Administrador de usuários</B>: além do próprio perfil (interno ou consulta), cadastra e edita usuários e empresas. Não altera administradores nem as configurações do sistema.</li>
         </Lista>
       </>,
     },
@@ -223,6 +224,17 @@ export default async function Manual() {
         <p>Importa usuários e notas da planilha do sistema antigo. Pode ser repetida sem duplicar registros.</p>
       </>,
     },
+    ...(u.papel !== "admin" && podeGerirUsuarios(u) ? [{
+      id: "usuarios", titulo: "Cadastro de usuários e empresas", para: INTERNOS, conteudo: <>
+        <p>Como <B>administrador de usuários</B>, você acessa <Ir href="/admin/usuarios">Usuários e empresas</Ir> no menu lateral.</p>
+        <Lista>
+          <li><B>Novo usuário</B>: informe nome, login (NIP ou CNPJ), perfil e senha inicial. Para usuários internos, marque as etapas em que tramitam.</li>
+          <li><B>Empresa (fornecedor)</B>: crie um usuário com perfil Fornecedor e o CNPJ da empresa como login. Ele verá apenas as NF desse CNPJ.</li>
+          <li>Para redefinir a senha de alguém, preencha <B>Nova senha</B> e mantenha marcado <B>Exigir troca de senha</B>.</li>
+          <li>Administradores não podem ser criados nem alterados por você; isso cabe ao administrador geral.</li>
+        </Lista>
+      </>,
+    } satisfies Secao] : []),
     {
       id: "fornecedor", titulo: "Para fornecedores", para: ["empresa"], conteudo: <>
         <Lista>

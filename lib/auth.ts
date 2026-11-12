@@ -22,6 +22,7 @@ export type Usuario = {
   empresa_cnpj: string | null;
   pode_cadastrar: boolean;
   trata_reprovadas: boolean;
+  gerencia_usuarios: boolean;
   deve_trocar_senha: boolean;
   etapas: number[]; // etapas em que o usuário pode tramitar
 };
@@ -41,7 +42,7 @@ export const usuarioAtual = cache(async (): Promise<Usuario | null> => {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
   const [u] = await sql<Usuario[]>`
-    select u.id, u.login, u.nome, u.papel, u.empresa_cnpj, u.pode_cadastrar, u.trata_reprovadas, u.deve_trocar_senha,
+    select u.id, u.login, u.nome, u.papel, u.empresa_cnpj, u.pode_cadastrar, u.trata_reprovadas, u.gerencia_usuarios, u.deve_trocar_senha,
            coalesce((select array_agg(ue.etapa_id) from usuario_etapas ue where ue.usuario_id = u.id), '{}') as etapas
     from sessoes s join usuarios u on u.id = s.usuario_id
     where s.token_hash = ${sha256(token)} and s.expira_em > now() and u.ativo`;
@@ -59,6 +60,15 @@ export async function exigirUsuario(opcoes: { permitirTrocaPendente?: boolean } 
 export async function exigirAdmin(): Promise<Usuario> {
   const u = await exigirUsuario();
   if (u.papel !== "admin") redirect("/");
+  return u;
+}
+
+/** Administrador geral ou administrador de usuários (só cadastra usuários e empresas). */
+export const podeGerirUsuarios = (u: Usuario) => u.papel === "admin" || ((u.papel === "interno" || u.papel === "consulta") && u.gerencia_usuarios);
+
+export async function exigirGestorUsuarios(): Promise<Usuario> {
+  const u = await exigirUsuario();
+  if (!podeGerirUsuarios(u)) redirect("/");
   return u;
 }
 
