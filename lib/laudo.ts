@@ -93,9 +93,9 @@ export async function restaurarModeloPadrao(u: Usuario) {
             from modelos p where m.chave = ${MODELO} and p.chave = ${MODELO_PADRAO}`;
 }
 
-/** Peritos: administrador ou quem atua numa etapa que pode reprovar (a perícia). */
+/** Somente os usuários vinculados à etapa que emite laudo (a Perícia). */
 export function podeEmitirLaudo(u: Usuario, etapas: Etapa[]) {
-  return u.papel === "admin" || etapasDoUsuario(u, etapas).some((e) => e.permite_reprovar);
+  return u.papel === "interno" && etapasDoUsuario(u, etapas).some((e) => e.emite_laudo);
 }
 
 export type DadosLaudo = {
@@ -121,7 +121,7 @@ export async function nfDoLaudo(notaId: number) {
   const [n] = await sql`
     select n.id, n.numero, n.oc, n.emit_cnpj, n.emit_nome, n.valor, n.chave, n.status, n.etapa_id,
            (select max(ev.criado_em) from eventos ev join etapas e on e.id = ev.para_etapa_id
-             where ev.nota_id = n.id and ev.movimento and ev.para_status = 'em_tramite' and e.permite_reprovar) as entrada_pericia
+             where ev.nota_id = n.id and ev.movimento and ev.para_status = 'em_tramite' and e.emite_laudo) as entrada_pericia
     from notas n where n.id = ${notaId}`;
   return n as { id: number; numero: string; oc: string | null; emit_cnpj: string; emit_nome: string; valor: string; chave: string | null; entrada_pericia: Date | null } | undefined;
 }

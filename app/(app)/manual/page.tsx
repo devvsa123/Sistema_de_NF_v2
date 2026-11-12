@@ -102,7 +102,7 @@ export default async function Manual() {
     },
     {
       id: "laudo", titulo: "Laudo pericial", para: ["admin", "interno"], conteudo: <>
-        <p>Quem atua na perícia emite o laudo pelo botão <B>Laudo</B> ao lado da NF na fila da Perícia, ou por <B>Emitir laudo pericial</B> na página da NF.</p>
+        <p>Somente os usuários da <B>Perícia</B> emitem o laudo, pelo botão <B>Laudo</B> ao lado da NF na fila da Perícia, ou por <B>Emitir laudo pericial</B> na página da NF.</p>
         <Passos>
           <li>Informe o protocolo, o lote e a fabricação.</li>
           <li>Marque o resultado da perícia visual, se as medidas estão de acordo (com explicação quando não estão) e as observações.</li>
@@ -201,7 +201,7 @@ export default async function Manual() {
         <p className="font-semibold text-slate-900">Caminho da tramitação</p>
         <Lista>
           <li>Renomeie etapas, ajuste prazos e use ▲ ▼ para mudar a ordem. As mudanças valem na hora.</li>
-          <li>Marque em cada etapa se ela pode reprovar, se exige arrecadação, se marca armazenagem e se é a entrada do material sob medida.</li>
+          <li>Marque em cada etapa se ela pode reprovar, se os usuários dela emitem o laudo pericial, se exige arrecadação, se marca armazenagem e se é a entrada do material sob medida.</li>
           <li>Uma etapa só pode ser removida quando não houver NF nela.</li>
         </Lista>
         <p className="mt-3 font-semibold text-slate-900">Usuários</p>

@@ -8,6 +8,7 @@ export type Etapa = {
   ordem: number;
   prazo_dias: number;
   permite_reprovar: boolean;
+  emite_laudo: boolean;
   exige_arrecadacao: boolean;
   faz_armazenagem: boolean;
   entrada_sob_medida: boolean;

@@ -34,7 +34,7 @@ export async function acaoSalvarEtapa(_: Estado, f: FormData): Promise<Estado> {
     await sql.begin(async (tx) => {
       if (marcado(f, "entrada_sob_medida")) await tx`update etapas set entrada_sob_medida = false`;
       if (id) {
-        await tx`update etapas set nome = ${nome}, prazo_dias = ${prazo}, permite_reprovar = ${marcado(f, "permite_reprovar")},
+        await tx`update etapas set nome = ${nome}, prazo_dias = ${prazo}, permite_reprovar = ${marcado(f, "permite_reprovar")}, emite_laudo = ${marcado(f, "emite_laudo")},
                    exige_arrecadacao = ${marcado(f, "exige_arrecadacao")}, faz_armazenagem = ${marcado(f, "faz_armazenagem")},
                    entrada_sob_medida = ${marcado(f, "entrada_sob_medida")} where id = ${id} and ativo`;
       } else {

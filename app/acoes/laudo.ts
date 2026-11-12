@@ -16,7 +16,7 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : "Erro inesperado."
 
 export async function acaoEmitirLaudo(_: Estado, f: FormData): Promise<Estado> {
   const u = await exigirUsuario();
-  if (!podeEmitirLaudo(u, await etapasAtivas())) return { erro: "Somente a perícia e o administrador emitem laudos." };
+  if (!podeEmitirLaudo(u, await etapasAtivas())) return { erro: "Somente os usuários da Perícia emitem laudos." };
   const id = Number(f.get("id"));
   if (!(await obterNota(u, id))) return { erro: "NF não encontrada." };
   const d: DadosLaudo = {

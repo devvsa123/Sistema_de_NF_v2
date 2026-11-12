@@ -4,6 +4,7 @@ import { exigirUsuario } from "@/lib/auth";
 import { etapasAtivas, etapasDoUsuario, podeArmazenar, podeTratarReprovadas, prazoReprovada, vizinhos } from "@/lib/fluxo";
 import { contagemFilas, fila } from "@/lib/notas";
 import { dias, farol, moeda, data } from "@/lib/format";
+import { podeEmitirLaudo } from "@/lib/laudo";
 import { FilaTabela, type BotaoFila, type LinhaFila } from "@/components/FilaTabela";
 import { Indicador, Vazio, Cabecalho } from "@/components/ui";
 
@@ -12,6 +13,7 @@ export default async function MinhaFila({ searchParams }: PageProps<"/">) {
   if (u.papel !== "admin" && u.papel !== "interno") redirect("/notas");
 
   const [etapas, contagem, prazoReprov] = await Promise.all([etapasAtivas(), contagemFilas(), prazoReprovada()]);
+  const perito = podeEmitirLaudo(u, etapas);
   const abas = [
     ...etapasDoUsuario(u, etapas).map((e) => ({ chave: `e${e.id}`, nome: e.nome })),
     ...(podeTratarReprovadas(u) ? [{ chave: "reprovadas", nome: "Reprovadas" }] : []),
@@ -88,7 +90,7 @@ export default async function MinhaFila({ searchParams }: PageProps<"/">) {
       {notas.length === 0 ? (
         <Vazio>Nenhuma nota fiscal nesta fila. 🎉</Vazio>
       ) : (
-        <FilaTabela key={aba.chave} linhas={linhas} botoes={botoes} mostrarArrecadacao={!!etapa?.exige_arrecadacao} laudo={!!etapa?.permite_reprovar || aba.chave === "reprovadas"} />
+        <FilaTabela key={aba.chave} linhas={linhas} botoes={botoes} mostrarArrecadacao={!!etapa?.exige_arrecadacao} laudo={perito && (!!etapa?.emite_laudo || aba.chave === "reprovadas")} />
       )}
     </div>
   );
