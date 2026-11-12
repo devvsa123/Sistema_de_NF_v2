@@ -202,13 +202,13 @@ export default async function Manual() {
       id: "admin", titulo: "Administração", para: ["admin"], conteudo: <>
         <p className="font-semibold text-slate-900">Caminho da tramitação</p>
         <Lista>
-          <li>Renomeie etapas, ajuste prazos e use ▲ ▼ para mudar a ordem. As mudanças valem na hora.</li>
+          <li>Renomeie etapas, ajuste prazos, defina o <B>setor</B> de cada etapa (etapas com o mesmo setor são atribuídas juntas aos usuários) e use ▲ ▼ para mudar a ordem. As mudanças valem na hora.</li>
           <li>Marque em cada etapa se ela pode reprovar, se os usuários dela emitem o laudo pericial, se exige arrecadação, se marca armazenagem e se é a entrada do material sob medida.</li>
           <li>Uma etapa só pode ser removida quando não houver NF nela.</li>
         </Lista>
         <p className="mt-3 font-semibold text-slate-900">Usuários</p>
         <Lista>
-          <li>Crie usuários, defina o perfil e, para internos, as etapas em que tramitam e se cadastram NF ou tratam reprovadas.</li>
+          <li>Crie usuários, defina o perfil e, para internos, os <B>setores</B> em que trabalham (o usuário recebe todas as etapas do setor; o Recebimento inclui Pré Recebimento, Contagem e Reprovadas) e se cadastram NF.</li>
           <li>Para redefinir a senha de alguém, preencha <B>Nova senha</B> e mantenha marcado <B>Exigir troca de senha</B>.</li>
           <li>Desmarque <B>Usuário ativo</B> para bloquear o acesso sem apagar o histórico.</li>
         </Lista>
@@ -228,7 +228,7 @@ export default async function Manual() {
       id: "usuarios", titulo: "Cadastro de usuários e empresas", para: INTERNOS, conteudo: <>
         <p>Como <B>administrador de usuários</B>, você acessa <Ir href="/admin/usuarios">Usuários e empresas</Ir> no menu lateral.</p>
         <Lista>
-          <li><B>Novo usuário</B>: informe nome, login (NIP ou CNPJ), perfil e senha inicial. Para usuários internos, marque as etapas em que tramitam.</li>
+          <li><B>Novo usuário</B>: informe nome, login (NIP ou CNPJ), perfil e senha inicial. Para usuários internos, marque os setores em que trabalham (o Recebimento já inclui Pré Recebimento, Contagem e Reprovadas).</li>
           <li><B>Empresa (fornecedor)</B>: crie um usuário com perfil Fornecedor e o CNPJ da empresa como login. Ele verá apenas as NF desse CNPJ.</li>
           <li>Para redefinir a senha de alguém, preencha <B>Nova senha</B> e mantenha marcado <B>Exigir troca de senha</B>.</li>
           <li>Administradores não podem ser criados nem alterados por você; isso cabe ao administrador geral.</li>

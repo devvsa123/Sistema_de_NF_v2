@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { exigirGestorUsuarios } from "@/lib/auth";
 import { sql } from "@/lib/db";
-import { etapasAtivas } from "@/lib/fluxo";
+import { etapasAtivas, setoresDe, setorReprovadas } from "@/lib/fluxo";
 import { FormAcao } from "@/components/FormAcao";
 import { Voltar } from "@/components/ui";
 import { acaoSalvarUsuario } from "@/app/acoes/admin";
@@ -16,7 +16,8 @@ export default async function EditarUsuario({ params }: PageProps<"/admin/usuari
   const [u] = novo ? [null] : await sql`select u.*, coalesce((select array_agg(etapa_id) from usuario_etapas where usuario_id = u.id), '{}') as etapas from usuarios u where u.id = ${Number(id) || 0}`;
   if (!novo && !u) notFound();
   if (!geral && u && (u.papel === "admin" || u.gerencia_usuarios)) redirect("/admin/usuarios");
-  const etapas = await etapasAtivas();
+  const [etapas, setorReprov] = await Promise.all([etapasAtivas(), setorReprovadas()]);
+  const setores = setoresDe(etapas);
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <Voltar href="/admin/usuarios">Usuários</Voltar>
@@ -52,17 +53,21 @@ export default async function EditarUsuario({ params }: PageProps<"/admin/usuari
 
         <fieldset className="space-y-2 rounded-lg bg-slate-50 p-3">
           <legend className="rotulo">Somente para perfil Interno</legend>
-          <p className="text-xs text-slate-500">Etapas em que o usuário pode tramitar:</p>
-          <div className="grid gap-1.5 text-sm sm:grid-cols-2">
-            {etapas.map((e) => (
-              <label key={e.id} className="flex items-center gap-2">
-                <input type="checkbox" name="etapas" value={e.id} defaultChecked={u?.etapas?.includes(e.id)} /> {e.nome}
-              </label>
-            ))}
+          <p className="text-xs text-slate-500">Setores em que o usuário trabalha (ele tramita em todas as etapas do setor):</p>
+          <div className="grid gap-2 text-sm sm:grid-cols-2">
+            {setores.map((s) => {
+              const funcoes = [...s.etapas.map((e) => e.nome), ...(s.nome === setorReprov ? ["Reprovadas"] : [])];
+              const mostra = funcoes.length > 1 || funcoes[0] !== s.nome;
+              return (
+                <label key={s.nome} className="flex items-start gap-2">
+                  <input type="checkbox" name="setores" value={s.nome} className="mt-1" defaultChecked={s.etapas.some((e) => u?.etapas?.includes(e.id))} />
+                  <span><span className="font-medium text-slate-800">{s.nome}</span>{mostra && <span className="block text-xs text-slate-500">{funcoes.join(", ")}</span>}</span>
+                </label>
+              );
+            })}
           </div>
           <div className="grid gap-1.5 border-t border-slate-200 pt-2 text-sm sm:grid-cols-2">
             <label className="flex items-center gap-2"><input type="checkbox" name="pode_cadastrar" defaultChecked={u?.pode_cadastrar} /> Cadastra NF (envio de XML)</label>
-            <label className="flex items-center gap-2"><input type="checkbox" name="trata_reprovadas" defaultChecked={u?.trata_reprovadas} /> Trata NF reprovadas</label>
           </div>
         </fieldset>
 

@@ -6,6 +6,7 @@ import { sql } from "@/lib/db";
 import { exigirAdmin, exigirGestorUsuarios, hashSenha, validarSenhaNova } from "@/lib/auth";
 import { soDigitos } from "@/lib/format";
 import { importarNotas, importarUsuarios, type Linha } from "@/lib/importar";
+import { etapasAtivas, setorReprovadas } from "@/lib/fluxo";
 import type { Estado } from "@/components/FormAcao";
 
 const campo = (f: FormData, nome: string) => String(f.get(nome) ?? "").trim();
@@ -28,18 +29,24 @@ export async function acaoSalvarEtapa(_: Estado, f: FormData): Promise<Estado> {
   const id = Number(f.get("id")) || null;
   const nome = campo(f, "nome").slice(0, 60);
   const prazo = Math.max(1, Math.min(365, Number(f.get("prazo_dias")) || 0));
+  const setor = campo(f, "setor").slice(0, 60) || nome;
   if (!nome) return { erro: "Informe o nome da etapa." };
   if (["finalizada", "reprovada", "arquivada", "cadastro"].includes(nome.toLowerCase())) return { erro: "Esse nome é reservado pelo sistema." };
   try {
     await sql.begin(async (tx) => {
       if (marcado(f, "entrada_sob_medida")) await tx`update etapas set entrada_sob_medida = false`;
       if (id) {
-        await tx`update etapas set nome = ${nome}, prazo_dias = ${prazo}, permite_reprovar = ${marcado(f, "permite_reprovar")}, emite_laudo = ${marcado(f, "emite_laudo")},
+        await tx`update etapas set nome = ${nome}, setor = ${setor}, prazo_dias = ${prazo}, permite_reprovar = ${marcado(f, "permite_reprovar")}, emite_laudo = ${marcado(f, "emite_laudo")},
                    exige_arrecadacao = ${marcado(f, "exige_arrecadacao")}, faz_armazenagem = ${marcado(f, "faz_armazenagem")},
                    entrada_sob_medida = ${marcado(f, "entrada_sob_medida")} where id = ${id} and ativo`;
       } else {
-        await tx`insert into etapas (nome, prazo_dias, ordem) values (${nome}, ${prazo}, (select coalesce(max(ordem), 0) + 1 from etapas where ativo))`;
+        await tx`insert into etapas (nome, setor, prazo_dias, ordem) values (${nome}, ${setor}, ${prazo}, (select coalesce(max(ordem), 0) + 1 from etapas where ativo))`;
       }
+      // quem é de um setor passa a ter todas as etapas dele
+      await tx`insert into usuario_etapas (usuario_id, etapa_id)
+                 select distinct ue.usuario_id, e2.id from usuario_etapas ue
+                 join etapas e1 on e1.id = ue.etapa_id and e1.ativo join etapas e2 on e2.setor = e1.setor and e2.ativo
+               on conflict do nothing`;
     });
   } catch (e) {
     return { erro: msg(e) };
@@ -83,6 +90,12 @@ export async function acaoPrazoReprovada(_: Estado, f: FormData): Promise<Estado
   await exigirAdmin();
   const prazo = Math.max(1, Math.min(365, Number(f.get("prazo")) || 10));
   await sql`insert into config (chave, valor) values ('prazo_reprovada', ${String(prazo)}) on conflict (chave) do update set valor = excluded.valor`;
+  const setor = campo(f, "setor_reprovadas").slice(0, 60);
+  if (setor) {
+    await sql`insert into config (chave, valor) values ('setor_reprovadas', ${setor}) on conflict (chave) do update set valor = excluded.valor`;
+    await sql`update usuarios u set trata_reprovadas = exists (select 1 from usuario_etapas ue join etapas e on e.id = ue.etapa_id and e.ativo and e.setor = ${setor} where ue.usuario_id = u.id)
+              where papel = 'interno'`;
+  }
   revalidatePath("/", "layout");
   return { ok: "Prazo salvo." };
 }
@@ -120,7 +133,10 @@ export async function acaoSalvarUsuario(_: Estado, f: FormData): Promise<Estado>
   }
   const cnpjEmpresa = papel === "empresa" ? soDigitos(campo(f, "empresa_cnpj")) || login : null;
   if (papel === "empresa" && cnpjEmpresa!.length !== 14) return { erro: "Para fornecedores, informe o CNPJ com 14 dígitos." };
-  const etapas = papel === "interno" ? f.getAll("etapas").map(Number).filter(Boolean) : [];
+  const setores = papel === "interno" ? f.getAll("setores").map(String) : [];
+  const todasEtapas = await etapasAtivas();
+  const etapas = todasEtapas.filter((e) => setores.includes(e.setor)).map((e) => e.id);
+  const reprovadas = setores.includes(await setorReprovadas());
   const hash = senha ? await hashSenha(senha) : null;
   const gerencia = (papel === "interno" || papel === "consulta") && (geral ? marcado(f, "gerencia_usuarios") : !!alvo?.gerencia_usuarios);
   try {
@@ -129,7 +145,7 @@ export async function acaoSalvarUsuario(_: Estado, f: FormData): Promise<Estado>
       const dados = {
         login, nome, papel, empresa_cnpj: cnpjEmpresa, ativo, gerencia_usuarios: gerencia,
         pode_cadastrar: papel === "interno" && marcado(f, "pode_cadastrar"),
-        trata_reprovadas: papel === "interno" && marcado(f, "trata_reprovadas"),
+        trata_reprovadas: papel === "interno" && reprovadas,
       };
       let uid = id;
       if (id) {

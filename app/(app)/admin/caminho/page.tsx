@@ -1,7 +1,7 @@
 import { Cabecalho } from "@/components/ui";
 import { exigirAdmin } from "@/lib/auth";
 import { sql } from "@/lib/db";
-import { etapasAtivas, prazoReprovada } from "@/lib/fluxo";
+import { etapasAtivas, prazoReprovada, setoresDe, setorReprovadas } from "@/lib/fluxo";
 import { FormAcao } from "@/components/FormAcao";
 import { acaoMoverEtapa, acaoPrazoReprovada, acaoRemoverEtapa, acaoSalvarEtapa } from "@/app/acoes/admin";
 
@@ -9,11 +9,13 @@ export const metadata = { title: "Caminho da tramitação — Administração" }
 
 export default async function Caminho() {
   await exigirAdmin();
-  const [etapas, prazoReprov, contagem] = await Promise.all([
+  const [etapas, prazoReprov, contagem, setorReprov] = await Promise.all([
     etapasAtivas(),
     prazoReprovada(),
     sql`select etapa_id, count(*)::int as n from notas where status in ('em_tramite','reprovada') group by etapa_id`,
+    setorReprovadas(),
   ]);
+  const setores = setoresDe(etapas);
   const naEtapa = new Map(contagem.map((c) => [c.etapa_id, c.n]));
 
   return (
@@ -49,8 +51,9 @@ export default async function Caminho() {
           <div className="flex-1 space-y-3">
             <FormAcao acao={acaoSalvarEtapa} botao="Salvar" className="space-y-3" classeBotao="botao-sec">
               <input type="hidden" name="id" value={e.id} />
-              <div className="grid gap-3 sm:grid-cols-[1fr_9rem]">
+              <div className="grid gap-3 sm:grid-cols-[1fr_12rem_9rem]">
                 <label><span className="rotulo">Nome da etapa</span><input name="nome" defaultValue={e.nome} className="campo" required maxLength={60} /></label>
+                <label><span className="rotulo">Setor</span><input name="setor" defaultValue={e.setor} className="campo" maxLength={60} list="lista-setores" /></label>
                 <label><span className="rotulo">Prazo (dias)</span><input name="prazo_dias" type="number" min={1} max={365} defaultValue={e.prazo_dias} className="campo" required /></label>
               </div>
               <div className="grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
@@ -72,6 +75,7 @@ export default async function Caminho() {
         </div>
       ))}
 
+      <datalist id="lista-setores">{setores.map((s) => <option key={s.nome} value={s.nome} />)}</datalist>
       <div className="cartao p-4">
         <h2 className="mb-3 text-[15px] font-semibold text-slate-900">Adicionar etapa</h2>
         <FormAcao acao={acaoSalvarEtapa} botao="Adicionar ao final" className="grid items-end gap-3 sm:grid-cols-[1fr_9rem_auto]">
@@ -84,6 +88,11 @@ export default async function Caminho() {
       <div className="cartao p-4">
         <h2 className="mb-3 text-[15px] font-semibold text-slate-900">NF reprovadas</h2>
         <FormAcao acao={acaoPrazoReprovada} botao="Salvar" className="flex flex-wrap items-end gap-3" classeBotao="botao-sec">
+          <label><span className="rotulo">Setor que trata as reprovadas</span>
+            <select name="setor_reprovadas" defaultValue={setorReprov} className="campo w-52">
+              {setores.map((s) => <option key={s.nome}>{s.nome}</option>)}
+            </select>
+          </label>
           <label><span className="rotulo">Prazo para retirada pelo fornecedor (dias)</span><input name="prazo" type="number" min={1} max={365} defaultValue={prazoReprov} className="campo w-40" /></label>
         </FormAcao>
       </div>

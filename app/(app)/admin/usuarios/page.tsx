@@ -14,11 +14,11 @@ export default async function Usuarios({ searchParams }: PageProps<"/admin/usuar
   const papel = String((await searchParams).papel ?? "");
   const usuarios = await sql`
     select u.id, u.login, u.nome, u.papel, u.ativo, u.pode_cadastrar, u.trata_reprovadas, u.gerencia_usuarios, u.deve_trocar_senha,
-           (select string_agg(e.nome, ', ' order by e.ordem) from usuario_etapas ue join etapas e on e.id = ue.etapa_id and e.ativo where ue.usuario_id = u.id) as etapas
+           (select string_agg(setor, ', ' order by ordem) from (select e.setor, min(e.ordem) as ordem from usuario_etapas ue join etapas e on e.id = ue.etapa_id and e.ativo where ue.usuario_id = u.id group by e.setor) s) as etapas
     from usuarios u where ${papel ? sql`u.papel = ${papel}` : sql`true`} order by u.ativo desc, u.papel = 'empresa', u.nome`;
   return (
     <div className="space-y-4">
-      <Cabecalho titulo="Usuários" descricao="Quem acessa o sistema, com qual perfil e em quais etapas pode tramitar.">
+      <Cabecalho titulo="Usuários" descricao="Quem acessa o sistema, com qual perfil e em quais setores trabalha.">
         <Link href="/admin/usuarios/novo" className="botao">+ Novo usuário</Link>
       </Cabecalho>
       <div className="flex flex-wrap gap-1.5 text-sm">
@@ -39,7 +39,7 @@ export default async function Usuarios({ searchParams }: PageProps<"/admin/usuar
                 <td className="whitespace-nowrap font-mono text-xs">{login(u.login)}</td>
                 <td>{PAPEL[u.papel]}</td>
                 <td className="text-xs text-slate-600">
-                  {u.papel === "interno" && [u.etapas, u.pode_cadastrar && "Cadastra NF", u.trata_reprovadas && "Trata reprovadas"].filter(Boolean).join(" · ")}
+                  {u.papel === "interno" && [u.etapas, u.pode_cadastrar && "Cadastra NF"].filter(Boolean).join(" · ")}
                   {u.gerencia_usuarios && <span className="ml-1 inline-flex rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700 ring-1 ring-inset ring-violet-200">Administrador de usuários</span>}
                   {u.papel === "empresa" && "Somente as NF do próprio CNPJ"}
                   {u.papel === "admin" && "Acesso total"}

@@ -9,6 +9,7 @@ export type Etapa = {
   prazo_dias: number;
   permite_reprovar: boolean;
   emite_laudo: boolean;
+  setor: string;
   exige_arrecadacao: boolean;
   faz_armazenagem: boolean;
   entrada_sob_medida: boolean;
@@ -26,6 +27,18 @@ export const NOME_STATUS_FINAL: Record<string, string> = {
 
 export async function etapasAtivas(db: Tx | typeof sql = sql): Promise<Etapa[]> {
   return db<Etapa[]>`select * from etapas where ativo order by ordem, id`;
+}
+
+/** Setores na ordem do caminho, com as etapas de cada um. */
+export function setoresDe(etapas: Etapa[]) {
+  const mapa = new Map<string, Etapa[]>();
+  for (const e of etapas) mapa.set(e.setor, [...(mapa.get(e.setor) ?? []), e]);
+  return [...mapa.entries()].map(([nome, lista]) => ({ nome, etapas: lista }));
+}
+
+export async function setorReprovadas(): Promise<string> {
+  const [r] = await sql`select valor from config where chave = 'setor_reprovadas'`;
+  return (r?.valor as string) ?? "";
 }
 
 export async function prazoReprovada(): Promise<number> {
