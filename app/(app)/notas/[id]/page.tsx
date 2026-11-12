@@ -9,10 +9,11 @@ import { AcoesNota } from "@/components/AcoesNota";
 import { FormAcao } from "@/components/FormAcao";
 import type { BotaoFila } from "@/components/FilaTabela";
 import { acaoAjusteAdmin, acaoEditarNota, acaoObservacao } from "@/app/acoes/notas";
+import { laudosDaNota, podeEmitirLaudo } from "@/lib/laudo";
 
 const TIPO: Record<string, string> = {
   cadastro: "Cadastro", avanco: "Avanço", retorno: "Devolução", reprovacao: "Reprovação", retirada: "Retirada", finalizacao: "Finalização",
-  ajuste: "Ajuste do administrador", observacao: "Observação", arrecadacao: "Arrecadação", armazenagem: "Armazenagem", xml: "Dados da NF-e",
+  ajuste: "Ajuste do administrador", observacao: "Observação", laudo: "Laudo pericial", arrecadacao: "Arrecadação", armazenagem: "Armazenagem", xml: "Dados da NF-e",
 };
 
 function Campo({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
@@ -30,7 +31,8 @@ export default async function DetalheNota({ params }: PageProps<"/notas/[id]">) 
   const nota = await obterNota(u, Number((await params).id));
   if (!nota) notFound();
   const interno = ehInterno(u);
-  const [eventos, etapas, prazoReprov] = await Promise.all([eventosDaNota(nota.id), etapasAtivas(), prazoReprovada()]);
+  const [eventos, etapas, prazoReprov, laudos] = await Promise.all([eventosDaNota(nota.id), etapasAtivas(), prazoReprovada(), interno ? laudosDaNota(nota.id) : []]);
+  const perito = podeEmitirLaudo(u, etapas);
 
   // Tempo em cada etapa, a partir do histórico de movimentações
   const movs = eventos.filter((e) => e.movimento);
@@ -144,6 +146,25 @@ export default async function DetalheNota({ params }: PageProps<"/notas/[id]">) 
         <div className="cartao border-marinha/30 p-5">
           <h2 className="mb-3 text-[15px] font-semibold text-slate-900">Tramitar</h2>
           <AcoesNota id={nota.id} botoes={botoes} />
+        </div>
+      )}
+
+      {(perito || laudos.length > 0) && (
+        <div className="cartao flex flex-wrap items-start justify-between gap-4 p-5">
+          <div>
+            <h2 className="text-[15px] font-semibold text-slate-900">Laudo pericial</h2>
+            {laudos.length === 0 ? <p className="mt-1 text-sm text-slate-500">Nenhum laudo emitido para esta NF.</p> : (
+              <ul className="mt-2 space-y-1 text-sm">
+                {laudos.map((l) => (
+                  <li key={l.id}>
+                    <a href={`/api/laudos/${l.id}`} className="font-medium text-marinha hover:underline">Protocolo {l.protocolo || "—"}</a>
+                    <span className="text-slate-500"> · {dataHora(l.criado_em)}{l.por ? ` · ${l.por}` : ""}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          {perito && <Link href={`/notas/${nota.id}/laudo`} className="botao">{laudos.length ? "Emitir novo laudo" : "Emitir laudo pericial"}</Link>}
         </div>
       )}
 

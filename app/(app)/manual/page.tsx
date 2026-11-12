@@ -101,6 +101,22 @@ export default async function Manual() {
       </>,
     },
     {
+      id: "laudo", titulo: "Laudo pericial", para: ["admin", "interno"], conteudo: <>
+        <p>Quem atua na perícia emite o laudo pelo botão <B>Laudo</B> ao lado da NF na fila da Perícia, ou por <B>Emitir laudo pericial</B> na página da NF.</p>
+        <Passos>
+          <li>Informe o protocolo, o lote e a fabricação.</li>
+          <li>Marque o resultado da perícia visual, se as medidas estão de acordo (com explicação quando não estão) e as observações.</li>
+          <li>Marque o resultado da perícia laboratorial e, quando houver, o ofício ao SENAI e as datas de envio e recebimento.</li>
+          <li>Clique em <B>Emitir laudo e baixar</B>. O arquivo do Word é baixado já preenchido com os dados da NF e o nome do Diretor.</li>
+        </Passos>
+        <Lista>
+          <li>O laudo fica registrado no histórico da NF e pode ser baixado de novo na página da nota.</li>
+          <li>Para corrigir, emita um novo laudo: o formulário já vem preenchido com o anterior.</li>
+          <li>Emitir o laudo não movimenta a NF; a tramitação (avançar ou reprovar) continua sendo feita na fila.</li>
+        </Lista>
+      </>,
+    },
+    {
       id: "arrecadacao", titulo: "Arrecadação e armazenagem", para: OPERADORES, conteudo: <>
         <Lista>
           <li>Na etapa <B>{arrecada}</B>, use <B>Marcar como arrecadada</B> antes de finalizar. Sem isso, o botão de avançar não aparece.</li>
@@ -193,6 +209,12 @@ export default async function Manual() {
           <li>Crie usuários, defina o perfil e, para internos, as etapas em que tramitam e se cadastram NF ou tratam reprovadas.</li>
           <li>Para redefinir a senha de alguém, preencha <B>Nova senha</B> e mantenha marcado <B>Exigir troca de senha</B>.</li>
           <li>Desmarque <B>Usuário ativo</B> para bloquear o acesso sem apagar o histórico.</li>
+        </Lista>
+        <p className="mt-3 font-semibold text-slate-900">Modelo do laudo</p>
+        <Lista>
+          <li>Em <Ir href="/admin/laudo">Modelo do laudo</Ir>, altere os <B>campos fixos</B> (nome, posto e cargo do Diretor e o tratamento na resolução) e salve. Os próximos laudos saem com os novos valores; os já emitidos mantêm os da época.</li>
+          <li>Você pode criar campos fixos novos (ex.: nome do Encarregado da Divisão Técnica) e usá-los no Word com o marcador entre chaves duplas, como {"{{encarregado_nome}}"}.</li>
+          <li>Para mudar o texto ou o layout, baixe o modelo atual, edite no Word, salve como .docx e envie. Use <B>Baixar exemplo preenchido</B> para conferir e <B>Restaurar modelo padrão</B> se algo der errado.</li>
         </Lista>
         <p className="mt-3 font-semibold text-slate-900">Ajuste do administrador</p>
         <p>Na página da NF, o quadro <B>Ajuste do administrador</B> coloca a NF em qualquer etapa ou situação, para corrigir erros. O motivo é obrigatório e fica no histórico.</p>

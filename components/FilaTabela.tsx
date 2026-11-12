@@ -13,7 +13,7 @@ export type BotaoFila = { acao: Acao; rotulo: string; estilo?: "principal" | "se
 
 const COR = { verde: "bg-emerald-500", amarelo: "bg-amber-400", vermelho: "bg-red-500" };
 
-export function FilaTabela({ linhas, botoes, mostrarArrecadacao }: { linhas: LinhaFila[]; botoes: BotaoFila[]; mostrarArrecadacao: boolean }) {
+export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false }: { linhas: LinhaFila[]; botoes: BotaoFila[]; mostrarArrecadacao: boolean; laudo?: boolean }) {
   const [sel, setSel] = useState<Set<number>>(new Set());
   const [filtro, setFiltro] = useState("");
   const [obs, setObs] = useState("");
@@ -80,6 +80,7 @@ export function FilaTabela({ linhas, botoes, mostrarArrecadacao }: { linhas: Lin
                   <td><input type="checkbox" aria-label={`Selecionar NF ${l.numero}`} checked={sel.has(l.id)} onChange={() => alternar(l.id)} /></td>
                   <td className="whitespace-nowrap">
                     <Link href={`/notas/${l.id}`} className="font-semibold text-marinha hover:underline">{l.numero}</Link>
+                    {laudo && <Link href={`/notas/${l.id}/laudo`} className="ml-2 rounded border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 hover:border-marinha hover:text-marinha">Laudo</Link>}
                     {l.situacao && <span className="block text-xs text-slate-500">{l.situacao}</span>}
                     {mostrarArrecadacao && (
                       <span className={`block text-xs ${l.arrecadada ? "text-emerald-700" : "text-amber-700"}`}>{l.arrecadada ? "Arrecadada" : "Não arrecadada"}</span>
