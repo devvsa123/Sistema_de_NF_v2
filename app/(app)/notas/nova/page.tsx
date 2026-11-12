@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import { exigirUsuario, podeCadastrar } from "@/lib/auth";
 import { etapasAtivas } from "@/lib/fluxo";
 import { EnvioXml } from "@/components/EnvioXml";
-import { FormChave } from "@/components/FormChave";
+import { FormAcao } from "@/components/FormAcao";
+import { acaoCadastrarManual } from "@/app/acoes/notas";
 
 export const metadata = { title: "Cadastrar NF — Tramitação de NF" };
 
@@ -23,11 +24,20 @@ export default async function NovaNota() {
         <strong>Sem acesso ao XML?</strong> No Portal da NF-e (nfe.fazenda.gov.br → Consultar NF-e), abra a nota pela chave de acesso, clique em imprimir e
         escolha <em>Salvar como PDF</em>. Envie esse PDF aqui: o sistema lê os mesmos dados (emitente, itens, totais, OC, empenho).
       </p>
-      <section className="cartao p-5">
-        <h2 className="text-[15px] font-semibold text-slate-900">Sem XML nem PDF: cadastrar pela chave de acesso</h2>
-        <p className="mb-4 mt-1 text-sm text-slate-500">Digite ou cole a chave de acesso: o sistema confere a chave e preenche número, CNPJ e empresa. Falta só informar o valor.</p>
-        <FormChave />
-      </section>
+      <details className="cartao p-5">
+        <summary className="cursor-pointer text-sm font-semibold text-slate-700">Não tem XML nem PDF? Cadastrar manualmente</summary>
+        <FormAcao acao={acaoCadastrarManual} botao="Cadastrar nota" className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="sm:col-span-2"><span className="rotulo">Chave de acesso (ou nº do documento)</span><input name="chave" className="campo" maxLength={60} /></label>
+          <label><span className="rotulo">Número da NF</span><input name="numero" className="campo" required maxLength={20} /></label>
+          <label><span className="rotulo">Valor total (R$)</span><input name="valor" className="campo" required inputMode="decimal" placeholder="1.234,56" /></label>
+          <label><span className="rotulo">CNPJ da empresa</span><input name="cnpj" className="campo" required maxLength={20} /></label>
+          <label><span className="rotulo">Nome da empresa</span><input name="nome" className="campo" required maxLength={200} /></label>
+          <label><span className="rotulo">OC</span><input name="oc" className="campo" maxLength={60} /></label>
+          <label className="flex items-end gap-2 pb-2 text-sm"><input type="checkbox" name="sob_medida" /> Material sob medida</label>
+          <label className="sm:col-span-2"><span className="rotulo">Observação</span><input name="obs" className="campo" maxLength={2000} /></label>
+          <span className="sm:col-span-2" />
+        </FormAcao>
+      </details>
     </div>
   );
 }

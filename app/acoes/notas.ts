@@ -7,7 +7,6 @@ import { exigirUsuario, podeCadastrar } from "@/lib/auth";
 import { ajustarComoAdmin, executarAcao, registrarEvento, type Acao, type OpcoesAcao } from "@/lib/fluxo";
 import { analisarDocumento, cadastrarManual, cadastrarPorDocumento, obterNota, type Documento } from "@/lib/notas";
 import { textoBusca } from "@/lib/nfe";
-import { lerChave } from "@/lib/chave";
 import type { Estado } from "@/components/FormAcao";
 
 const ACOES: Acao[] = ["avancar", "retornar", "reprovar", "retirar", "reabrir", "arrecadar", "armazenar"];
@@ -117,32 +116,4 @@ export async function acaoCadastrarManual(_: Estado, f: FormData): Promise<Estad
   }
   revalidatePath("/", "layout");
   redirect(`/notas/${id}`);
-}
-
-/** Lê a chave de acesso digitada e completa o que for possível: número, série, CNPJ e nome da empresa. */
-export async function acaoConsultarChave(texto: string) {
-  const u = await exigirUsuario();
-  if (!podeCadastrar(u)) return { erro: "Seu perfil não permite cadastrar NF." };
-  const r = lerChave(String(texto ?? ""));
-  if (!r.ok) return { erro: r.erro };
-  const chave = String(texto).replace(/\D/g, "");
-  const [existente] = await sql`select id, numero from notas where chave = ${chave} limit 1`;
-  const [empresa] = await sql`select nome from empresas where cnpj = ${r.dados.cnpj}`;
-  const [ultima] = await sql`select oc from notas where emit_cnpj = ${r.dados.cnpj} and oc is not null order by recebida_em desc limit 1`;
-  let nome: string | null = (empresa?.nome as string) ?? null;
-  let origemNome = nome ? "cadastro do sistema" : "";
-  if (!nome) {
-    // empresa nova: consulta o nome no cadastro público de CNPJ (gratuito); se não responder, o nome é digitado
-    try {
-      const resp = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${r.dados.cnpj}`, { signal: AbortSignal.timeout(5000), cache: "no-store" });
-      if (resp.ok) {
-        const j = (await resp.json()) as { razao_social?: string };
-        if (j.razao_social) { nome = j.razao_social.toUpperCase(); origemNome = "cadastro público de CNPJ"; }
-      }
-    } catch {}
-  }
-  return {
-    dados: { ...r.dados, nome, origemNome, ultimaOc: (ultima?.oc as string) ?? null },
-    existente: existente ? { id: existente.id as number, numero: existente.numero as string } : null,
-  };
 }

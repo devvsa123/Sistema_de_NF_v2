@@ -1,7 +1,6 @@
 import "server-only";
 import { getDocumentProxy } from "unpdf";
 import { soDigitos } from "./format";
-import { digitoVerificadorOk } from "./chave";
 import type { DadosNF, ItemNF, NFLida } from "./nfe";
 
 /**
@@ -95,7 +94,16 @@ class Leitor {
   }
 }
 
-const conferirChave = digitoVerificadorOk;
+function conferirChave(chave: string) {
+  if (!/^\d{44}$/.test(chave)) return false;
+  let soma = 0, peso = 2;
+  for (let i = 42; i >= 0; i--) {
+    soma += Number(chave[i]) * peso;
+    peso = peso === 9 ? 2 : peso + 1;
+  }
+  const dv = 11 - (soma % 11);
+  return (dv >= 10 ? 0 : dv) === Number(chave[43]);
+}
 
 /** "Informações adicionais do produto" (descrição completa informada pela empresa), quando a consulta traz esse campo. */
 function infAdItem(L: Leitor, ini: number, fim: number): string | undefined {
