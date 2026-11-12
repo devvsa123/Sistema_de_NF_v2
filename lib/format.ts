@@ -75,3 +75,19 @@ export function nomeMes(ym: string) {
   const s = new Date(Date.UTC(a, m - 1, 15)).toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
+
+/**
+ * Endereço de volta (a pesquisa ou a fila de onde a NF foi aberta), levado no link como ?volta=...
+ * Só aceita páginas internas do sistema.
+ */
+export function destinoVolta(v: unknown): { href: string; rotulo: string } | null {
+  if (typeof v !== "string" || v.length > 1500 || !/^\/(notas(\/itens)?|gerencial|relatorios)?(\?[^#\s]*)?$/.test(v)) return null;
+  if (v.startsWith("/notas/itens")) return { href: v, rotulo: "Voltar para a pesquisa de itens" };
+  if (v.startsWith("/notas")) return { href: v, rotulo: "Voltar para a pesquisa" };
+  if (v.startsWith("/gerencial")) return { href: v, rotulo: "Voltar para o Gerencial" };
+  if (v.startsWith("/relatorios")) return { href: v, rotulo: "Voltar para o relatório" };
+  return { href: v, rotulo: "Voltar para a fila" };
+}
+
+/** Link para a NF que lembra de onde ela foi aberta. */
+export const linkNota = (id: number, volta?: string) => (volta ? `/notas/${id}?volta=${encodeURIComponent(volta)}` : `/notas/${id}`);

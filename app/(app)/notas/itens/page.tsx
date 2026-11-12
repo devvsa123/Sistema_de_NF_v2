@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ehInterno, exigirUsuario } from "@/lib/auth";
 import { buscarItens, contarNotasSemItens, ITENS_POR_PAGINA, normalizar, termos, type FiltrosItens } from "@/lib/itens";
 import { listarEmpresas } from "@/lib/notas";
-import { data, moeda, numero } from "@/lib/format";
+import { data, linkNota, moeda, numero } from "@/lib/format";
 import { Selo, Vazio, Cabecalho } from "@/components/ui";
 import { AbasBusca } from "@/components/AbasBusca";
 
@@ -122,7 +122,7 @@ export default async function BuscaItens({ searchParams }: PageProps<"/notas/ite
                   <tr key={`${i.nota_id}-${i.n}-${k}`} className={k === 0 ? "border-t-2 border-slate-200" : ""}>
                     {k === 0 && (
                       <td rowSpan={g.itens.length} className="min-w-48 bg-slate-50/60">
-                        <Link href={`/notas/${i.nota_id}`} className="font-semibold text-marinha hover:underline">NF {i.numero}</Link>
+                        <Link href={linkNota(i.nota_id, `/notas/itens?${qs({})}`)} className="font-semibold text-marinha hover:underline">NF {i.numero}</Link>
                         <span className="mt-0.5 block"><Selo nota={i} paraEmpresa={!interno} /></span>
                         {interno && <span className="mt-1 block max-w-56 text-xs text-slate-600">{i.emit_nome}</span>}
                         <span className="block text-xs text-slate-400">Recebida {data(i.recebida_em)}{i.oc ? ` · OC ${i.oc}` : ""}</span>

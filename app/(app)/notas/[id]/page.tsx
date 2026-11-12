@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ehInterno, exigirUsuario, podeCadastrar } from "@/lib/auth";
 import { acoesPermitidas, etapasAtivas, prazoReprovada, vizinhos, type Acao } from "@/lib/fluxo";
 import { eventosDaNota, obterNota } from "@/lib/notas";
-import { cnpj, data, dataHora, dias, moeda, numero } from "@/lib/format";
+import { cnpj, data, dataHora, destinoVolta, dias, moeda, numero } from "@/lib/format";
 import { Farol, Selo, Voltar } from "@/components/ui";
 import { AcoesNota } from "@/components/AcoesNota";
 import { FormAcao } from "@/components/FormAcao";
@@ -26,10 +26,11 @@ function Campo({ rotulo, children }: { rotulo: string; children: React.ReactNode
   );
 }
 
-export default async function DetalheNota({ params }: PageProps<"/notas/[id]">) {
+export default async function DetalheNota({ params, searchParams }: PageProps<"/notas/[id]">) {
   const u = await exigirUsuario();
   const nota = await obterNota(u, Number((await params).id));
   if (!nota) notFound();
+  const volta = destinoVolta((await searchParams).volta);
   const interno = ehInterno(u);
   const [eventos, etapas, prazoReprov, laudos] = await Promise.all([eventosDaNota(nota.id), etapasAtivas(), prazoReprovada(), interno ? laudosDaNota(nota.id) : []]);
   const perito = podeEmitirLaudo(u, etapas);
@@ -65,7 +66,7 @@ export default async function DetalheNota({ params }: PageProps<"/notas/[id]">) 
 
   return (
     <div className="space-y-4">
-      <Voltar href="/notas">Notas fiscais</Voltar>
+      <Voltar href={volta?.href ?? "/notas"}>{volta?.rotulo ?? "Notas fiscais"}</Voltar>
 
       <div className="cartao p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -164,7 +165,7 @@ export default async function DetalheNota({ params }: PageProps<"/notas/[id]">) 
               </ul>
             )}
           </div>
-          {perito && <Link href={`/notas/${nota.id}/laudo`} className="botao">{laudos.length ? "Emitir novo laudo" : "Emitir laudo pericial"}</Link>}
+          {perito && <Link href={`/notas/${nota.id}/laudo${volta ? `?volta=${encodeURIComponent(volta.href)}` : ""}`} className="botao">{laudos.length ? "Emitir novo laudo" : "Emitir laudo pericial"}</Link>}
         </div>
       )}
 

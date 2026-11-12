@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ehInterno, exigirUsuario } from "@/lib/auth";
 import { etapasAtivas, prazoReprovada } from "@/lib/fluxo";
 import { buscarNotas, listarEmpresas, POR_PAGINA, type Filtros } from "@/lib/notas";
-import { cnpj, data, dias, moeda } from "@/lib/format";
+import { cnpj, data, dias, linkNota, moeda } from "@/lib/format";
 import { Farol, Selo, Vazio, Cabecalho } from "@/components/ui";
 import { AbasBusca } from "@/components/AbasBusca";
 
@@ -107,7 +107,7 @@ export default async function Notas({ searchParams }: PageProps<"/notas">) {
               {linhas.map((n) => (
                 <tr key={n.id}>
                   <td className="whitespace-nowrap">
-                    <Link href={`/notas/${n.id}`} className="font-semibold text-marinha hover:underline">{n.numero}</Link>
+                    <Link href={linkNota(n.id, `/notas?${qs({})}`)} className="font-semibold text-marinha hover:underline">{n.numero}</Link>
                     {n.fonte && <span title={n.fonte === "xml" ? "XML anexado" : "Dados lidos do PDF da consulta na SEFAZ"} className="ml-1.5 rounded bg-slate-100 px-1 text-[10px] font-semibold uppercase text-slate-500">{n.fonte}</span>}
                   </td>
                   {interno && (

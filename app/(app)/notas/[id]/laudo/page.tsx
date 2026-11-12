@@ -4,7 +4,7 @@ import { exigirUsuario } from "@/lib/auth";
 import { etapasAtivas } from "@/lib/fluxo";
 import { obterNota } from "@/lib/notas";
 import { laudosDaNota, nfDoLaudo, podeEmitirLaudo } from "@/lib/laudo";
-import { cnpj, data, dataHora, moeda } from "@/lib/format";
+import { cnpj, data, dataHora, destinoVolta, linkNota, moeda } from "@/lib/format";
 import { Cabecalho, Selo, Voltar } from "@/components/ui";
 import { FormLaudo } from "@/components/FormLaudo";
 import { BaixarAutomatico } from "@/components/BaixarAutomatico";
@@ -18,12 +18,13 @@ export default async function Laudo({ params, searchParams }: PageProps<"/notas/
   if (!podeEmitirLaudo(u, etapas)) redirect(`/notas/${id}`);
   const [nota, nf, laudos] = await Promise.all([obterNota(u, id), nfDoLaudo(id), laudosDaNota(id)]);
   if (!nota || !nf) notFound();
-  const emitido = Number((await searchParams).emitido) || null;
+  const sp = await searchParams;
+  const emitido = Number(sp.emitido) || null;
   const ultimo = laudos[0]?.dados.formulario;
 
   return (
     <div className="mx-auto max-w-4xl">
-      <div className="mb-3"><Voltar href={`/notas/${id}`}>NF {nota.numero}</Voltar></div>
+      <div className="mb-3"><Voltar href={linkNota(id, destinoVolta(sp.volta)?.href)}>NF {nota.numero}</Voltar></div>
       <Cabecalho titulo="Laudo pericial" descricao="Preencha os dados da perícia. Os dados da NF e os campos fixos (Diretor, posto e cargo) entram automaticamente no modelo do laudo." />
 
       {emitido && laudos.some((l) => l.id === emitido) && (
