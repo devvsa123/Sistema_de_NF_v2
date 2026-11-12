@@ -10,6 +10,7 @@ export type Etapa = {
   permite_reprovar: boolean;
   emite_laudo: boolean;
   setor: string;
+  emite_docs_recebimento: boolean;
   exige_arrecadacao: boolean;
   faz_armazenagem: boolean;
   entrada_sob_medida: boolean;

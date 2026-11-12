@@ -4,6 +4,7 @@ import { exigirUsuario } from "@/lib/auth";
 import { etapasAtivas } from "@/lib/fluxo";
 import { obterNota } from "@/lib/notas";
 import { laudosDaNota, nfDoLaudo, podeEmitirLaudo } from "@/lib/laudo";
+import { docsDaNota } from "@/lib/recebimento";
 import { cnpj, data, dataHora, destinoVolta, linkNota, moeda } from "@/lib/format";
 import { Cabecalho, Selo, Voltar } from "@/components/ui";
 import { FormLaudo } from "@/components/FormLaudo";
@@ -20,7 +21,9 @@ export default async function Laudo({ params, searchParams }: PageProps<"/notas/
   if (!nota || !nf) notFound();
   const sp = await searchParams;
   const emitido = Number(sp.emitido) || null;
-  const ultimo = laudos[0]?.dados.formulario;
+  // sem laudo anterior, aproveita lote e fabricação informados pelo Recebimento no TAV
+  const receb = laudos.length ? null : (await docsDaNota(id))[0]?.dados.formulario;
+  const ultimo = laudos[0]?.dados.formulario ?? (receb ? { lote: receb.lote, fabricacao: receb.fabricacao } : undefined);
 
   return (
     <div className="mx-auto max-w-4xl">

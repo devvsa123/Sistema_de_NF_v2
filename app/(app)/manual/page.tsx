@@ -102,6 +102,22 @@ export default async function Manual() {
       </>,
     },
     {
+      id: "docs-recebimento", titulo: "TAV e Check-list de Recebimento", para: ["admin", "interno"], conteudo: <>
+        <p>O <B>Recebimento</B> emite o TAV (Termo de Abertura de Volumes) e o Check-list de Recebimento enquanto a NF está em <B>Pré Recebimento</B> ou <B>Contagem</B>, pelo botão <B>TAV / Check-list</B> ao lado da NF na fila ou por <B>Emitir TAV e Check-list</B> na página da NF.</p>
+        <Passos>
+          <li>Confira o <B>número do TAV</B> (o sistema sugere o próximo do ano) e a data do recebimento; informe ID do PA, lote, fabricação e volumes.</li>
+          <li>Marque se a conferência foi por contagem manual ou pesagem e responda SIM ou NÃO às perguntas do TAV.</li>
+          <li>No Check-list, informe o peso de um volume, itens por caixa, a data de envio da amostra e se houve discrepância na contagem.</li>
+          <li>Clique em <B>Emitir TAV e Check-list</B> e baixe os dois documentos, já preenchidos com NF, OC e empresa.</li>
+        </Passos>
+        <Lista>
+          <li>Os documentos ficam registrados no histórico da NF e podem ser baixados de novo na página da nota.</li>
+          <li>Para corrigir, emita novamente: o formulário já vem preenchido com o registro anterior. O mesmo número de TAV não pode ser usado em outra NF no mesmo ano.</li>
+          <li>Lote e fabricação informados no TAV já aparecem preenchidos no laudo pericial.</li>
+        </Lista>
+      </>,
+    },
+    {
       id: "laudo", titulo: "Laudo pericial", para: ["admin", "interno"], conteudo: <>
         <p>Somente os usuários da <B>Perícia</B> emitem o laudo, pelo botão <B>Laudo</B> ao lado da NF na fila da Perícia, ou por <B>Emitir laudo pericial</B> na página da NF.</p>
         <Passos>
@@ -203,7 +219,7 @@ export default async function Manual() {
         <p className="font-semibold text-slate-900">Caminho da tramitação</p>
         <Lista>
           <li>Renomeie etapas, ajuste prazos, defina o <B>setor</B> de cada etapa (etapas com o mesmo setor são atribuídas juntas aos usuários) e use ▲ ▼ para mudar a ordem. As mudanças valem na hora.</li>
-          <li>Marque em cada etapa se ela pode reprovar, se os usuários dela emitem o laudo pericial, se exige arrecadação, se marca armazenagem e se é a entrada do material sob medida.</li>
+          <li>Marque em cada etapa se ela pode reprovar, se os usuários dela emitem o laudo pericial ou o TAV e Check-list, se exige arrecadação, se marca armazenagem e se é a entrada do material sob medida.</li>
           <li>Uma etapa só pode ser removida quando não houver NF nela.</li>
         </Lista>
         <p className="mt-3 font-semibold text-slate-900">Usuários</p>
@@ -212,11 +228,11 @@ export default async function Manual() {
           <li>Para redefinir a senha de alguém, preencha <B>Nova senha</B> e mantenha marcado <B>Exigir troca de senha</B>.</li>
           <li>Desmarque <B>Usuário ativo</B> para bloquear o acesso sem apagar o histórico.</li>
         </Lista>
-        <p className="mt-3 font-semibold text-slate-900">Modelo do laudo</p>
+        <p className="mt-3 font-semibold text-slate-900">Modelos de documentos</p>
         <Lista>
-          <li>Em <Ir href="/admin/laudo">Modelo do laudo</Ir>, altere os <B>campos fixos</B> (nome, posto e cargo do Diretor e o tratamento na resolução) e salve. Os próximos laudos saem com os novos valores; os já emitidos mantêm os da época.</li>
+          <li>Em <Ir href="/admin/laudo">Modelos de documentos</Ir>, altere os <B>campos fixos</B> (nome, posto e cargo do Diretor e o tratamento na resolução) e salve. Os próximos laudos saem com os novos valores; os já emitidos mantêm os da época.</li>
           <li>Você pode criar campos fixos novos (ex.: nome do Encarregado da Divisão Técnica) e usá-los no Word com o marcador entre chaves duplas, como {"{{encarregado_nome}}"}.</li>
-          <li>Para mudar o texto ou o layout, baixe o modelo atual, edite no Word, salve como .docx e envie. Use <B>Baixar exemplo preenchido</B> para conferir e <B>Restaurar modelo padrão</B> se algo der errado.</li>
+          <li>Para mudar o texto ou o layout do laudo, do TAV ou do Check-list, escolha o documento, baixe o modelo atual, edite no Word ou no LibreOffice, salve como .docx ou .odt e envie. Use <B>Baixar exemplo preenchido</B> para conferir e <B>Restaurar modelo padrão</B> se algo der errado.</li>
         </Lista>
         <p className="mt-3 font-semibold text-slate-900">Ajuste do administrador</p>
         <p>Na página da NF, o quadro <B>Ajuste do administrador</B> coloca a NF em qualquer etapa ou situação, para corrigir erros. O motivo é obrigatório e fica no histórico.</p>

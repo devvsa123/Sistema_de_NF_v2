@@ -10,10 +10,11 @@ import { FormAcao } from "@/components/FormAcao";
 import type { BotaoFila } from "@/components/FilaTabela";
 import { acaoAjusteAdmin, acaoEditarNota, acaoObservacao } from "@/app/acoes/notas";
 import { laudosDaNota, podeEmitirLaudo } from "@/lib/laudo";
+import { docsDaNota, podeEmitirRecebimento } from "@/lib/recebimento";
 
 const TIPO: Record<string, string> = {
   cadastro: "Cadastro", avanco: "Avanço", retorno: "Devolução", reprovacao: "Reprovação", retirada: "Retirada", finalizacao: "Finalização",
-  ajuste: "Ajuste do administrador", observacao: "Observação", laudo: "Laudo pericial", arrecadacao: "Arrecadação", armazenagem: "Armazenagem", xml: "Dados da NF-e",
+  ajuste: "Ajuste do administrador", observacao: "Observação", laudo: "Laudo pericial", docs_recebimento: "Documentos do Recebimento", arrecadacao: "Arrecadação", armazenagem: "Armazenagem", xml: "Dados da NF-e",
 };
 
 function Campo({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
@@ -32,8 +33,9 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
   if (!nota) notFound();
   const volta = destinoVolta((await searchParams).volta);
   const interno = ehInterno(u);
-  const [eventos, etapas, prazoReprov, laudos] = await Promise.all([eventosDaNota(nota.id), etapasAtivas(), prazoReprovada(), interno ? laudosDaNota(nota.id) : []]);
+  const [eventos, etapas, prazoReprov, laudos, docsReceb] = await Promise.all([eventosDaNota(nota.id), etapasAtivas(), prazoReprovada(), interno ? laudosDaNota(nota.id) : [], interno ? docsDaNota(nota.id) : []]);
   const perito = podeEmitirLaudo(u, etapas);
+  const recebedor = podeEmitirRecebimento(u, etapas, nota);
 
   // Tempo em cada etapa, a partir do histórico de movimentações
   const movs = eventos.filter((e) => e.movimento);
@@ -147,6 +149,28 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
         <div className="cartao border-marinha/30 p-5">
           <h2 className="mb-3 text-[15px] font-semibold text-slate-900">Tramitar</h2>
           <AcoesNota id={nota.id} botoes={botoes} />
+        </div>
+      )}
+
+      {(recebedor || docsReceb.length > 0) && (
+        <div className="cartao flex flex-wrap items-start justify-between gap-4 p-5">
+          <div>
+            <h2 className="text-[15px] font-semibold text-slate-900">Documentos do Recebimento</h2>
+            {docsReceb.length === 0 ? <p className="mt-1 text-sm text-slate-500">Nenhum TAV ou Check-list emitido para esta NF.</p> : (
+              <ul className="mt-2 space-y-1 text-sm">
+                {docsReceb.map((r) => (
+                  <li key={r.id}>
+                    TAV nº <strong>{r.numero_tav}/{r.ano}</strong>
+                    <span className="text-slate-500"> · {dataHora(r.criado_em)}{r.por ? ` · ${r.por}` : ""} · </span>
+                    <a href={`/api/recebimento/${r.id}?doc=tav`} className="font-medium text-marinha hover:underline">TAV</a>
+                    <span className="text-slate-300"> | </span>
+                    <a href={`/api/recebimento/${r.id}?doc=checklist`} className="font-medium text-marinha hover:underline">Check-list</a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          {recebedor && <Link href={`/notas/${nota.id}/recebimento${volta ? `?volta=${encodeURIComponent(volta.href)}` : ""}`} className="botao">{docsReceb.length ? "Emitir novamente" : "Emitir TAV e Check-list"}</Link>}
         </div>
       )}
 

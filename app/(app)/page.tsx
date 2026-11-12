@@ -90,7 +90,7 @@ export default async function MinhaFila({ searchParams }: PageProps<"/">) {
       {notas.length === 0 ? (
         <Vazio>Nenhuma nota fiscal nesta fila. 🎉</Vazio>
       ) : (
-        <FilaTabela key={aba.chave} linhas={linhas} botoes={botoes} mostrarArrecadacao={!!etapa?.exige_arrecadacao} laudo={perito && (!!etapa?.emite_laudo || aba.chave === "reprovadas")} volta={`/?aba=${aba.chave}`} />
+        <FilaTabela key={aba.chave} linhas={linhas} botoes={botoes} mostrarArrecadacao={!!etapa?.exige_arrecadacao} laudo={perito && (!!etapa?.emite_laudo || aba.chave === "reprovadas")} docsRecebimento={u.papel === "interno" && !!etapa?.emite_docs_recebimento} volta={`/?aba=${aba.chave}`} />
       )}
     </div>
   );

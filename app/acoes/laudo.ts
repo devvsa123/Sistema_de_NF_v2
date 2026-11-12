@@ -10,6 +10,7 @@ import {
   type CampoFixo, type DadosLaudo,
 } from "@/lib/laudo";
 import type { Estado } from "@/components/FormAcao";
+import { DOCUMENTOS, ehDoc } from "@/lib/modelos-docs";
 
 const campo = (f: FormData, nome: string) => String(f.get(nome) ?? "").slice(0, 2000);
 const msg = (e: unknown) => (e instanceof Error ? e.message : "Erro inesperado.");
@@ -55,19 +56,21 @@ export async function acaoSalvarCamposFixos(_: Estado, f: FormData): Promise<Est
     return { erro: msg(e) };
   }
   revalidatePath("/admin/laudo");
-  return { ok: "Campos fixos salvos. Os próximos laudos já saem com os novos valores." };
+  return { ok: "Campos fixos salvos. Os próximos documentos já saem com os novos valores." };
 }
 
 export async function acaoEnviarModelo(_: Estado, f: FormData): Promise<Estado> {
   const u = await exigirAdmin();
+  const doc = String(f.get("doc") ?? "");
+  if (!ehDoc(doc)) return { erro: "Documento inválido." };
   const arq = f.get("arquivo");
-  if (!(arq instanceof File) || !arq.size) return { erro: "Escolha o arquivo .docx do modelo." };
-  if (!/\.docx$/i.test(arq.name)) return { erro: "O modelo precisa ser um arquivo do Word (.docx). Se estiver em .doc, salve como .docx." };
+  if (!(arq instanceof File) || !arq.size) return { erro: "Escolha o arquivo do modelo (.docx ou .odt)." };
+  if (!/\.(docx|odt)$/i.test(arq.name)) return { erro: "O modelo precisa ser .docx (Word) ou .odt (LibreOffice). Se estiver em .doc, salve em um desses formatos." };
   if (arq.size > 2 * 1024 * 1024) return { erro: "O modelo tem mais de 2 MB." };
   const bytes = new Uint8Array(await arq.arrayBuffer());
   try {
-    const { achados, desconhecidos } = analisarModelo(bytes, await camposFixos());
-    await salvarModelo(u, bytes, arq.name);
+    const { achados, desconhecidos } = analisarModelo(bytes, await camposFixos(), DOCUMENTOS[doc].marcadores);
+    await salvarModelo(u, bytes, arq.name, doc);
     revalidatePath("/admin/laudo");
     const aviso = desconhecidos.length ? ` Atenção: estes marcadores não são conhecidos e sairão em branco no laudo: ${desconhecidos.join(", ")}.` : "";
     return { ok: `Modelo atualizado (${achados.length} marcadores encontrados).${aviso}` };
@@ -76,9 +79,11 @@ export async function acaoEnviarModelo(_: Estado, f: FormData): Promise<Estado> 
   }
 }
 
-export async function acaoRestaurarModelo(): Promise<Estado> {
+export async function acaoRestaurarModelo(_: Estado, f: FormData): Promise<Estado> {
   const u = await exigirAdmin();
-  await restaurarModeloPadrao(u);
+  const doc = String(f.get("doc") ?? "");
+  if (!ehDoc(doc)) return { erro: "Documento inválido." };
+  await restaurarModeloPadrao(u, doc);
   revalidatePath("/admin/laudo");
   return { ok: "Modelo padrão restaurado." };
 }

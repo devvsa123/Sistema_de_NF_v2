@@ -6,7 +6,6 @@ import { cnpj, data } from "./format";
 import { marcadoresDoModelo, preencherDocx } from "./docx";
 
 export const MODELO = "laudo_pericial";
-export const MODELO_PADRAO = "laudo_pericial_padrao";
 
 /** Marcadores preenchidos automaticamente ou pelo perito. Os campos fixos (Diretor etc.) ficam em `config`. */
 export const MARCADORES: { chave: string; descricao: string; origem: "NF" | "Perito" }[] = [
@@ -76,21 +75,21 @@ export async function modeloAtual(chave = MODELO) {
   return { arquivo: new Uint8Array(r.arquivo as Buffer), nome: r.nome_arquivo as string, atualizadoEm: r.atualizado_em as Date, por: r.atualizado_por_nome as string | null };
 }
 
-export function analisarModelo(arquivo: Uint8Array, fixos: CampoFixo[]) {
+export function analisarModelo(arquivo: Uint8Array, fixos: CampoFixo[], marcadores: { chave: string }[] = MARCADORES) {
   const achados = marcadoresDoModelo(arquivo);
-  const conhecidos = new Set([...MARCADORES.map((m) => m.chave), ...fixos.map((f) => f.chave), ...Object.keys(LEGADO)]);
+  const conhecidos = new Set([...marcadores.map((m) => m.chave), ...fixos.map((f) => f.chave), ...Object.keys(LEGADO)]);
   return { achados, desconhecidos: achados.filter((a) => !conhecidos.has(a.toLowerCase())) };
 }
 
-export async function salvarModelo(u: Usuario, arquivo: Uint8Array, nome: string) {
+export async function salvarModelo(u: Usuario, arquivo: Uint8Array, nome: string, chave = MODELO) {
   marcadoresDoModelo(arquivo); // valida o arquivo
   await sql`update modelos set arquivo = ${Buffer.from(arquivo)}, nome_arquivo = ${nome}, atualizado_em = now(), atualizado_por = ${u.id}
-            where chave = ${MODELO}`;
+            where chave = ${chave}`;
 }
 
-export async function restaurarModeloPadrao(u: Usuario) {
+export async function restaurarModeloPadrao(u: Usuario, chave = MODELO) {
   await sql`update modelos m set arquivo = p.arquivo, nome_arquivo = p.nome_arquivo, atualizado_em = now(), atualizado_por = ${u.id}
-            from modelos p where m.chave = ${MODELO} and p.chave = ${MODELO_PADRAO}`;
+            from modelos p where m.chave = ${chave} and p.chave = ${chave + "_padrao"}`;
 }
 
 /** Somente os usuários vinculados à etapa que emite laudo (a Perícia). */
@@ -171,7 +170,7 @@ export async function documentoDoLaudo(laudoId: number) {
 
 /** Exemplo preenchido com dados fictícios, para conferir um modelo novo. */
 export async function exemploDoModelo() {
-  const [{ arquivo }, fixos] = await Promise.all([modeloAtual(), camposFixos()]);
+  const [{ arquivo }, fixos] = await Promise.all([modeloAtual(MODELO), camposFixos()]);
   const exemplo: Record<string, string> = {
     numero_nf: "12345", numero_oc: "1180000", cnpj: "00.000.000/0001-00", nome_empresa: "EMPRESA EXEMPLO LTDA", valor_nf: "R$ 100.000,00",
     chave_acesso: "33260000000000000100550010000123451000000000", data_pericia: data(new Date()), data_emissao_laudo: data(new Date()), perito: "Nome do Perito",
