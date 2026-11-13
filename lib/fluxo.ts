@@ -1,5 +1,6 @@
 import "server-only";
 import { sql, type Tx } from "./db";
+import { bloqueioArmazenagem } from "./estoque";
 import type { Usuario } from "./auth";
 
 export type Etapa = {
@@ -153,10 +154,15 @@ export async function executarAcao(u: Usuario, notaId: number, acao: Acao, op: O
         await tx`update notas set arrecadada_em = now() where id = ${nota.id}`;
         await registrarEvento(tx, { ...base, de_nome: null, tipo: "arrecadacao", texto: op.obs });
         break;
-      case "armazenar":
+      case "armazenar": {
+        // só armazena com todas as UZ alocadas no WMS (quando a exigência estiver ligada)
+        const [n] = await tx`select numero, id_pa from notas where id = ${nota.id}`;
+        const bloqueio = await bloqueioArmazenagem(n as { numero: string; id_pa: string | null });
+        if (bloqueio) throw new Error(bloqueio);
         await tx`update notas set armazenada_em = now() where id = ${nota.id}`;
         await registrarEvento(tx, { ...base, de_nome: null, tipo: "armazenagem", texto: op.obs });
         break;
+      }
     }
   });
 }

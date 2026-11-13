@@ -118,6 +118,22 @@ export default async function Manual() {
       </>,
     },
     {
+      id: "estoque", titulo: "Itens × estoque (WMS) e plano de caixas", para: ["admin", "interno", "consulta"], conteudo: <>
+        <p>Na página de cada NF com itens (XML ou PDF), o quadro <B>Itens × estoque (WMS)</B> liga cada item da nota ao item do estoque e calcula as caixas pelo padrão de caixa (<B>CXP</B>) do WMS.</p>
+        <Lista>
+          <li>Exemplo: 101 unidades com CXP 20 = <B>5 caixas cheias + 1 fracionada com 1 unidade</B> = 6 caixas.</li>
+          <li><B>PI na nota</B>: o fornecedor informou o PI. <B>Confirmada</B>: alguém já confirmou essa correlação para o fornecedor. <B>Automática</B>: a descrição bate com segurança. <B>Verificar</B>: a correlação é provável, confira. <B>Sem correlação</B>: nenhum item do estoque corresponde.</li>
+          <li>Para corrigir, use <B>Escolher item do estoque</B>, <B>Confirmar ou trocar</B> ou <B>Trocar</B>: escolha uma sugestão, pesquise no catálogo ou digite o PI. A escolha vale para as próximas NF do mesmo fornecedor.</li>
+          <li>O total de caixas pelo padrão aparece ao lado dos volumes declarados na NF, para ajudar na contagem.</li>
+        </Lista>
+        <p className="mt-3 font-semibold text-slate-900">Alocação no WMS (ID de PA e UZ)</p>
+        <Lista>
+          <li>O <B>ID de PA</B> é preenchido pelo TAV e pode ser informado ou corrigido no quadro <B>Alocação no WMS</B> da NF. Também dá para pesquisar a NF pelo ID de PA.</li>
+          <li>Quando a planilha de alocação das UZ estiver disponível e a exigência estiver ligada, a estocagem só consegue marcar a NF como armazenada depois que todas as UZ do ID de PA saírem da LOC virtual (REC).</li>
+        </Lista>
+      </>,
+    },
+    {
       id: "laudo", titulo: "Laudo pericial", para: ["admin", "interno"], conteudo: <>
         <p>Somente os usuários da <B>Perícia</B> (e o administrador geral) emitem o laudo, pelo botão <B>Laudo</B> ao lado da NF na fila da Perícia, ou por <B>Emitir laudo pericial</B> na página da NF.</p>
         <Passos>
@@ -237,6 +253,11 @@ export default async function Manual() {
           <li>Em <Ir href="/admin/laudo">Modelos de documentos</Ir>, altere os <B>campos fixos</B> (nome, posto e cargo do Diretor e o tratamento na resolução) e salve. Os próximos laudos saem com os novos valores; os já emitidos mantêm os da época.</li>
           <li>Você pode criar campos fixos novos (ex.: nome do Encarregado da Divisão Técnica) e usá-los no Word com o marcador entre chaves duplas, como {"{{encarregado_nome}}"}.</li>
           <li>Para mudar o texto ou o layout do laudo, do TAV ou do Check-list, escolha o documento, baixe o modelo atual, edite no Word ou no LibreOffice, salve como .docx ou .odt e envie. Use <B>Baixar exemplo preenchido</B> para conferir e <B>Restaurar modelo padrão</B> se algo der errado.</li>
+        </Lista>
+        <p className="mt-3 font-semibold text-slate-900">Estoque (WMS)</p>
+        <Lista>
+          <li>Em <Ir href="/admin/estoque">Estoque (WMS)</Ir> fica a integração com as planilhas do RPA no GitHub: o catálogo do estoque é atualizado automaticamente todo dia às 6h, ou na hora pelo botão <B>Atualizar agora do GitHub</B>. Também é possível importar o arquivo manualmente.</li>
+          <li>Ali se configura a planilha de alocação das UZ, a LOC virtual (REC) e a exigência de todas as UZ alocadas para armazenar.</li>
         </Lista>
         <p className="mt-3 font-semibold text-slate-900">Ajuste do administrador</p>
         <p>Na página da NF, o quadro <B>Ajuste do administrador</B> coloca a NF em qualquer etapa ou situação, para corrigir erros. O motivo é obrigatório e fica no histórico.</p>

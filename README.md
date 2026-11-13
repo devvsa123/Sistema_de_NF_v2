@@ -12,6 +12,7 @@ Substitui o sistema antigo em Streamlit + Google Planilhas (`controledepfard-v2`
 - **Gerencial**: NF em cada setor por situação de prazo, as mais antigas de cada setor, evolução mensal dos tempos com tendência, NF despachadas por setor por dia e visão por fornecedor
 - **Relatório mensal**: recebidas, finalizadas, reprovadas (%), tempo médio total e por etapa, por empresa
 - **Laudo pericial** em Word emitido pela perícia, com modelo e campos fixos (Diretor etc.) editáveis em Administração → Modelo do laudo
+- **Itens × estoque (WMS)**: correlação dos itens da NF com o catálogo do estoque (planilha do RPA no GitHub) e plano de caixas pelo CXP; alocação das UZ por ID de PA para liberar a armazenagem
 - **Manual do usuário** dentro do sistema, adaptado a cada perfil
 - **Importação** da planilha antiga (usuários, notas, histórico e observações)
 
@@ -26,6 +27,16 @@ Substitui o sistema antigo em Streamlit + Google Planilhas (`controledepfard-v2`
 6. Em **Importar**, envie o `.xlsx` da planilha “Laboratório” (Arquivo → Fazer download → Microsoft Excel) e importe usuários e depois notas.
 
 Os usuários entram com o mesmo NIP/CNPJ e a mesma senha do sistema antigo, e são obrigados a trocá-la no primeiro acesso.
+
+## Integração com as planilhas do RPA (WMS)
+
+O catálogo do estoque (`controle-estoque.xlsx`) é lido do repositório privado configurado em Administração → Estoque (WMS)
+(padrão `DepfmrjAbastecimento/planilhas`). Variáveis na Vercel (Settings → Environment Variables):
+
+| Variável | Para quê |
+| --- | --- |
+| `PLANILHAS_GITHUB_TOKEN` | Token do GitHub com permissão **somente de leitura** (Contents: Read-only) no repositório das planilhas |
+| `CRON_SECRET` | Texto secreto qualquer; protege a atualização automática diária (`vercel.json`, 6h de Brasília) |
 
 ## Desenvolvimento local
 

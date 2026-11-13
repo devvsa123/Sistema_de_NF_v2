@@ -28,6 +28,7 @@ export default async function LayoutApp({ children }: LayoutProps<"/">) {
             { href: "/admin/caminho", rotulo: "Caminho da tramitação", icone: "caminho" },
             { href: "/admin/usuarios", rotulo: "Usuários", icone: "usuarios" },
             { href: "/admin/laudo", rotulo: "Modelos de documentos", icone: "relatorio" },
+            { href: "/admin/estoque", rotulo: "Estoque (WMS)", icone: "importar" },
             { href: "/admin/importar", rotulo: "Importar planilha", icone: "importar" },
           ],
         }]

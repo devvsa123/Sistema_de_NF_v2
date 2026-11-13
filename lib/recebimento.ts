@@ -109,6 +109,7 @@ export async function emitirRecebimento(u: Usuario, notaId: number, d: DadosRece
   return sql.begin(async (tx) => {
     const [r] = await tx`insert into docs_recebimento (nota_id, numero_tav, ano, dados, criado_por, criado_por_nome)
                          values (${notaId}, ${numero}, ${ano}, ${tx.json({ formulario: d, valores } as never)}, ${u.id}, ${u.nome}) returning id`;
+    if (d.id_pa.trim()) await tx`update notas set id_pa = ${d.id_pa.trim()} where id = ${notaId}`;
     await tx`insert into eventos (nota_id, tipo, usuario_id, usuario_nome, texto)
              values (${notaId}, 'docs_recebimento', ${u.id}, ${u.nome}, ${`TAV nº ${numero}/${ano} e Check-list de Recebimento emitidos`})`;
     return r.id as number;

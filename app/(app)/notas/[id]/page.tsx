@@ -11,6 +11,7 @@ import type { BotaoFila } from "@/components/FilaTabela";
 import { acaoAjusteAdmin, acaoEditarNota, acaoObservacao } from "@/app/acoes/notas";
 import { laudosDaNota, podeEmitirLaudo } from "@/lib/laudo";
 import { docsDaNota, podeEmitirRecebimento } from "@/lib/recebimento";
+import { AlocacaoWms, ItensEstoque } from "@/components/ItensEstoque";
 
 const TIPO: Record<string, string> = {
   cadastro: "Cadastro", avanco: "Avanço", retorno: "Devolução", reprovacao: "Reprovação", retirada: "Retirada", finalizacao: "Finalização",
@@ -61,7 +62,7 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
     armazenar: { acao: "armazenar", rotulo: "Marcar como armazenada", estilo: "sec" },
   };
   const botoes = (["retornar", "reabrir", "reprovar", "arrecadar", "armazenar", "retirar", "avancar"] as Acao[]).filter((a) => permitidas.includes(a)).map((a) => ROTULOS[a]);
-  const d = nota.dados;
+  const d = nota.dados?.emit ? nota.dados : null; // só exibe os dados da NF-e quando estão completos
   const itens = nota.itens ?? [];
   const historico = interno ? eventos : movs;
   const emAberto = nota.status === "em_tramite" || nota.status === "reprovada";
@@ -253,6 +254,9 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
           </table>
         </div>
       )}
+
+      {interno && <ItensEstoque nota={nota} podeCorrigir={u.papel === "admin" || u.papel === "interno"} />}
+      {interno && <AlocacaoWms nota={nota} podeEditar={u.papel === "admin" || u.papel === "interno"} />}
 
       {!nota.fonte && podeCadastrar(u) && (
         <p className="rounded-lg border border-dashed border-slate-300 bg-white px-4 py-3 text-sm text-slate-600">

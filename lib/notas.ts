@@ -15,7 +15,7 @@ export type NotaLista = {
 
 export type Nota = NotaLista & {
   empenho: string | null; data_emissao: Date | null; natureza: string | null; reprov_visual: string | null;
-  reprov_laboratorial: string | null; dados: DadosNF | null; itens: ItemNF[] | null; origem: string;
+  reprov_laboratorial: string | null; dados: DadosNF | null; itens: ItemNF[] | null; origem: string; id_pa: string | null;
 };
 
 /** Regra central de isolamento: empresa só enxerga NF do próprio CNPJ. */
@@ -46,7 +46,7 @@ function condicoes(u: Usuario, f: Filtros, prazoReprov: number) {
   for (const termo of (f.q ?? "").toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6)) {
     const t = "%" + termo.replace(/[\\%_]/g, "\\$&") + "%";
     const d = soDigitos(termo);
-    c.push(d.length >= 3 && d !== termo ? sql`(n.busca like ${t} or n.busca like ${"%" + d + "%"})` : sql`n.busca like ${t}`);
+    c.push(d.length >= 3 && d !== termo ? sql`(n.busca like ${t} or n.busca like ${"%" + d + "%"} or n.id_pa = ${termo})` : sql`(n.busca like ${t} or n.id_pa = ${termo})`);
   }
   const s = f.situacao ?? "";
   if (s.startsWith("etapa:")) c.push(sql`n.status = 'em_tramite' and n.etapa_id = ${Number(s.slice(6)) || 0}`);
@@ -100,7 +100,7 @@ export async function contagemFilas() {
 export async function obterNota(u: Usuario, id: number): Promise<Nota | null> {
   if (!Number.isInteger(id)) return null;
   const [n] = await sql<Nota[]>`select ${COLUNAS}, null as ultima_obs, n.empenho, n.data_emissao, n.natureza, n.reprov_visual,
-      n.reprov_laboratorial, n.dados, n.itens, n.origem
+      n.reprov_laboratorial, n.dados, n.itens, n.origem, n.id_pa
     from notas n left join etapas e on e.id = n.etapa_id where n.id = ${id} and ${visivel(u)}`;
   return n ?? null;
 }
