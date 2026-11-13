@@ -117,13 +117,14 @@ export async function registrarEvento(
   e: {
     nota_id: number; tipo: string; movimento?: boolean; de_nome?: string | null; para_etapa_id?: number | null;
     para_status?: string | null; para_nome?: string | null; usuario?: Usuario | null; usuario_nome?: string | null;
-    texto?: string | null; criado_em?: Date | null;
+    texto?: string | null; criado_em?: Date | null; marcados?: string | null;
   },
-) {
-  await db`insert into eventos (nota_id, tipo, movimento, de_nome, para_etapa_id, para_status, para_nome, usuario_id, usuario_nome, texto, criado_em)
+): Promise<number> {
+  const [r] = await db`insert into eventos (nota_id, tipo, movimento, de_nome, para_etapa_id, para_status, para_nome, usuario_id, usuario_nome, texto, criado_em, marcados)
            values (${e.nota_id}, ${e.tipo}, ${e.movimento ?? false}, ${e.de_nome ?? null}, ${e.para_etapa_id ?? null}, ${e.para_status ?? null},
                    ${e.para_nome ?? null}, ${e.usuario?.id ?? null}, ${e.usuario?.nome ?? e.usuario_nome ?? null}, ${e.texto?.trim() || null},
-                   coalesce(${e.criado_em ?? null}::timestamptz, now()))`;
+                   coalesce(${e.criado_em ?? null}::timestamptz, now()), ${e.marcados ?? null}) returning id`;
+  return r.id as number;
 }
 
 export type OpcoesAcao = { obs?: string; visual?: string; laboratorial?: string };

@@ -3,6 +3,7 @@ import { exigirUsuario, podeCadastrar, podeGerirUsuarios } from "@/lib/auth";
 import { Lateral, type GrupoMenu } from "@/components/Nav";
 import { Icone } from "@/components/Icone";
 import { acaoSair } from "@/app/acoes/auth";
+import { Avisos } from "@/components/Avisos";
 
 const PAPEL: Record<string, string> = { admin: "Administrador geral", interno: "Usuário interno", consulta: "Consulta", empresa: "Fornecedor" };
 
@@ -13,7 +14,7 @@ export default async function LayoutApp({ children }: LayoutProps<"/">) {
     {
       titulo: "Operação",
       itens: [
-        ...(operador ? [{ href: "/", rotulo: "Minha fila", icone: "fila" }] : []),
+        ...(operador ? [{ href: "/", rotulo: "Minha fila", icone: "fila" }, { href: "/mensagens", rotulo: "Mensagens", icone: "mensagem" }] : []),
         { href: "/notas", rotulo: u.papel === "empresa" ? "Minhas notas" : "Notas fiscais", icone: "notas" },
         ...(podeCadastrar(u) ? [{ href: "/notas/nova", rotulo: "Cadastrar NF", icone: "novo" }] : []),
       ],
@@ -54,6 +55,7 @@ export default async function LayoutApp({ children }: LayoutProps<"/">) {
       />
       <div className="lg:pl-64 print:pl-0">
         <main className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
+        {operador && <Avisos />}
       </div>
     </div>
   );

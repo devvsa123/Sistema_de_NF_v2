@@ -13,6 +13,7 @@ const D: Record<string, string> = {
   sair: "M15 4h4v16h-4M10 8l-4 4 4 4M6 12h11",
   menu: "M4 6h16M4 12h16M4 18h16",
   fechar: "M6 6l12 12M18 6L6 18",
+  mensagem: "M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z",
 };
 
 export function Icone({ nome, className = "h-5 w-5" }: { nome: keyof typeof D | string; className?: string }) {

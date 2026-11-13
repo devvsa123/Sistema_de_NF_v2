@@ -107,6 +107,22 @@ export default async function Manual() {
       </>,
     },
     {
+      id: "mensagens", titulo: "Mensagens: marcar pessoas e setores", para: ["admin", "interno"], conteudo: <>
+        <p>Para tratar problemas, erros e dúvidas de uma NF sem telefonema nem deslocamento, escreva uma observação e <B>marque</B> a pessoa ou o setor. Tudo fica registrado no histórico da NF.</p>
+        <Passos>
+          <li>Na fila, clique em <B>+ Observação</B> na linha da NF (ou use <B>Nova observação</B> na página da NF).</li>
+          <li>Escreva a mensagem e, no campo <B>@ Marcar pessoa ou setor</B>, digite parte do nome e escolha. Pode marcar várias pessoas e setores.</li>
+          <li>Clique em <B>Registrar</B>. Marcando um setor, todos os usuários dele são avisados.</li>
+        </Passos>
+        <Lista>
+          <li>Quem foi marcado vê uma <B>janela vermelha em destaque</B> ao entrar no sistema. Se já estiver usando, ela aparece em até 20 segundos, com um aviso sonoro, e o título da aba pisca.</li>
+          <li>Na janela: <B>Ciente</B> (registra no histórico que você leu), <B>Responder</B> (já marca quem escreveu) ou <B>Abrir NF</B>. <B>Ver depois</B> deixa um botão vermelho no canto da tela até você dar ciente.</li>
+          <li>Em <B>Mensagens</B>, no menu, ficam as recebidas (pendentes em destaque) e as enviadas, com quem já deu ciente e quem ainda falta.</li>
+          <li>No histórico e na janela de comentários, as mensagens marcadas mostram <B>Para: @…</B>, e o ciente aparece com nome, data e hora.</li>
+        </Lista>
+      </>,
+    },
+    {
       id: "docs-recebimento", titulo: "TAV e Check-list de Recebimento", para: ["admin", "interno"], conteudo: <>
         <p>O <B>Recebimento</B> (e o administrador geral) emite o TAV (Termo de Abertura de Volumes) e o Check-list de Recebimento enquanto a NF está em <B>Pré Recebimento</B> ou <B>Contagem</B>, pelo botão <B>TAV / Check-list</B> ao lado da NF na fila ou pelos botões <B>Emitir TAV</B> e <B>Emitir Check-list</B> na página da NF.</p>
         <Passos>

@@ -8,6 +8,7 @@ import { ajustarComoAdmin, definirIdPa, etapasAtivas, executarAcao, podeEditarId
 import { analisarDocumento, cadastrarManual, cadastrarPorDocumento, obterNota, type Documento } from "@/lib/notas";
 import { textoBusca } from "@/lib/nfe";
 import { TIPO_EVENTO } from "@/lib/format";
+import { cienteAoResponder, lerMarcados, observarComMarcacao } from "@/lib/mencoes";
 import type { Estado } from "@/components/FormAcao";
 
 const ACOES: Acao[] = ["avancar", "retornar", "reprovar", "retirar", "reabrir", "arrecadar", "armazenar"];
@@ -40,9 +41,13 @@ export async function acaoObservacao(_: Estado, f: FormData): Promise<Estado> {
   const texto = campo(f, "texto").slice(0, 2000);
   if (!texto) return { erro: "Escreva a observação." };
   if (!(await obterNota(u, id))) return { erro: "NF não encontrada." };
-  await registrarEvento(sql, { nota_id: id, tipo: "observacao", usuario: u, texto });
-  revalidatePath(`/notas/${id}`);
-  return { ok: "Observação registrada." };
+  const r = await sql.begin(async (tx) => {
+    const r = await observarComMarcacao(tx, u, id, texto, lerMarcados(f.get("marcados")));
+    await cienteAoResponder(tx, u, id);
+    return r;
+  });
+  revalidatePath("/", "layout");
+  return { ok: r.avisados ? `Observação registrada. ${r.avisados} pessoa(s) avisada(s).` : "Observação registrada." };
 }
 
 /** ID de PA informado direto na fila. */
@@ -62,7 +67,7 @@ export async function acaoIdPaFila(id: number, valor: string): Promise<{ erro?: 
   return { idPa: v || null };
 }
 
-export type Comentario = { id: number; tipo: string; titulo: string; usuario: string; texto: string; em: string };
+export type Comentario = { id: number; tipo: string; titulo: string; usuario: string; texto: string; em: string; marcados: string | null };
 
 /** Todos os comentários (registros com texto) do histórico da NF, do mais recente para o mais antigo. */
 export async function acaoComentarios(id: number): Promise<{ erro?: string; numero?: string; obsOc?: string; itens: Comentario[] }> {
@@ -70,28 +75,31 @@ export async function acaoComentarios(id: number): Promise<{ erro?: string; nume
   if (u.papel !== "admin" && u.papel !== "interno") return { erro: "Seu perfil não permite ver os comentários.", itens: [] };
   const nota = await obterNota(u, Number(id));
   if (!nota) return { erro: "NF não encontrada.", itens: [] };
-  const linhas = await sql`select id, tipo, movimento, de_nome, para_nome, usuario_nome, texto, criado_em from eventos
+  const linhas = await sql`select id, tipo, movimento, de_nome, para_nome, usuario_nome, texto, criado_em, marcados from eventos
                            where nota_id = ${nota.id} and texto is not null and btrim(texto) <> '' order by criado_em desc, id desc limit 500`;
   return {
     numero: nota.numero, obsOc: nota.obs_oc ?? undefined,
     itens: linhas.map((e) => ({
       id: e.id as number, tipo: e.tipo as string, texto: e.texto as string, usuario: (e.usuario_nome as string | null) ?? "—",
       titulo: e.movimento && e.de_nome ? `${e.de_nome} → ${e.para_nome}` : (TIPO_EVENTO[e.tipo as string] ?? (e.tipo as string)),
-      em: (e.criado_em as Date).toISOString(),
+      em: (e.criado_em as Date).toISOString(), marcados: (e.marcados as string | null) ?? null,
     })),
   };
 }
 
 /** Registra uma observação direto da fila e devolve a lista atualizada. */
-export async function acaoComentar(id: number, texto: string) {
+export async function acaoComentar(id: number, texto: string, marcados: string[] = []) {
   const u = await exigirUsuario();
   if (u.papel !== "admin" && u.papel !== "interno") return { erro: "Seu perfil não permite registrar observações.", itens: [] as Comentario[] };
   const t = String(texto ?? "").trim().slice(0, 2000);
   if (!t) return { erro: "Escreva a observação.", itens: [] as Comentario[] };
   const nota = await obterNota(u, Number(id));
   if (!nota) return { erro: "NF não encontrada.", itens: [] as Comentario[] };
-  await registrarEvento(sql, { nota_id: nota.id, tipo: "observacao", usuario: u, texto: t });
-  revalidatePath("/");
+  await sql.begin(async (tx) => {
+    await observarComMarcacao(tx, u, nota.id, t, lerMarcados(marcados));
+    await cienteAoResponder(tx, u, nota.id);
+  });
+  revalidatePath("/", "layout");
   revalidatePath(`/notas/${nota.id}`);
   return acaoComentarios(nota.id);
 }

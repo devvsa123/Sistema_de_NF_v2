@@ -30,7 +30,7 @@ const COLUNAS = sql`
   extract(epoch from (now() - n.arrecadada_em)) / 86400 as dias_arrecadada,
   extract(epoch from (coalesce(n.concluida_em, now()) - n.recebida_em)) / 86400 as dias_total`;
 
-const ULTIMA_OBS = sql`(select ev.texto from eventos ev where ev.nota_id = n.id and ev.texto is not null order by ev.criado_em desc, ev.id desc limit 1) as ultima_obs`;
+const ULTIMA_OBS = sql`(select ev.texto from eventos ev where ev.nota_id = n.id and ev.texto is not null and ev.tipo <> 'ciente' order by ev.criado_em desc, ev.id desc limit 1) as ultima_obs`;
 
 export type Filtros = {
   q?: string; situacao?: string; cnpj?: string; de?: string; ate?: string; vmin?: string; vmax?: string;
@@ -86,7 +86,7 @@ export async function fila(tipo: { etapa: number } | "reprovadas" | "armazenar")
     : tipo === "armazenar" ? sql`n.arrecadada_em is not null and n.armazenada_em is null and n.status in ('em_tramite','finalizada')`
     : sql`n.status = 'em_tramite' and n.etapa_id = ${tipo.etapa}`;
   return sql<NotaLista[]>`select ${COLUNAS}, ${ULTIMA_OBS},
-      (select count(*)::int from eventos ev where ev.nota_id = n.id and ev.texto is not null) as n_comentarios from notas n left join etapas e on e.id = n.etapa_id
+      (select count(*)::int from eventos ev where ev.nota_id = n.id and ev.texto is not null and ev.tipo <> 'ciente') as n_comentarios from notas n left join etapas e on e.id = n.etapa_id
       where ${onde} order by ${tipo === "armazenar" ? sql`n.arrecadada_em` : sql`n.etapa_desde`} asc limit 1000`;
 }
 
@@ -108,11 +108,11 @@ export async function obterNota(u: Usuario, id: number): Promise<Nota | null> {
 
 export type Evento = {
   id: number; tipo: string; movimento: boolean; de_nome: string | null; para_nome: string | null; para_status: string | null;
-  para_etapa_id: number | null; usuario_nome: string | null; texto: string | null; criado_em: Date;
+  para_etapa_id: number | null; usuario_nome: string | null; texto: string | null; criado_em: Date; marcados: string | null;
 };
 
 export async function eventosDaNota(notaId: number) {
-  return sql<Evento[]>`select id, tipo, movimento, de_nome, para_nome, para_status, para_etapa_id, usuario_nome, texto, criado_em
+  return sql<Evento[]>`select id, tipo, movimento, de_nome, para_nome, para_status, para_etapa_id, usuario_nome, texto, criado_em, marcados
                        from eventos where nota_id = ${notaId} order by criado_em, id`;
 }
 

@@ -4,11 +4,13 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { acaoComentar, acaoComentarios, type Comentario } from "@/app/acoes/notas";
 import { dataHora } from "@/lib/format";
+import { Marcar, ParaQuem } from "./Marcar";
 
 const COR: Record<string, string> = {
   observacao: "bg-sky-50 text-sky-700 ring-sky-200",
   reprovacao: "bg-red-50 text-red-700 ring-red-200",
   retorno: "bg-amber-50 text-amber-800 ring-amber-200",
+  ciente: "bg-emerald-50 text-emerald-700 ring-emerald-200",
 };
 
 /** Botões da fila: registrar observação na NF e abrir a janela com todos os comentários dela. */
@@ -30,12 +32,16 @@ export function ComentariosNota({ id, numero, total }: { id: number; numero: str
           Comentários{total ? ` (${total})` : ""}
         </button>
       </span>
-      {aberto && <Janela id={id} numero={numero} foco={aberto} fechar={fechar} />}
+      {aberto && <JanelaComentarios id={id} numero={numero} foco={aberto} fechar={fechar} />}
     </>
   );
 }
 
-function Janela({ id, numero, foco, fechar }: { id: number; numero: string; foco: "comentar" | "ver"; fechar: () => void }) {
+/** Janela com os comentários da NF e o campo para registrar uma observação (com marcação). */
+export function JanelaComentarios({ id, numero, foco, fechar, marcadosIniciais = [], aoRegistrar }: {
+  id: number; numero: string; foco: "comentar" | "ver"; fechar: () => void; marcadosIniciais?: string[]; aoRegistrar?: () => void;
+}) {
+  const [marcados, setMarcados] = useState<string[]>(marcadosIniciais);
   const [itens, setItens] = useState<Comentario[] | null>(null);
   const [obsOc, setObsOc] = useState<string | undefined>();
   const [erro, setErro] = useState("");
@@ -58,12 +64,14 @@ function Janela({ id, numero, foco, fechar }: { id: number; numero: string; foco
   function enviar() {
     if (!texto.trim()) return;
     iniciar(async () => {
-      const r = await acaoComentar(id, texto);
+      const r = await acaoComentar(id, texto, marcados);
       if (r.erro) return setErro(r.erro);
       setItens(r.itens);
       setTexto("");
+      setMarcados([]);
       setErro("");
       setSalvo(true);
+      aoRegistrar?.();
       router.refresh(); // atualiza a coluna "Última observação" e o contador
     });
   }
@@ -89,8 +97,9 @@ function Janela({ id, numero, foco, fechar }: { id: number; numero: string; foco
               className="campo" placeholder="Escreva a observação e clique em Registrar"
               onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) enviar(); }} />
           </label>
+          <div className="mt-2"><Marcar valor={marcados} onChange={setMarcados} /></div>
           <div className="mt-2 flex items-center justify-between gap-3">
-            <span className="text-xs text-slate-500">{salvo ? <span className="text-emerald-700">Observação registrada.</span> : "Fica no histórico da NF, com seu nome e a data."}</span>
+            <span className="text-xs text-slate-500">{salvo ? <span className="text-emerald-700">Observação registrada.</span> : marcados.length ? "Quem for marcado recebe um aviso em destaque no sistema." : "Fica no histórico da NF, com seu nome e a data."}</span>
             <button type="button" className="botao" onClick={enviar} disabled={pendente || !texto.trim()}>{pendente ? "Registrando…" : "Registrar"}</button>
           </div>
           {erro && <p className="mt-2 text-sm text-red-700">{erro}</p>}
@@ -114,6 +123,7 @@ function Janela({ id, numero, foco, fechar }: { id: number; numero: string; foco
                       <span className="font-medium text-slate-700">{c.usuario}</span>
                       <span>{dataHora(c.em)}</span>
                     </div>
+                    <ParaQuem marcados={c.marcados} />
                     <p className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{c.texto}</p>
                   </li>
                 ))}

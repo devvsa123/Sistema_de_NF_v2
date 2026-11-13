@@ -7,8 +7,9 @@ import { cnpj, data, dataHora, destinoVolta, dias, moeda, numero, TIPO_EVENTO } 
 import { Farol, Selo, Voltar } from "@/components/ui";
 import { AcoesNota } from "@/components/AcoesNota";
 import { FormAcao } from "@/components/FormAcao";
+import { FormObservacao } from "@/components/FormObservacao";
 import type { BotaoFila } from "@/components/FilaTabela";
-import { acaoAjusteAdmin, acaoEditarNota, acaoObservacao } from "@/app/acoes/notas";
+import { acaoAjusteAdmin, acaoEditarNota } from "@/app/acoes/notas";
 import { laudosDaNota, podeEmitirLaudo } from "@/lib/laudo";
 import { docsDaNota, numeroTav, podeEmitirRecebimento } from "@/lib/recebimento";
 import { AlocacaoWms, ItensEstoque } from "@/components/ItensEstoque";
@@ -292,6 +293,7 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
                   <strong>{e.movimento ? (e.de_nome ? `${e.de_nome} → ${interno || e.para_status !== "finalizada" ? e.para_nome : "Enviada para o COMRJ"}` : e.para_nome) : TIPO[e.tipo] ?? e.tipo}</strong>
                   {e.movimento && e.tipo !== "avanco" && e.tipo !== "cadastro" && <span className="ml-2 text-xs text-slate-500">({TIPO[e.tipo] ?? e.tipo})</span>}
                 </p>
+                {interno && e.marcados && <p className="mt-0.5 inline-flex rounded-md bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-900 ring-1 ring-amber-200">Para: {e.marcados}</p>}
                 {interno && e.texto && <p className="whitespace-pre-wrap text-sm text-slate-600">{e.texto}</p>}
                 <p className="text-xs text-slate-400">{dataHora(e.criado_em)}{interno && e.usuario_nome ? ` · ${e.usuario_nome}` : ""}</p>
               </li>
@@ -303,10 +305,7 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
           <div className="space-y-4">
             <div className="cartao p-5">
               <h2 className="mb-3 text-[15px] font-semibold text-slate-900">Nova observação</h2>
-              <FormAcao acao={acaoObservacao} botao="Registrar" className="space-y-3">
-                <input type="hidden" name="id" value={nota.id} />
-                <textarea name="texto" className="campo" rows={3} maxLength={2000} required />
-              </FormAcao>
+              <FormObservacao id={nota.id} />
             </div>
 
             {podeCadastrar(u) && (
