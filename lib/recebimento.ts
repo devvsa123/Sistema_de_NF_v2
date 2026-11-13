@@ -75,7 +75,6 @@ export function podeEmitirRecebimento(u: Usuario, etapas: Etapa[], nota: { statu
 export type DocRecebimento = "tav" | "checklist";
 
 export function validarTav(d: DadosRecebimento): string | null {
-  if (!/^\d{1,6}$/.test(d.numero_tav.trim())) return "Informe o número do TAV (somente números).";
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d.data_recebimento)) return "Informe a data do recebimento.";
   if (d.conferencia !== "Contagem manual" && d.conferencia !== "Pesagem") return "Escolha se a conferência foi por contagem manual ou pesagem.";
   if (d.respostas.length !== PERGUNTAS_TAV.length || d.respostas.some((r) => r !== "Sim" && r !== "Não"))
@@ -94,6 +93,9 @@ export const CAMPOS_CHECKLIST = ["peso_kg", "itens_caixa", "data_envio_amostra",
 
 const dataBR = (iso: string) => (/^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso.split("-").reverse().join("/") : "");
 
+/** Número do TAV com quatro dígitos e o ano: 0001/2026. */
+export const numeroTav = (numero: number | string, ano: number | string) => `${String(numero).padStart(4, "0")}/${ano}`;
+
 export async function proximoTav(ano: number) {
   const [r] = await sql`select coalesce(max(numero_tav), 0) + 1 as n from docs_recebimento where ano = ${ano}`;
   return r.n as number;
@@ -104,7 +106,7 @@ async function valoresDoc(u: Usuario, n: { numero: string; oc: string | null; em
   const fixos = await camposFixos();
   return {
     numero_nf: n.numero, numero_oc: n.oc ?? "", nome_empresa: n.emit_nome, cnpj: cnpj(n.emit_cnpj), responsavel: u.nome,
-    numero_tav: d.numero_tav.trim(), ano: d.data_recebimento.slice(0, 4), data_recebimento: dataBR(d.data_recebimento),
+    numero_tav: d.numero_tav.trim().padStart(4, "0"), ano: d.data_recebimento.slice(0, 4), data_recebimento: dataBR(d.data_recebimento),
     id_pa: d.id_pa.trim(), lote: d.lote.trim(), fabricacao: d.fabricacao.trim(), volumes: d.volumes.trim(), observacao: d.observacao.trim() || "_________",
     x_contagem: x(d.conferencia === "Contagem manual"), x_pesagem: x(d.conferencia === "Pesagem"),
     ...Object.fromEntries(d.respostas.flatMap((r, i) => [[`q${i + 1}_sim`, x(r === "Sim")], [`q${i + 1}_nao`, x(r === "Não")]])),
@@ -133,15 +135,18 @@ export async function emitirDocRecebimento(u: Usuario, notaId: number, doc: DocR
     d = { ...base, ...Object.fromEntries(CAMPOS_CHECKLIST.map((c) => [c, d[c]])) } as DadosRecebimento;
   }
   const ano = Number(d.data_recebimento.slice(0, 4));
-  const numero = Number(d.numero_tav);
-  if (doc === "tav") {
-    const [usado] = await sql`select n.numero from docs_recebimento r join notas n on n.id = r.nota_id
-                              where r.ano = ${ano} and r.numero_tav = ${numero} and r.nota_id <> ${notaId} limit 1`;
-    if (usado) throw new Error(`O TAV nº ${numero}/${ano} já foi usado na NF ${usado.numero}.`);
-  }
-  const valores = await valoresDoc(u, n as never, d);
-  const texto = doc === "tav" ? `TAV nº ${numero}/${ano} emitido` : `Check-list de Recebimento emitido (TAV nº ${numero}/${ano})`;
   return sql.begin(async (tx) => {
+    let numero = Number(d.numero_tav);
+    if (doc === "tav") {
+      // número automático e único por ano; a mesma NF reemitida no mesmo ano mantém o número
+      await tx`select pg_advisory_xact_lock(7300, ${ano})`;
+      const [ja] = await tx`select numero_tav from docs_recebimento where nota_id = ${notaId} and ano = ${ano} and doc in ('tav', 'ambos')
+                            order by criado_em desc limit 1`;
+      numero = ja ? (ja.numero_tav as number) : ((await tx`select coalesce(max(numero_tav), 0) + 1 as n from docs_recebimento where ano = ${ano}`)[0].n as number);
+      d = { ...d, numero_tav: String(numero) };
+    }
+    const valores = await valoresDoc(u, n as never, d);
+    const texto = doc === "tav" ? `TAV nº ${numeroTav(numero, ano)} emitido` : `Check-list de Recebimento emitido (TAV nº ${numeroTav(numero, ano)})`;
     const [r] = await tx`insert into docs_recebimento (nota_id, numero_tav, ano, doc, dados, criado_por, criado_por_nome)
                          values (${notaId}, ${numero}, ${ano}, ${doc}, ${tx.json({ formulario: d, valores } as never)}, ${u.id}, ${u.nome}) returning id`;
     if (doc === "tav" && d.id_pa.trim()) await tx`update notas set id_pa = ${d.id_pa.trim()} where id = ${notaId}`;
@@ -207,7 +212,7 @@ export async function documentoRecebimento(id: number, doc: "tav" | "checklist",
   const { arquivo, nome } = await modeloAtual(doc);
   const ext = /\.docx$/i.test(nome) ? "docx" : "odt";
   const prefixo = doc === "tav" ? "TAV" : "Check-list";
-  const valores = { ...(r.dados as { valores: Record<string, string> }).valores, responsavel: quemImprime.nome };
+  const valores = { ...(r.dados as { valores: Record<string, string> }).valores, numero_tav: String(r.numero_tav).padStart(4, "0"), responsavel: quemImprime.nome };
   let modelo: Uint8Array = arquivo;
   if (doc === "tav") {
     const { linhas } = await correlacionarNota({ emit_cnpj: r.emit_cnpj, itens: r.itens as ItemNF[] | null });
@@ -215,7 +220,7 @@ export async function documentoRecebimento(id: number, doc: "tav" | "checklist",
   }
   return {
     bytes: preencherDocx(modelo, valores),
-    nome: `${prefixo}-${r.numero_tav}-${r.ano}-NF${String(r.numero).replace(/\W/g, "")}.${ext}`,
+    nome: `${prefixo}-${String(r.numero_tav).padStart(4, "0")}-${r.ano}-NF${String(r.numero).replace(/\W/g, "")}.${ext}`,
     mime: MIME[ext],
   };
 }
@@ -225,7 +230,7 @@ export async function exemploRecebimento(doc: "tav" | "checklist") {
   const [{ arquivo }, fixos] = await Promise.all([modeloAtual(doc), camposFixos()]);
   const v: Record<string, string> = {
     numero_nf: "12345", numero_oc: "1180000", nome_empresa: "EMPRESA EXEMPLO LTDA", cnpj: "00.000.000/0001-00", responsavel: "Nome do responsável",
-    numero_tav: "1", ano: String(new Date().getFullYear()), data_recebimento: new Date().toLocaleDateString("pt-BR"), id_pa: "950000",
+    numero_tav: "0001", ano: String(new Date().getFullYear()), data_recebimento: new Date().toLocaleDateString("pt-BR"), id_pa: "950000",
     lote: "LOTE 01", fabricacao: "10/2026", volumes: "10 caixas", observacao: "Observação de exemplo.", x_contagem: "X", x_pesagem: "",
     ...Object.fromEntries(PERGUNTAS_TAV.flatMap((_, i) => [[`q${i + 1}_sim`, "X"], [`q${i + 1}_nao`, ""]])),
     peso_kg: "12,5", itens_caixa: "50", data_envio_amostra: new Date().toLocaleDateString("pt-BR"), obs_recebimento: "Amostra enviada.",

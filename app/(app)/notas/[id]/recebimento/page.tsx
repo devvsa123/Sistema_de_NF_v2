@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { exigirUsuario } from "@/lib/auth";
 import { etapasAtivas } from "@/lib/fluxo";
 import { obterNota } from "@/lib/notas";
-import { docsDaNota, PERGUNTAS_TAV, podeEmitirRecebimento, proximoTav, type DadosRecebimento } from "@/lib/recebimento";
+import { docsDaNota, numeroTav, PERGUNTAS_TAV, podeEmitirRecebimento, proximoTav, type DadosRecebimento } from "@/lib/recebimento";
 import { cnpj, dataHora, destinoVolta, linkNota, moeda } from "@/lib/format";
 import { Cabecalho, Selo, Voltar } from "@/components/ui";
 import { FormChecklist, FormTav } from "@/components/FormRecebimento";
@@ -22,11 +22,14 @@ export default async function DocsRecebimento({ params, searchParams }: PageProp
   const regTav = registros.find((r) => r.doc !== "checklist");
   const regChecklist = registros.find((r) => r.doc !== "tav");
   const vazio: DadosRecebimento = {
-    numero_tav: String(await proximoTav(Number(hoje.slice(0, 4)))), data_recebimento: hoje, id_pa: "", lote: "", fabricacao: "", volumes: "",
+    numero_tav: "", data_recebimento: hoje, id_pa: "", lote: "", fabricacao: "", volumes: "",
     conferencia: "", respostas: PERGUNTAS_TAV.map((_, i) => (i < PERGUNTAS_TAV.length - 1 ? "Sim" : "")), observacao: "",
     peso_kg: "", itens_caixa: "", data_envio_amostra: "", obs_recebimento: "", discrepancia: "", obs_contagem: "",
   };
   const inicialTav = regTav?.dados.formulario ?? vazio;
+  const anoAtual = Number(hoje.slice(0, 4));
+  const reemissao = !!regTav && regTav.ano === anoAtual;
+  const proximoNumero = reemissao ? numeroTav(regTav.numero_tav, regTav.ano) : numeroTav(await proximoTav(anoAtual), anoAtual);
   const inicialChecklist = regChecklist?.dados.formulario ?? vazio;
   const docEmitido = sp.doc === "checklist" ? "checklist" : "tav";
   const NOME = { tav: "TAV", checklist: "Check-list" } as const;
@@ -34,7 +37,7 @@ export default async function DocsRecebimento({ params, searchParams }: PageProp
   return (
     <div className="mx-auto max-w-4xl">
       <div className="mb-3"><Voltar href={linkNota(id, destinoVolta(sp.volta)?.href)}>NF {nota.numero}</Voltar></div>
-      <Cabecalho titulo="Documentos do Recebimento" descricao="Cada documento é emitido no seu momento: o TAV no Pré Recebimento e o Check-list na Contagem. Os dados da NF entram automaticamente e o número do TAV é sugerido em sequência." />
+      <Cabecalho titulo="Documentos do Recebimento" descricao="Cada documento é emitido no seu momento: o TAV no Pré Recebimento e o Check-list na Contagem. Os dados da NF entram automaticamente e o número do TAV é gerado automaticamente (0001/2026, 0002/2026…)." />
 
       {emitido && registros.some((r) => r.id === emitido) && (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4">
@@ -51,8 +54,8 @@ export default async function DocsRecebimento({ params, searchParams }: PageProp
       </div>
 
       <div className="space-y-6">
-        <div id="tav" className="scroll-mt-20"><FormTav id={id} inicial={inicialTav} perguntas={PERGUNTAS_TAV} /></div>
-        <div id="checklist" className="scroll-mt-20"><FormChecklist id={id} inicial={inicialChecklist} tav={regTav ? `${regTav.numero_tav}/${regTav.ano}` : null} /></div>
+        <div id="tav" className="scroll-mt-20"><FormTav id={id} inicial={inicialTav} perguntas={PERGUNTAS_TAV} numeroTav={proximoNumero} reemissao={reemissao} /></div>
+        <div id="checklist" className="scroll-mt-20"><FormChecklist id={id} inicial={inicialChecklist} tav={regTav ? numeroTav(regTav.numero_tav, regTav.ano) : null} /></div>
       </div>
 
       {registros.length > 0 && (
@@ -61,7 +64,7 @@ export default async function DocsRecebimento({ params, searchParams }: PageProp
           <ul className="divide-y divide-slate-100 text-sm">
             {registros.map((r) => (
               <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                <span>{r.doc === "checklist" ? "Check-list" : r.doc === "tav" ? "TAV" : "TAV e Check-list"} · TAV nº <strong>{r.numero_tav}/{r.ano}</strong> · {dataHora(r.criado_em)}{r.por ? ` · ${r.por}` : ""}</span>
+                <span>{r.doc === "checklist" ? "Check-list" : r.doc === "tav" ? "TAV" : "TAV e Check-list"} · TAV nº <strong>{numeroTav(r.numero_tav, r.ano)}</strong> · {dataHora(r.criado_em)}{r.por ? ` · ${r.por}` : ""}</span>
                 <span className="flex gap-3">
                   {r.doc !== "checklist" && <a href={`/api/recebimento/${r.id}?doc=tav`} className="font-medium text-marinha hover:underline">Baixar TAV</a>}
                   {r.doc !== "tav" && <a href={`/api/recebimento/${r.id}?doc=checklist`} className="font-medium text-marinha hover:underline">Baixar Check-list</a>}

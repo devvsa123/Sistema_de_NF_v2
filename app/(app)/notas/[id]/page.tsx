@@ -10,7 +10,7 @@ import { FormAcao } from "@/components/FormAcao";
 import type { BotaoFila } from "@/components/FilaTabela";
 import { acaoAjusteAdmin, acaoEditarNota, acaoObservacao } from "@/app/acoes/notas";
 import { laudosDaNota, podeEmitirLaudo } from "@/lib/laudo";
-import { docsDaNota, podeEmitirRecebimento } from "@/lib/recebimento";
+import { docsDaNota, numeroTav, podeEmitirRecebimento } from "@/lib/recebimento";
 import { AlocacaoWms, ItensEstoque } from "@/components/ItensEstoque";
 
 const TIPO: Record<string, string> = {
@@ -164,7 +164,7 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
               <ul className="mt-2 space-y-1 text-sm">
                 {docsReceb.map((r) => (
                   <li key={r.id}>
-                    {r.doc === "checklist" ? "Check-list" : r.doc === "tav" ? "TAV" : "TAV e Check-list"} · TAV nº <strong>{r.numero_tav}/{r.ano}</strong>
+                    {r.doc === "checklist" ? "Check-list" : r.doc === "tav" ? "TAV" : "TAV e Check-list"} · TAV nº <strong>{numeroTav(r.numero_tav, r.ano)}</strong>
                     <span className="text-slate-500"> · {dataHora(r.criado_em)}{r.por ? ` · ${r.por}` : ""} · </span>
                     {r.doc !== "checklist" && <a href={`/api/recebimento/${r.id}?doc=tav`} className="font-medium text-marinha hover:underline">Baixar TAV</a>}
                     {r.doc === "ambos" && <span className="text-slate-300"> | </span>}

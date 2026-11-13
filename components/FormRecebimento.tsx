@@ -19,7 +19,7 @@ function Opcoes({ nome, opcoes, valor }: { nome: string; opcoes: string[]; valor
   );
 }
 
-export function FormTav({ id, inicial, perguntas }: { id: number; inicial: DadosRecebimento; perguntas: string[] }) {
+export function FormTav({ id, inicial, perguntas, numeroTav, reemissao }: { id: number; inicial: DadosRecebimento; perguntas: string[]; numeroTav: string; reemissao: boolean }) {
   return (
     <FormAcao acao={acaoEmitirRecebimento} botao="Emitir TAV" className="space-y-5">
       <input type="hidden" name="id" value={id} />
@@ -30,7 +30,9 @@ export function FormTav({ id, inicial, perguntas }: { id: number; inicial: Dados
           <p className="mt-0.5 text-xs text-slate-500">Pré Recebimento. Sai com a relação de itens para a contagem e assinado por quem o imprime.</p>
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
-          <label><span className="rotulo">Nº do TAV *</span><input name="numero_tav" defaultValue={inicial.numero_tav} className="campo" required inputMode="numeric" maxLength={6} /></label>
+          <div><span className="rotulo">Nº do TAV</span>
+            <p className="campo flex items-center bg-slate-50 font-semibold tabular-nums text-slate-900">{numeroTav}</p>
+            <span className="mt-1 block text-xs text-slate-500">{reemissao ? "Reemissão: mantém o número desta NF." : "Gerado automaticamente ao emitir."}</span></div>
           <label><span className="rotulo">Data do recebimento *</span><input type="date" name="data_recebimento" defaultValue={inicial.data_recebimento} className="campo" required /></label>
           <label><span className="rotulo">ID do PA</span><input name="id_pa" defaultValue={inicial.id_pa} className="campo" maxLength={30} /></label>
           <label><span className="rotulo">Lote</span><input name="lote" defaultValue={inicial.lote} className="campo" maxLength={60} /></label>
