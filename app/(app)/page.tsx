@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { exigirUsuario } from "@/lib/auth";
-import { etapasAtivas, etapasDoUsuario, podeArmazenar, podeTratarReprovadas, prazoReprovada, vizinhos } from "@/lib/fluxo";
+import { etapasAtivas, etapasDoUsuario, podeArmazenar, podeEditarIdPa, podeTratarReprovadas, prazoReprovada, vizinhos } from "@/lib/fluxo";
 import { contagemFilas, fila } from "@/lib/notas";
 import { dias, farol, moeda, data } from "@/lib/format";
 import { podeEmitirLaudo } from "@/lib/laudo";
@@ -46,7 +46,9 @@ export default async function MinhaFila({ searchParams }: PageProps<"/">) {
     id: n.id, numero: n.numero, empresa: n.emit_nome, valor: moeda(n.valor), oc: n.oc ?? "", recebida: data(n.recebida_em),
     dias: aba.chave === "armazenar" ? dias(n.dias_arrecadada) : dias(n.dias_etapa),
     farol: prazo !== null ? farol(Number(n.dias_etapa), prazo) : null,
-    obs: n.ultima_obs ?? "", comentarios: n.n_comentarios ?? 0, sobMedida: !!n.sob_medida, obsOc: n.obs_oc ?? "", arrecadada: !!n.arrecadada_em,
+    obs: n.ultima_obs ?? "", comentarios: n.n_comentarios ?? 0, sobMedida: !!n.sob_medida,
+    idPa: n.id_pa ?? "", editaIdPa: podeEditarIdPa(u, etapas, n),
+    exigeIdPa: !!n.exige_id_pa && n.status === "em_tramite" && !!etapas.find((x) => x.id === n.etapa_id)?.edita_id_pa, obsOc: n.obs_oc ?? "", arrecadada: !!n.arrecadada_em,
     situacao: aba.chave === "reprovadas" ? `Reprovada em ${n.etapa_nome ?? "—"}` : undefined,
   }));
   const atrasadas = prazo !== null ? notas.filter((n) => Number(n.dias_etapa) > prazo).length : 0;

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ehInterno, exigirUsuario, podeCadastrar } from "@/lib/auth";
-import { acoesPermitidas, etapasAtivas, prazoReprovada, vizinhos, type Acao } from "@/lib/fluxo";
+import { acoesPermitidas, etapasAtivas, prazoReprovada, vizinhos, type Acao, podeEditarIdPa } from "@/lib/fluxo";
 import { eventosDaNota, obterNota, type Evento } from "@/lib/notas";
 import { cnpj, data, dataHora, destinoVolta, dias, moeda, numero, TIPO_EVENTO } from "@/lib/format";
 import { Farol, Selo, Voltar } from "@/components/ui";
@@ -258,7 +258,7 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
       )}
 
       {interno && <ItensEstoque nota={nota} podeCorrigir={u.papel === "admin" || u.papel === "interno"} />}
-      {interno && <AlocacaoWms nota={nota} podeEditar={u.papel === "admin" || u.papel === "interno"} />}
+      {interno && <AlocacaoWms nota={nota} podeEditar={podeEditarIdPa(u, etapas, nota)} />}
 
       {!nota.fonte && podeCadastrar(u) && (
         <p className="rounded-lg border border-dashed border-slate-300 bg-white px-4 py-3 text-sm text-slate-600">

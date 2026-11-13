@@ -71,7 +71,9 @@ export default async function Manual() {
           <li>Pode reprovar: <B>{reprova}</B>. Exige marcar “arrecadada” antes de finalizar: <B>{arrecada}</B>. Marca “armazenada”: <B>{armazena}</B>.</li>
           <li>Material <B>sob medida</B> entra direto na etapa configurada para isso e aparece destacado na fila e na pesquisa, com a etiqueta roxa <B>SOB MEDIDA</B> e a linha em lilás.</li>
           <li>Na pesquisa de notas, cada NF mostra abaixo do número se já foi <B>Arrecadada</B> (verde) ou <B>Não arrecadada</B> (laranja).</li>
-          <li>Tudo fica registrado no histórico da NF: quem fez, quando e com qual observação.</li>
+          <li>Tudo fica registrado no histórico da NF com o <B>nome de quem fez, a data e a hora</B>: tramitações, observações, ID de PA, alterações de OC e sob medida, documentos emitidos, arrecadação, armazenagem e correções de itens × estoque.</li>
+          <li><B>ID de PA</B>: aparece em uma coluna da fila. O Pré Recebimento informa e pode alterar enquanto a NF estiver no Pré Recebimento ou na Contagem; o Controle pode alterar a qualquer momento. Digite e tecle Enter (ou saia do campo) para salvar.</li>
+          <li>A NF só sai do Pré Recebimento (e da Contagem) com o ID de PA preenchido; enquanto falta, o campo aparece em vermelho como <B>Obrigatório</B>. As NF que já tinham passado do Pré Recebimento quando a regra entrou seguem sem essa exigência.</li>
         </Lista>
       </>,
     },
@@ -244,7 +246,7 @@ export default async function Manual() {
         <p className="font-semibold text-slate-900">Caminho da tramitação</p>
         <Lista>
           <li>Renomeie etapas, ajuste prazos, defina o <B>setor</B> de cada etapa (etapas com o mesmo setor são atribuídas juntas aos usuários) e use ▲ ▼ para mudar a ordem. As mudanças valem na hora.</li>
-          <li>Marque em cada etapa se ela pode reprovar, se os usuários dela emitem o laudo pericial ou o TAV e Check-list, se exige arrecadação, se marca armazenagem e se é a entrada do material sob medida.</li>
+          <li>Marque em cada etapa se ela informa o ID de PA (obrigatório para a NF sair dela) ou se os usuários dela podem alterar o ID de PA a qualquer momento (Controle). Marque também se ela pode reprovar, se os usuários dela emitem o laudo pericial ou o TAV e Check-list, se exige arrecadação, se marca armazenagem e se é a entrada do material sob medida.</li>
           <li>Uma etapa só pode ser removida quando não houver NF nela.</li>
         </Lista>
         <p className="mt-3 font-semibold text-slate-900">Usuários</p>

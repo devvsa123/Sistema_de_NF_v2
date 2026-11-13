@@ -6,10 +6,11 @@ import { acaoTramitar } from "@/app/acoes/notas";
 import { linkNota } from "@/lib/format";
 import type { Acao } from "@/lib/fluxo";
 import { ComentariosNota } from "./ComentariosNota";
+import { CampoIdPa } from "./CampoIdPa";
 
 export type LinhaFila = {
   id: number; numero: string; empresa: string; valor: string; oc: string; dias: string; farol: "verde" | "amarelo" | "vermelho" | null;
-  obs: string; comentarios: number; sobMedida: boolean; obsOc: string; arrecadada: boolean; recebida: string; situacao?: string;
+  obs: string; comentarios: number; sobMedida: boolean; idPa: string; editaIdPa: boolean; exigeIdPa: boolean; obsOc: string; arrecadada: boolean; recebida: string; situacao?: string;
 };
 export type BotaoFila = { acao: Acao; rotulo: string; estilo?: "principal" | "sec" | "perigo" };
 
@@ -73,7 +74,7 @@ export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, 
                     onChange={() => setSel(todasMarcadas ? new Set() : new Set(visiveis.map((l) => l.id)))}
                   />
                 </th>
-                <th>NF</th><th>Empresa</th><th className="text-right">Valor</th><th>OC</th><th>Na etapa há</th><th>Observações</th>
+                <th>NF</th><th>Empresa</th><th className="text-right">Valor</th><th>OC</th><th>ID de PA</th><th>Na etapa há</th><th>Observações</th>
               </tr>
             </thead>
             <tbody>
@@ -93,6 +94,7 @@ export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, 
                   <td className="max-w-56">{l.empresa}</td>
                   <td className="whitespace-nowrap text-right tabular-nums">{l.valor}</td>
                   <td className="whitespace-nowrap">{l.oc}</td>
+                  <td className="whitespace-nowrap"><CampoIdPa id={l.id} numero={l.numero} valor={l.idPa} editavel={l.editaIdPa} exigido={l.exigeIdPa} /></td>
                   <td className="whitespace-nowrap">
                     {l.farol && <span className={`mr-2 inline-block h-2.5 w-2.5 rounded-full ${COR[l.farol]}`} />}
                     {l.dias}

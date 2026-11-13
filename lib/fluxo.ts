@@ -15,6 +15,8 @@ export type Etapa = {
   exige_arrecadacao: boolean;
   faz_armazenagem: boolean;
   entrada_sob_medida: boolean;
+  edita_id_pa: boolean;
+  altera_id_pa_sempre: boolean;
   ativo: boolean;
 };
 
@@ -55,12 +57,33 @@ export function etapasDoUsuario(u: Usuario, etapas: Etapa[]) {
   return etapas.filter((e) => u.etapas.includes(e.id));
 }
 
+/** Quem pode informar/alterar o ID de PA: a etapa atual (Pré Recebimento, Contagem) ou o Controle, a qualquer momento. */
+export function podeEditarIdPa(u: Usuario, etapas: Etapa[], nota: { status: string; etapa_id: number | null }) {
+  if (u.papel !== "admin" && u.papel !== "interno") return false;
+  const minhas = etapasDoUsuario(u, etapas);
+  if (minhas.some((e) => e.altera_id_pa_sempre)) return true;
+  return nota.status === "em_tramite" && minhas.some((e) => e.edita_id_pa && e.id === nota.etapa_id);
+}
+
+/** Grava o ID de PA e registra a mudança no histórico (quem, quando, de/para). */
+export async function definirIdPa(db: Tx | typeof sql, u: Usuario, notaId: number, valor: string | null, origem?: string) {
+  const novo = (valor ?? "").trim().slice(0, 30) || null;
+  if (novo && !/^[A-Za-z0-9./-]+$/.test(novo)) throw new Error("O ID de PA deve ter apenas letras e números.");
+  const [n] = await db`select id_pa from notas where id = ${notaId} for update`;
+  if (!n) throw new Error("NF não encontrada.");
+  const antes = (n.id_pa as string | null) ?? null;
+  if (antes === novo) return false;
+  await db`update notas set id_pa = ${novo} where id = ${notaId}`;
+  const texto = !antes ? `ID de PA informado: ${novo}` : !novo ? `ID de PA removido (era ${antes})` : `ID de PA alterado: ${antes} → ${novo}`;
+  await registrarEvento(db, { nota_id: notaId, tipo: "id_pa", usuario: u, texto: origem ? `${texto} (${origem})` : texto });
+  return true;
+}
+
 export const podeArmazenar = (u: Usuario, etapas: Etapa[]) => etapasDoUsuario(u, etapas).some((e) => e.faz_armazenagem);
 export const podeTratarReprovadas = (u: Usuario) => u.papel === "admin" || (u.papel === "interno" && u.trata_reprovadas);
 
 type NotaMov = {
-  id: number; numero: string; status: string; etapa_id: number | null; arrecadada_em: Date | null; armazenada_em: Date | null;
-};
+  id: number; numero: string; status: string; etapa_id: number | null; arrecadada_em: Date | null; armazenada_em: Date | null; id_pa?: string | null; exige_id_pa?: boolean };
 
 export type Vizinhos = { anterior: Etapa | null; proxima: Etapa | null; atual: Etapa | null };
 
@@ -108,7 +131,7 @@ export type OpcoesAcao = { obs?: string; visual?: string; laboratorial?: string 
 /** Executa uma ação de tramitação em uma NF, validando perfil e caminho dentro de uma transação. */
 export async function executarAcao(u: Usuario, notaId: number, acao: Acao, op: OpcoesAcao = {}): Promise<void> {
   await sql.begin(async (tx) => {
-    const [nota] = await tx<NotaMov[]>`select id, numero, status, etapa_id, arrecadada_em, armazenada_em from notas where id = ${notaId} for update`;
+    const [nota] = await tx<NotaMov[]>`select id, numero, status, etapa_id, arrecadada_em, armazenada_em, id_pa, exige_id_pa from notas where id = ${notaId} for update`;
     if (!nota) throw new Error("NF não encontrada.");
     const etapas = await etapasAtivas(tx);
     if (!acoesPermitidas(u, nota, etapas).includes(acao)) {
@@ -120,6 +143,9 @@ export async function executarAcao(u: Usuario, notaId: number, acao: Acao, op: O
     const { anterior, proxima, atual } = vizinhos(etapas, nota.etapa_id);
     const de = nota.status === "reprovada" ? "Reprovada" : atual!.nome;
     const base = { nota_id: nota.id, usuario: u, de_nome: de, texto: op.obs };
+
+    if (acao === "avancar" && atual?.edita_id_pa && nota.exige_id_pa && !nota.id_pa)
+      throw new Error(`NF ${nota.numero}: informe o ID de PA antes de enviar para a próxima etapa.`);
 
     switch (acao) {
       case "avancar":

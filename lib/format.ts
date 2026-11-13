@@ -5,6 +5,7 @@ const TZ = "America/Sao_Paulo";
 export const TIPO_EVENTO: Record<string, string> = {
   cadastro: "Cadastro", avanco: "Avanço", retorno: "Devolução", reprovacao: "Reprovação", retirada: "Retirada", finalizacao: "Finalização",
   ajuste: "Ajuste do administrador", observacao: "Observação", laudo: "Laudo pericial", docs_recebimento: "Documentos do Recebimento", arrecadacao: "Arrecadação", armazenagem: "Armazenagem", xml: "Dados da NF-e",
+  id_pa: "ID de PA", edicao: "Dados da NF alterados", estoque: "Itens × estoque",
 };
 
 export const soDigitos = (v: unknown) => String(v ?? "").replace(/\D/g, "");

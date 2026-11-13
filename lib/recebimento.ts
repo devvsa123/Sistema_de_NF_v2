@@ -1,7 +1,7 @@
 import "server-only";
 import { sql } from "./db";
 import type { Usuario } from "./auth";
-import { etapasDoUsuario, type Etapa } from "./fluxo";
+import { definirIdPa, etapasDoUsuario, type Etapa } from "./fluxo";
 import { cnpj } from "./format";
 import { preencherDocx } from "./docx";
 import { camposFixos, modeloAtual } from "./laudo";
@@ -149,7 +149,7 @@ export async function emitirDocRecebimento(u: Usuario, notaId: number, doc: DocR
     const texto = doc === "tav" ? `TAV nº ${numeroTav(numero, ano)} emitido` : `Check-list de Recebimento emitido (TAV nº ${numeroTav(numero, ano)})`;
     const [r] = await tx`insert into docs_recebimento (nota_id, numero_tav, ano, doc, dados, criado_por, criado_por_nome)
                          values (${notaId}, ${numero}, ${ano}, ${doc}, ${tx.json({ formulario: d, valores } as never)}, ${u.id}, ${u.nome}) returning id`;
-    if (doc === "tav" && d.id_pa.trim()) await tx`update notas set id_pa = ${d.id_pa.trim()} where id = ${notaId}`;
+    if (doc === "tav" && d.id_pa.trim()) await definirIdPa(tx, u, notaId, d.id_pa, `TAV nº ${numeroTav(numero, ano)}`);
     await tx`insert into eventos (nota_id, tipo, usuario_id, usuario_nome, texto) values (${notaId}, 'docs_recebimento', ${u.id}, ${u.nome}, ${texto})`;
     return r.id as number;
   });

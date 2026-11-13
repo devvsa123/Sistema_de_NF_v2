@@ -38,7 +38,7 @@ export async function acaoSalvarEtapa(_: Estado, f: FormData): Promise<Estado> {
       if (id) {
         await tx`update etapas set nome = ${nome}, setor = ${setor}, prazo_dias = ${prazo}, permite_reprovar = ${marcado(f, "permite_reprovar")}, emite_laudo = ${marcado(f, "emite_laudo")}, emite_docs_recebimento = ${marcado(f, "emite_docs_recebimento")},
                    exige_arrecadacao = ${marcado(f, "exige_arrecadacao")}, faz_armazenagem = ${marcado(f, "faz_armazenagem")},
-                   entrada_sob_medida = ${marcado(f, "entrada_sob_medida")} where id = ${id} and ativo`;
+                   entrada_sob_medida = ${marcado(f, "entrada_sob_medida")}, edita_id_pa = ${marcado(f, "edita_id_pa")}, altera_id_pa_sempre = ${marcado(f, "altera_id_pa_sempre")} where id = ${id} and ativo`;
       } else {
         await tx`insert into etapas (nome, setor, prazo_dias, ordem) values (${nome}, ${setor}, ${prazo}, (select coalesce(max(ordem), 0) + 1 from etapas where ativo))`;
       }

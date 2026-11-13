@@ -63,6 +63,8 @@ export default async function Caminho() {
                 <label className="flex items-center gap-2"><input type="checkbox" name="exige_arrecadacao" defaultChecked={e.exige_arrecadacao} /> Exige marcar “arrecadada” antes de avançar</label>
                 <label className="flex items-center gap-2"><input type="checkbox" name="faz_armazenagem" defaultChecked={e.faz_armazenagem} /> Usuários desta etapa marcam “armazenada”</label>
                 <label className="flex items-center gap-2"><input type="checkbox" name="entrada_sob_medida" defaultChecked={e.entrada_sob_medida} /> Entrada das NF de material sob medida</label>
+                <label className="flex items-center gap-2"><input type="checkbox" name="edita_id_pa" defaultChecked={e.edita_id_pa} /> Informa o ID de PA (obrigatório para a NF sair desta etapa)</label>
+                <label className="flex items-center gap-2"><input type="checkbox" name="altera_id_pa_sempre" defaultChecked={e.altera_id_pa_sempre} /> Usuários desta etapa alteram o ID de PA a qualquer momento</label>
               </div>
             </FormAcao>
             <div className="flex items-center justify-between border-t border-slate-100 pt-3 text-sm text-slate-500">

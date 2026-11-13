@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { exigirAdmin, exigirUsuario } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { obterNota } from "@/lib/notas";
-import { registrarEvento } from "@/lib/fluxo";
+import { definirIdPa, etapasAtivas, podeEditarIdPa, registrarEvento } from "@/lib/fluxo";
 import {
   buscarNoEstoque, confirmarCorrelacao, desfazerCorrelacao, importarEstoque, importarUz, salvarConfigWms, sincronizarDoGithub,
 } from "@/lib/estoque";
@@ -21,12 +21,19 @@ async function notaInterna(id: number) {
   return { u, nota };
 }
 
+/** "3" → "item 3"; "3:40" → "item 3, tamanho 40". */
+const rotuloItem = (ref: string) => {
+  const [n, tam] = ref.split(":");
+  return tam ? `item ${n}, tamanho ${tam},` : `item ${n}`;
+};
+
 export async function acaoConfirmarCorrelacao(_: Estado, f: FormData): Promise<Estado> {
   try {
     const { u, nota } = await notaInterna(Number(f.get("id")));
     const pi = campo(f, "pi") || campo(f, "pi_digitado");
     if (!pi) return { erro: "Escolha um item do estoque ou digite o PI." };
     await confirmarCorrelacao(u, nota, campo(f, "ref"), pi);
+    await registrarEvento(sql, { nota_id: nota.id, tipo: "estoque", usuario: u, texto: `${rotuloItem(campo(f, "ref")).replace(/^i/, "I")} ligado ao PI ${pi.trim().toUpperCase()} do estoque` });
     revalidatePath(`/notas/${nota.id}`);
     return { ok: "Correlação confirmada. Vale também para as próximas NF deste fornecedor." };
   } catch (e) {
@@ -36,8 +43,9 @@ export async function acaoConfirmarCorrelacao(_: Estado, f: FormData): Promise<E
 
 export async function acaoDesfazerCorrelacao(_: Estado, f: FormData): Promise<Estado> {
   try {
-    const { nota } = await notaInterna(Number(f.get("id")));
+    const { u, nota } = await notaInterna(Number(f.get("id")));
     await desfazerCorrelacao(nota, campo(f, "ref"));
+    await registrarEvento(sql, { nota_id: nota.id, tipo: "estoque", usuario: u, texto: `Correlação do ${rotuloItem(campo(f, "ref")).replace(/,$/, "")} com o estoque desfeita` });
     revalidatePath(`/notas/${nota.id}`);
     return { ok: "Correlação desfeita." };
   } catch (e) {
@@ -54,9 +62,10 @@ export async function acaoBuscarNoEstoque(q: string) {
 export async function acaoSalvarIdPa(_: Estado, f: FormData): Promise<Estado> {
   try {
     const { u, nota } = await notaInterna(Number(f.get("id")));
-    const idPa = campo(f, "id_pa").slice(0, 30) || null;
-    await sql`update notas set id_pa = ${idPa} where id = ${nota.id}`;
-    await registrarEvento(sql, { nota_id: nota.id, tipo: "observacao", usuario: u, texto: idPa ? `ID de PA informado: ${idPa}` : "ID de PA removido" });
+    if (!podeEditarIdPa(u, await etapasAtivas(), nota)) return { erro: "Você não pode alterar o ID de PA desta NF na etapa em que ela está." };
+    const mudou = await sql.begin((tx) => definirIdPa(tx, u, nota.id, campo(f, "id_pa")));
+    if (!mudou) return { ok: "Sem alteração." };
+    revalidatePath("/");
     revalidatePath(`/notas/${nota.id}`);
     return { ok: "ID de PA salvo." };
   } catch (e) {

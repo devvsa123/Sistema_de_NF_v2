@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { exigirUsuario, podeCadastrar } from "@/lib/auth";
-import { ajustarComoAdmin, executarAcao, registrarEvento, type Acao, type OpcoesAcao } from "@/lib/fluxo";
+import { ajustarComoAdmin, definirIdPa, etapasAtivas, executarAcao, podeEditarIdPa, registrarEvento, type Acao, type OpcoesAcao } from "@/lib/fluxo";
 import { analisarDocumento, cadastrarManual, cadastrarPorDocumento, obterNota, type Documento } from "@/lib/notas";
 import { textoBusca } from "@/lib/nfe";
 import { TIPO_EVENTO } from "@/lib/format";
@@ -43,6 +43,23 @@ export async function acaoObservacao(_: Estado, f: FormData): Promise<Estado> {
   await registrarEvento(sql, { nota_id: id, tipo: "observacao", usuario: u, texto });
   revalidatePath(`/notas/${id}`);
   return { ok: "Observação registrada." };
+}
+
+/** ID de PA informado direto na fila. */
+export async function acaoIdPaFila(id: number, valor: string): Promise<{ erro?: string; idPa?: string | null }> {
+  const u = await exigirUsuario();
+  const nota = await obterNota(u, Number(id));
+  if (!nota) return { erro: "NF não encontrada." };
+  if (!podeEditarIdPa(u, await etapasAtivas(), nota)) return { erro: "Você não pode alterar o ID de PA desta NF na etapa em que ela está." };
+  try {
+    await sql.begin((tx) => definirIdPa(tx, u, nota.id, valor));
+  } catch (e) {
+    return { erro: msg(e) };
+  }
+  revalidatePath("/");
+  revalidatePath(`/notas/${nota.id}`);
+  const v = String(valor ?? "").trim().slice(0, 30);
+  return { idPa: v || null };
 }
 
 export type Comentario = { id: number; tipo: string; titulo: string; usuario: string; texto: string; em: string };
@@ -85,10 +102,21 @@ export async function acaoEditarNota(_: Estado, f: FormData): Promise<Estado> {
   const id = Number(f.get("id"));
   const oc = campo(f, "oc").slice(0, 60) || null;
   if (!oc) return { erro: "A OC não pode ficar em branco." };
-  const [n] = await sql`select numero, chave, emit_nome, emit_cnpj, empenho, itens from notas where id = ${id}`;
+  const [n] = await sql`select numero, chave, emit_nome, emit_cnpj, empenho, itens, oc, obs_oc, sob_medida from notas where id = ${id}`;
   if (!n) return { erro: "NF não encontrada." };
-  await sql`update notas set oc = ${oc}, obs_oc = ${campo(f, "obs_oc").slice(0, 2000) || null}, sob_medida = ${f.get("sob_medida") === "on"},
-              busca = ${textoBusca({ ...(n as Parameters<typeof textoBusca>[0]), oc })} where id = ${id}`;
+  const obsOc = campo(f, "obs_oc").slice(0, 2000) || null;
+  const sobMedida = f.get("sob_medida") === "on";
+  const mudou = [
+    n.oc !== oc && `OC: ${n.oc ?? "—"} → ${oc}`,
+    !!n.sob_medida !== sobMedida && `Sob medida: ${n.sob_medida ? "sim" : "não"} → ${sobMedida ? "sim" : "não"}`,
+    (n.obs_oc ?? null) !== obsOc && (obsOc ? `Observação da OC: ${obsOc}` : "Observação da OC removida"),
+  ].filter(Boolean) as string[];
+  if (!mudou.length) return { ok: "Nada foi alterado." };
+  await sql.begin(async (tx) => {
+    await tx`update notas set oc = ${oc}, obs_oc = ${obsOc}, sob_medida = ${sobMedida},
+               busca = ${textoBusca({ ...(n as Parameters<typeof textoBusca>[0]), oc })} where id = ${id}`;
+    await registrarEvento(tx, { nota_id: id, tipo: "edicao", usuario: u, texto: mudou.join("\n") });
+  });
   revalidatePath(`/notas/${id}`);
   return { ok: "Dados atualizados." };
 }
