@@ -89,7 +89,7 @@ STYLES = f"""<?xml version="1.0" encoding="UTF-8"?>
 <style:paragraph-properties fo:margin-top="0.4cm" fo:margin-bottom="0.15cm" fo:padding-bottom="0.05cm" fo:border-bottom="1.1pt solid {AZUL}" fo:border-top="none" fo:border-left="none" fo:border-right="none" fo:keep-with-next="always"/>
 {txt(9.5, True, AZUL, caps=True)}
 </style:style>
-{par("AssLinha", 8, align="center", extra=f'fo:margin-top="1.5cm" fo:padding-top="0.08cm" fo:border-top="0.75pt solid #000000" fo:border-bottom="none" fo:border-left="none" fo:border-right="none" fo:margin-left="0.3cm" fo:margin-right="0.3cm"')}
+{par("AssLinha", 8, align="center", extra=f'fo:margin-top="1.5cm" fo:padding-top="0.08cm" fo:border-top="0.75pt solid #000000" fo:border-bottom="none" fo:border-left="none" fo:border-right="none" fo:margin-left="1.2cm" fo:margin-right="1.2cm"')}
 {par("AssNome", 8.5, align="center", bold=True)}
 {par("AssCargo", 7, align="center", color=CINZA, caps=True, extra='fo:margin-top="0.04cm"')}
 {par("Rodape", 7, align="center", color=CINZA)}
@@ -146,7 +146,7 @@ T_ID = [7.0, 3.6, 3.4, 4.0]
 T_CONF = [1.0, 13.0, 2.0, 2.0]
 T_FORMA = [1.0, 8.0, 1.0, 8.0]
 T_OBS = [W]
-T_ASS = [6.0, 6.0, 6.0]
+T_ASS = [9.0, 9.0]
 
 auto = (
     estilos_tabela("TId", T_ID) + estilos_tabela("TConf", T_CONF) + estilos_tabela("TForma", T_FORMA)
@@ -214,9 +214,9 @@ def ass(nome, cargo):
 assin = (
     p("Secao", "Assinaturas")
     + f'<table:table table:name="TAss" table:style-name="TAssKeep">'
-    + "".join(f'<table:table-column table:style-name="TAss.C{i}"/>' for i in range(3))
-    + row(cel("CN", ass("", "Encarregado da Seção de Estocagem")) + cel("CN", ass("", "Encarregado da Seção de Recebimento"))
-          + cel("CN", ass("{{responsavel}}", "Responsável pelo pré-recebimento")), "RAss")
+    + "".join(f'<table:table-column table:style-name="TAss.C{i}"/>' for i in range(2))
+    + row(cel("CN", ass("{{responsavel}}", "Responsável pelo pré-recebimento"))
+          + cel("CN", ass("", "Encarregado da Seção de Recebimento")), "RAss")
     + "</table:table>"
 )
 
