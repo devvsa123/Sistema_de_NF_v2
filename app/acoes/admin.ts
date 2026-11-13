@@ -169,6 +169,23 @@ export async function acaoSalvarUsuario(_: Estado, f: FormData): Promise<Estado>
   redirect("/admin/usuarios");
 }
 
+/** Exclui um usuário. Somente o administrador geral. O histórico das NF continua com o nome dele. */
+export async function acaoExcluirUsuario(_: Estado, f: FormData): Promise<Estado> {
+  const quem = await exigirAdmin();
+  const id = Number(f.get("id"));
+  if (!id) return { erro: "Usuário inválido." };
+  if (id === quem.id) return { erro: "Você não pode excluir o seu próprio usuário." };
+  const [alvo] = await sql`select nome, papel from usuarios where id = ${id}`;
+  if (!alvo) return { erro: "Usuário não encontrado." };
+  if (alvo.papel === "admin") {
+    const [r] = await sql`select count(*)::int as n from usuarios where papel = 'admin' and ativo and id <> ${id}`;
+    if (r.n === 0) return { erro: "O sistema precisa ter pelo menos um administrador geral ativo." };
+  }
+  await sql`delete from usuarios where id = ${id}`;
+  revalidatePath("/admin/usuarios");
+  redirect(`/admin/usuarios?excluido=${encodeURIComponent(alvo.nome)}`);
+}
+
 // ---------- Importação da planilha antiga ----------
 
 function validarLote(linhas: unknown): linhas is Linha[] {

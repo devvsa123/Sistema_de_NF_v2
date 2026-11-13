@@ -103,7 +103,7 @@ export default async function Manual() {
     },
     {
       id: "docs-recebimento", titulo: "TAV e Check-list de Recebimento", para: ["admin", "interno"], conteudo: <>
-        <p>O <B>Recebimento</B> emite o TAV (Termo de Abertura de Volumes) e o Check-list de Recebimento enquanto a NF está em <B>Pré Recebimento</B> ou <B>Contagem</B>, pelo botão <B>TAV / Check-list</B> ao lado da NF na fila ou por <B>Emitir TAV e Check-list</B> na página da NF.</p>
+        <p>O <B>Recebimento</B> (e o administrador geral) emite o TAV (Termo de Abertura de Volumes) e o Check-list de Recebimento enquanto a NF está em <B>Pré Recebimento</B> ou <B>Contagem</B>, pelo botão <B>TAV / Check-list</B> ao lado da NF na fila ou por <B>Emitir TAV e Check-list</B> na página da NF.</p>
         <Passos>
           <li>Confira o <B>número do TAV</B> (o sistema sugere o próximo do ano) e a data do recebimento; informe ID do PA, lote, fabricação e volumes.</li>
           <li>Marque se a conferência foi por contagem manual ou pesagem e responda SIM ou NÃO às perguntas do TAV.</li>
@@ -119,7 +119,7 @@ export default async function Manual() {
     },
     {
       id: "laudo", titulo: "Laudo pericial", para: ["admin", "interno"], conteudo: <>
-        <p>Somente os usuários da <B>Perícia</B> emitem o laudo, pelo botão <B>Laudo</B> ao lado da NF na fila da Perícia, ou por <B>Emitir laudo pericial</B> na página da NF.</p>
+        <p>Somente os usuários da <B>Perícia</B> (e o administrador geral) emitem o laudo, pelo botão <B>Laudo</B> ao lado da NF na fila da Perícia, ou por <B>Emitir laudo pericial</B> na página da NF.</p>
         <Passos>
           <li>Informe o protocolo, o lote e a fabricação.</li>
           <li>Marque o resultado da perícia visual, se as medidas estão de acordo (com explicação quando não estão) e as observações.</li>
@@ -227,6 +227,8 @@ export default async function Manual() {
           <li>Crie usuários, defina o perfil e, para internos, os <B>setores</B> em que trabalham (o usuário recebe todas as etapas do setor; o Recebimento inclui Pré Recebimento, Contagem e Reprovadas) e se cadastram NF.</li>
           <li>Para redefinir a senha de alguém, preencha <B>Nova senha</B> e mantenha marcado <B>Exigir troca de senha</B>.</li>
           <li>Desmarque <B>Usuário ativo</B> para bloquear o acesso sem apagar o histórico.</li>
+          <li>Use a <B>pesquisa</B> no topo da lista para achar alguém pelo nome, NIP ou CNPJ, e os filtros de perfil, setor e situação.</li>
+          <li>Somente o administrador geral pode <B>excluir</B> um usuário (botão no fim da tela de edição). O histórico das NF continua com o nome dele.</li>
         </Lista>
         <p className="mt-3 font-semibold text-slate-900">Modelos de documentos</p>
         <Lista>

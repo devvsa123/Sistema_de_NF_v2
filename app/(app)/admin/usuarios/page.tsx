@@ -1,8 +1,10 @@
-import { Cabecalho } from "@/components/ui";
 import Link from "next/link";
+import { Cabecalho } from "@/components/ui";
 import { exigirGestorUsuarios } from "@/lib/auth";
 import { sql } from "@/lib/db";
+import { etapasAtivas, setoresDe } from "@/lib/fluxo";
 import { login } from "@/lib/format";
+import { UsuariosTabela, type LinhaUsuario } from "@/components/UsuariosTabela";
 
 export const metadata = { title: "Usuários — Administração" };
 
@@ -11,47 +13,32 @@ const PAPEL: Record<string, string> = { admin: "Administrador geral", interno: "
 export default async function Usuarios({ searchParams }: PageProps<"/admin/usuarios">) {
   const quem = await exigirGestorUsuarios();
   const geral = quem.papel === "admin";
-  const papel = String((await searchParams).papel ?? "");
-  const usuarios = await sql`
-    select u.id, u.login, u.nome, u.papel, u.ativo, u.pode_cadastrar, u.trata_reprovadas, u.gerencia_usuarios, u.deve_trocar_senha,
-           (select string_agg(setor, ', ' order by ordem) from (select e.setor, min(e.ordem) as ordem from usuario_etapas ue join etapas e on e.id = ue.etapa_id and e.ativo where ue.usuario_id = u.id group by e.setor) s) as etapas
-    from usuarios u where ${papel ? sql`u.papel = ${papel}` : sql`true`} order by u.ativo desc, u.papel = 'empresa', u.nome`;
+  const excluido = (await searchParams).excluido;
+  const [usuarios, etapas] = await Promise.all([
+    sql`
+      select u.id, u.login, u.nome, u.papel, u.ativo, u.pode_cadastrar, u.gerencia_usuarios, u.deve_trocar_senha,
+             coalesce((select array_agg(setor order by ordem) from (select e.setor, min(e.ordem) as ordem from usuario_etapas ue
+                        join etapas e on e.id = ue.etapa_id and e.ativo where ue.usuario_id = u.id group by e.setor) s), '{}') as setores
+      from usuarios u order by u.ativo desc, u.papel = 'empresa', u.nome`,
+    etapasAtivas(),
+  ]);
+  const linhas: LinhaUsuario[] = usuarios.map((u) => ({
+    id: u.id, nome: u.nome, login: u.login, loginFmt: login(u.login), papel: u.papel, papelNome: PAPEL[u.papel], setores: u.setores,
+    gestor: u.gerencia_usuarios && u.papel !== "admin",
+    permissoes: u.papel === "interno" ? [u.setores.join(", "), u.pode_cadastrar && "Cadastra NF"].filter(Boolean).join(" · ")
+      : u.papel === "empresa" ? "Somente as NF do próprio CNPJ" : u.papel === "admin" ? "Acesso total" : "Consulta todas as NF e relatórios",
+    ativo: u.ativo, situacao: u.ativo ? (u.deve_trocar_senha ? "Ativo · troca de senha pendente" : "Ativo") : "Inativo",
+    editavel: geral || (u.papel !== "admin" && !u.gerencia_usuarios),
+  }));
   return (
     <div className="space-y-4">
-      <Cabecalho titulo="Usuários" descricao="Quem acessa o sistema, com qual perfil e em quais setores trabalha.">
+      <Cabecalho titulo="Usuários e empresas" descricao="Quem acessa o sistema, com qual perfil e em quais setores trabalha. Fornecedores (empresas) têm o CNPJ como login.">
         <Link href="/admin/usuarios/novo" className="botao">+ Novo usuário</Link>
       </Cabecalho>
-      <div className="flex flex-wrap gap-1.5 text-sm">
-        {[["", "Todos"], ...Object.entries(PAPEL)].map(([k, v]) => (
-          <Link key={k} href={k ? `/admin/usuarios?papel=${k}` : "/admin/usuarios"}
-            className={`rounded-full px-3 py-1 font-medium ring-1 ring-inset ${papel === k ? "bg-marinha text-white ring-marinha" : "bg-white text-slate-700 ring-slate-300"}`}>
-            {v}
-          </Link>
-        ))}
-      </div>
-      <div className="cartao overflow-x-auto">
-        <table className="tabela">
-          <thead><tr><th>Nome</th><th>Login</th><th>Perfil</th><th>Permissões</th><th>Situação</th><th></th></tr></thead>
-          <tbody>
-            {usuarios.map((u) => (
-              <tr key={u.id} className={u.ativo ? "" : "opacity-50"}>
-                <td className="font-medium">{u.nome}</td>
-                <td className="whitespace-nowrap font-mono text-xs">{login(u.login)}</td>
-                <td>{PAPEL[u.papel]}</td>
-                <td className="text-xs text-slate-600">
-                  {u.papel === "interno" && [u.etapas, u.pode_cadastrar && "Cadastra NF"].filter(Boolean).join(" · ")}
-                  {u.gerencia_usuarios && <span className="ml-1 inline-flex rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700 ring-1 ring-inset ring-violet-200">Administrador de usuários</span>}
-                  {u.papel === "empresa" && "Somente as NF do próprio CNPJ"}
-                  {u.papel === "admin" && "Acesso total"}
-                  {u.papel === "consulta" && "Consulta todas as NF e relatórios"}
-                </td>
-                <td className="text-xs">{u.ativo ? (u.deve_trocar_senha ? "Ativo · troca de senha pendente" : "Ativo") : "Inativo"}</td>
-                <td>{geral || (u.papel !== "admin" && !u.gerencia_usuarios) ? <Link href={`/admin/usuarios/${u.id}`} className="font-medium text-marinha hover:underline">Editar</Link> : <span className="text-xs text-slate-400">só o administrador geral</span>}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {typeof excluido === "string" && (
+        <p className="rounded-lg bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800" role="status">Usuário <strong>{excluido}</strong> excluído.</p>
+      )}
+      <UsuariosTabela linhas={linhas} perfis={Object.entries(PAPEL)} setores={setoresDe(etapas).map((s) => s.nome)} />
     </div>
   );
 }

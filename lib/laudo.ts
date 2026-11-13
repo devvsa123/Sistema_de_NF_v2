@@ -93,7 +93,9 @@ export async function restaurarModeloPadrao(u: Usuario, chave = MODELO) {
 }
 
 /** Somente os usuários vinculados à etapa que emite laudo (a Perícia). */
+/** Usuários da etapa que emite laudo (a Perícia) e o administrador geral, que usa todas as funções. */
 export function podeEmitirLaudo(u: Usuario, etapas: Etapa[]) {
+  if (u.papel === "admin") return true;
   return u.papel === "interno" && etapasDoUsuario(u, etapas).some((e) => e.emite_laudo);
 }
 
@@ -145,8 +147,8 @@ export async function emitirLaudo(u: Usuario, notaId: number, d: DadosLaudo) {
     ...Object.fromEntries(fixos.map((f) => [f.chave, f.valor])),
   };
   return sql.begin(async (tx) => {
-    const [l] = await tx`insert into laudos (nota_id, protocolo, dados, criado_por) values (${notaId}, ${valores.protocolo},
-                          ${tx.json({ formulario: d, valores } as never)}, ${u.id}) returning id`;
+    const [l] = await tx`insert into laudos (nota_id, protocolo, dados, criado_por, criado_por_nome) values (${notaId}, ${valores.protocolo},
+                          ${tx.json({ formulario: d, valores } as never)}, ${u.id}, ${u.nome}) returning id`;
     await tx`insert into eventos (nota_id, tipo, usuario_id, usuario_nome, texto)
              values (${notaId}, 'laudo', ${u.id}, ${u.nome}, ${`Laudo pericial emitido · protocolo ${valores.protocolo} · visual: ${d.resultado_visual} · laboratorial: ${d.resultado_laboratorial}`})`;
     return l.id as number;
@@ -155,7 +157,7 @@ export async function emitirLaudo(u: Usuario, notaId: number, d: DadosLaudo) {
 
 export async function laudosDaNota(notaId: number) {
   return sql<{ id: number; protocolo: string | null; criado_em: Date; por: string | null; dados: { formulario: DadosLaudo } }[]>`
-    select l.id, l.protocolo, l.criado_em, u.nome as por, l.dados from laudos l left join usuarios u on u.id = l.criado_por
+    select l.id, l.protocolo, l.criado_em, coalesce(u.nome, l.criado_por_nome) as por, l.dados from laudos l left join usuarios u on u.id = l.criado_por
     where l.nota_id = ${notaId} order by l.criado_em desc`;
 }
 

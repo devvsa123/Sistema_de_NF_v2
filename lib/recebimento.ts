@@ -61,11 +61,11 @@ export type DadosRecebimento = {
 };
 
 /** Usuários das etapas marcadas (Pré Recebimento e Contagem), somente enquanto a NF está numa delas. */
+/** Usuários das etapas marcadas e o administrador geral, sempre com a NF numa dessas etapas. */
 export function podeEmitirRecebimento(u: Usuario, etapas: Etapa[], nota: { status: string; etapa_id: number | null }) {
-  if (u.papel !== "interno" || nota.status !== "em_tramite") return false;
+  if ((u.papel !== "interno" && u.papel !== "admin") || nota.status !== "em_tramite") return false;
   return etapasDoUsuario(u, etapas).some((e) => e.emite_docs_recebimento && e.id === nota.etapa_id);
 }
-export const atuaNoRecebimento = (u: Usuario, etapas: Etapa[]) => u.papel === "interno" && etapasDoUsuario(u, etapas).some((e) => e.emite_docs_recebimento);
 
 export function validarRecebimento(d: DadosRecebimento): string | null {
   if (!/^\d{1,6}$/.test(d.numero_tav.trim())) return "Informe o número do TAV (somente números).";
@@ -107,8 +107,8 @@ export async function emitirRecebimento(u: Usuario, notaId: number, d: DadosRece
     ...Object.fromEntries(fixos.map((f) => [f.chave, f.valor])),
   };
   return sql.begin(async (tx) => {
-    const [r] = await tx`insert into docs_recebimento (nota_id, numero_tav, ano, dados, criado_por)
-                         values (${notaId}, ${numero}, ${ano}, ${tx.json({ formulario: d, valores } as never)}, ${u.id}) returning id`;
+    const [r] = await tx`insert into docs_recebimento (nota_id, numero_tav, ano, dados, criado_por, criado_por_nome)
+                         values (${notaId}, ${numero}, ${ano}, ${tx.json({ formulario: d, valores } as never)}, ${u.id}, ${u.nome}) returning id`;
     await tx`insert into eventos (nota_id, tipo, usuario_id, usuario_nome, texto)
              values (${notaId}, 'docs_recebimento', ${u.id}, ${u.nome}, ${`TAV nº ${numero}/${ano} e Check-list de Recebimento emitidos`})`;
     return r.id as number;
@@ -117,7 +117,7 @@ export async function emitirRecebimento(u: Usuario, notaId: number, d: DadosRece
 
 export async function docsDaNota(notaId: number) {
   return sql<{ id: number; numero_tav: number; ano: number; criado_em: Date; por: string | null; dados: { formulario: DadosRecebimento } }[]>`
-    select r.id, r.numero_tav, r.ano, r.criado_em, u.nome as por, r.dados from docs_recebimento r left join usuarios u on u.id = r.criado_por
+    select r.id, r.numero_tav, r.ano, r.criado_em, coalesce(u.nome, r.criado_por_nome) as por, r.dados from docs_recebimento r left join usuarios u on u.id = r.criado_por
     where r.nota_id = ${notaId} order by r.criado_em desc`;
 }
 

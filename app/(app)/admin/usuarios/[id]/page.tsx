@@ -4,7 +4,7 @@ import { sql } from "@/lib/db";
 import { etapasAtivas, setoresDe, setorReprovadas } from "@/lib/fluxo";
 import { FormAcao } from "@/components/FormAcao";
 import { Voltar } from "@/components/ui";
-import { acaoSalvarUsuario } from "@/app/acoes/admin";
+import { acaoExcluirUsuario, acaoSalvarUsuario } from "@/app/acoes/admin";
 
 export const metadata = { title: "Usuário — Administração" };
 
@@ -86,6 +86,19 @@ export default async function EditarUsuario({ params }: PageProps<"/admin/usuari
 
         {!novo && <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="ativo" defaultChecked={u!.ativo} /> Usuário ativo</label>}
       </FormAcao>
+
+      {geral && !novo && u!.id !== quem.id && (
+        <section className="rounded-xl border border-red-200 bg-red-50/40 p-5">
+          <h2 className="text-[15px] font-semibold text-red-800">Excluir usuário</h2>
+          <p className="mb-3 mt-1 text-sm text-red-900/80">
+            Remove o acesso de {u!.nome} definitivamente. As NF, laudos e o histórico de tramitação continuam no sistema com o nome dele.
+            Se for só um afastamento, prefira desmarcar <strong>Usuário ativo</strong>.
+          </p>
+          <FormAcao acao={acaoExcluirUsuario} botao="Excluir usuário" classeBotao="botao-perigo" confirmar={`Excluir definitivamente o usuário ${u!.nome}? Esta ação não pode ser desfeita.`}>
+            <input type="hidden" name="id" value={u!.id} />
+          </FormAcao>
+        </section>
+      )}
     </div>
   );
 }
