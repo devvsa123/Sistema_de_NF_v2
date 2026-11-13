@@ -5,6 +5,10 @@ import { etapasDoUsuario, type Etapa } from "./fluxo";
 import { cnpj } from "./format";
 import { preencherDocx } from "./docx";
 import { camposFixos, modeloAtual } from "./laudo";
+import { correlacionarNota, type LinhaCorrelacao } from "./estoque";
+import { inserirTabela, type Tabela } from "./tabela-doc";
+import { numero as fmtNumero } from "./format";
+import type { DadosNF, ItemNF } from "./nfe";
 
 /** Documentos do Recebimento: TAV e Check-list, gerados a partir de modelos (.odt ou .docx) editáveis. */
 
@@ -27,7 +31,7 @@ const COMUNS: Marcador[] = [
   { chave: "numero_tav", descricao: "Número do TAV", origem: "Recebimento" },
   { chave: "ano", descricao: "Ano do TAV", origem: "Recebimento" },
   { chave: "data_recebimento", descricao: "Data do recebimento", origem: "Recebimento" },
-  { chave: "responsavel", descricao: "Nome de quem emitiu", origem: "NF" },
+  { chave: "responsavel", descricao: "Nome de quem imprimiu o documento (assinatura do responsável pelo pré-recebimento)", origem: "Recebimento" },
 ];
 export const MARCADORES_TAV: Marcador[] = [
   ...COMUNS,
@@ -42,6 +46,7 @@ export const MARCADORES_TAV: Marcador[] = [
   { chave: "fabricacao", descricao: "Fabricação", origem: "Recebimento" },
   { chave: "volumes", descricao: "Volumes", origem: "Recebimento" },
   { chave: "observacao", descricao: "Observação do TAV", origem: "Recebimento" },
+  { chave: "tabela_itens", descricao: "Tabela de itens para a contagem (item da NF × estoque, CXP e caixas). Sozinho num parágrafo; sem ele, a tabela vai para o fim do TAV", origem: "Recebimento" },
 ];
 export const MARCADORES_CHECKLIST: Marcador[] = [
   ...COMUNS,
@@ -124,15 +129,63 @@ export async function docsDaNota(notaId: number) {
 
 const MIME = { odt: "application/vnd.oasis.opendocument.text", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" };
 
-/** Gera o TAV ou o Check-list de um registro, com o modelo atual. */
-export async function documentoRecebimento(id: number, doc: "tav" | "checklist") {
-  const [r] = await sql`select r.dados, r.numero_tav, r.ano, n.numero from docs_recebimento r join notas n on n.id = r.nota_id where r.id = ${id}`;
+const qtdBR = (v: number) => fmtNumero(v, Number.isInteger(v) ? 0 : 2);
+
+/** Tabela da contagem: cada item (ou tamanho da grade) com o item do estoque, CXP e plano de caixas. */
+export function tabelaContagem(linhas: LinhaCorrelacao[], volumesNf: number): Tabela {
+  const tot = linhas.reduce((a, l) => ({ qtd: a.qtd + l.qtd, cheias: a.cheias + (l.caixas?.cheias ?? 0), frac: a.frac + (l.caixas?.fracionada ? 1 : 0), total: a.total + (l.caixas?.total ?? 0) }), { qtd: 0, cheias: 0, frac: 0, total: 0 });
+  const pendentes = linhas.filter((l) => !l.item || !l.caixas || l.confianca === "media").length;
+  return {
+    titulo: "RELAÇÃO DE ITENS PARA CONTAGEM",
+    colunas: [
+      { titulo: "#", cm: 0.7, alinhar: "centro" },
+      { titulo: "PI", cm: 1.7, alinhar: "centro" },
+      { titulo: "ITEM NO ESTOQUE (WMS)", cm: 5.4 },
+      { titulo: "QTD. NF", cm: 1.4, alinhar: "dir" },
+      { titulo: "CXP", cm: 1.0, alinhar: "dir" },
+      { titulo: "CX. CHEIAS", cm: 1.2, alinhar: "dir" },
+      { titulo: "FRACION.", cm: 1.5, alinhar: "dir" },
+      { titulo: "TOTAL CX.", cm: 1.1, alinhar: "dir" },
+      { titulo: "QTD. CONTADA", cm: 1.5 },
+      { titulo: "CX. CONTADAS", cm: 1.5 },
+    ],
+    linhas: linhas.map((l) => [
+      String(l.n),
+      l.item?.pi ?? "—",
+      l.item ? `${l.confianca === "media" ? "VERIFICAR: " : ""}${l.item.descricao}` : `SEM CORRELAÇÃO — ${l.descricao.length > 80 ? l.descricao.slice(0, 78) + "…" : l.descricao}`,
+      `${qtdBR(l.qtd)} ${l.un}`.trim(),
+      l.item?.cxp ? qtdBR(l.item.cxp) : "—",
+      l.caixas ? String(l.caixas.cheias) : "—",
+      l.caixas?.fracionada ? `1 c/ ${qtdBR(l.caixas.fracionada)}` : "—",
+      l.caixas ? String(l.caixas.total) : "—",
+      "",
+      "",
+    ]),
+    rodape: ["", "", "TOTAL", qtdBR(tot.qtd), "", String(tot.cheias), tot.frac ? String(tot.frac) : "—", String(tot.total), "", ""],
+    nota:
+      `Volumes informados na NF: ${volumesNf || "—"}. Caixas calculadas pelo padrão (CXP) do estoque.` +
+      (pendentes ? ` ${pendentes} linha(s) sem correlação, sem CXP ou a verificar: conferir item e quantidade de caixas na contagem.` : ""),
+  };
+}
+
+const volumesDaNota = (dados: DadosNF | null) => (dados?.transp?.volumes ?? []).reduce((s, v) => s + (Number(v.qVol) || 0), 0);
+
+/** Gera o TAV ou o Check-list de um registro, com o modelo atual. Quem imprime assina como responsável pelo pré-recebimento. */
+export async function documentoRecebimento(id: number, doc: "tav" | "checklist", quemImprime: Usuario) {
+  const [r] = await sql`select r.dados, r.numero_tav, r.ano, n.numero, n.emit_cnpj, n.itens, n.dados as nf
+                        from docs_recebimento r join notas n on n.id = r.nota_id where r.id = ${id}`;
   if (!r) return null;
   const { arquivo, nome } = await modeloAtual(doc);
   const ext = /\.docx$/i.test(nome) ? "docx" : "odt";
   const prefixo = doc === "tav" ? "TAV" : "Check-list";
+  const valores = { ...(r.dados as { valores: Record<string, string> }).valores, responsavel: quemImprime.nome };
+  let modelo: Uint8Array = arquivo;
+  if (doc === "tav") {
+    const { linhas } = await correlacionarNota({ emit_cnpj: r.emit_cnpj, itens: r.itens as ItemNF[] | null });
+    if (linhas.length) modelo = inserirTabela(modelo, "{{tabela_itens}}", tabelaContagem(linhas, volumesDaNota(r.nf as DadosNF | null)));
+  }
   return {
-    bytes: preencherDocx(arquivo, (r.dados as { valores: Record<string, string> }).valores),
+    bytes: preencherDocx(modelo, valores),
     nome: `${prefixo}-${r.numero_tav}-${r.ano}-NF${String(r.numero).replace(/\W/g, "")}.${ext}`,
     mime: MIME[ext],
   };
@@ -151,5 +204,12 @@ export async function exemploRecebimento(doc: "tav" | "checklist") {
     ...Object.fromEntries(fixos.map((f) => [f.chave, f.valor])),
   };
   const ext = /\.docx$/i.test((await modeloAtual(doc)).nome) ? "docx" : "odt";
-  return { bytes: preencherDocx(arquivo, v), ext, mime: MIME[ext] };
+  const exemplo = (n: number, pi: string, descricao: string, q: number, cxp: number | null): LinhaCorrelacao => {
+    const caixas = cxp ? { cheias: Math.floor(q / cxp), fracionada: q % cxp, total: Math.ceil(q / cxp) } : null;
+    return { ref: String(n), n, codigo: "", descricao, qtd: q, un: "UN", confianca: "alta", item: { pi, descricao, cxp }, candidatos: [], caixas };
+  };
+  const modelo = doc === "tav"
+    ? inserirTabela(arquivo, "{{tabela_itens}}", tabelaContagem([exemplo(1, "190000001", "ITEM DE EXEMPLO TAM P", 101, 20), exemplo(2, "190000002", "ITEM DE EXEMPLO TAM M", 300, 50)], 13))
+    : arquivo;
+  return { bytes: preencherDocx(modelo, v), ext, mime: MIME[ext] };
 }

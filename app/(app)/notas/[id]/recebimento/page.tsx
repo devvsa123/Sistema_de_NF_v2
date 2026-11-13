@@ -29,7 +29,7 @@ export default async function DocsRecebimento({ params, searchParams }: PageProp
   return (
     <div className="mx-auto max-w-4xl">
       <div className="mb-3"><Voltar href={linkNota(id, destinoVolta(sp.volta)?.href)}>NF {nota.numero}</Voltar></div>
-      <Cabecalho titulo="Documentos do Recebimento" descricao="TAV (Termo de Abertura de Volumes) e Check-list de Recebimento. Os dados da NF entram automaticamente; o número do TAV é sugerido em sequência." />
+      <Cabecalho titulo="Documentos do Recebimento" descricao="TAV (Termo de Abertura de Volumes) e Check-list de Recebimento. Os dados da NF entram automaticamente; o número do TAV é sugerido em sequência. O TAV traz a relação de itens para a contagem e sai assinado por quem o imprime (responsável pelo pré-recebimento)." />
 
       {emitido && registros.some((r) => r.id === emitido) && (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4">

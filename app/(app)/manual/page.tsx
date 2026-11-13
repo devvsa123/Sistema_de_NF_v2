@@ -114,6 +114,9 @@ export default async function Manual() {
           <li>Os documentos ficam registrados no histórico da NF e podem ser baixados de novo na página da nota.</li>
           <li>Para corrigir, emita novamente: o formulário já vem preenchido com o registro anterior. O mesmo número de TAV não pode ser usado em outra NF no mesmo ano.</li>
           <li>Lote e fabricação informados no TAV já aparecem preenchidos no laudo pericial.</li>
+          <li>O TAV sai com a <B>Relação de itens para contagem</B>: cada item da NF (ou cada tamanho da grade) com o PI e a descrição do estoque, a quantidade, o CXP e o plano de caixas (cheias, fracionada e total), além das colunas em branco <B>Qtd. contada</B> e <B>Cx. contadas</B>. Basta imprimir o TAV para fazer a contagem.</li>
+          <li>A relação é montada no momento do download, com a correlação atual: se um item for corrigido no quadro <B>Itens × estoque</B>, baixe o TAV de novo. Linhas sem correlação ou sem CXP vêm marcadas para conferência.</li>
+          <li>A assinatura de <B>Responsável pelo pré-recebimento</B> sai com o nome de <B>quem baixou/imprimiu</B> o TAV, que responde pelo pré-recebimento da NF.</li>
         </Lista>
       </>,
     },
