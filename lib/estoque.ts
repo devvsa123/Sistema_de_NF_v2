@@ -17,7 +17,7 @@ export async function configWms(): Promise<ConfigWms> {
   const c = Object.fromEntries(linhas.map((l) => [l.chave, l.valor as string]));
   return {
     repo: c.planilhas_repo || "DepfmrjAbastecimento/planilhas", branch: c.planilhas_branch || "main",
-    planilhaEstoque: c.planilha_estoque || "controle-estoque.xlsx", planilhaUz: c.planilha_uz || "",
+    planilhaEstoque: c.planilha_estoque || "dados_wms/controle-estoque.xlsx", planilhaUz: c.planilha_uz || "",
     locVirtual: (c.loc_virtual || "REC").toUpperCase(), exigirUz: c.exigir_uz_alocadas === "sim",
     tokenConfigurado: !!process.env.PLANILHAS_GITHUB_TOKEN,
   };

@@ -30,7 +30,7 @@ Os usuários entram com o mesmo NIP/CNPJ e a mesma senha do sistema antigo, e s�
 
 ## Integração com as planilhas do RPA (WMS)
 
-O catálogo do estoque (`controle-estoque.xlsx`) é lido do repositório privado configurado em Administração → Estoque (WMS)
+O catálogo do estoque (`dados_wms/controle-estoque.xlsx`) é lido do repositório privado configurado em Administração → Estoque (WMS)
 (padrão `DepfmrjAbastecimento/planilhas`). Variáveis na Vercel (Settings → Environment Variables):
 
 | Variável | Para quê |

@@ -112,7 +112,7 @@ export async function acaoSalvarConfigWms(_: Estado, f: FormData): Promise<Estad
   const exigir = f.get("exigir_uz_alocadas") === "on";
   if (exigir && !campo(f, "planilha_uz")) return { erro: "Para exigir as UZ alocadas, informe o nome da planilha de alocação das UZ." };
   await salvarConfigWms({
-    planilhas_repo: repo, planilhas_branch: campo(f, "planilhas_branch") || "main", planilha_estoque: campo(f, "planilha_estoque") || "controle-estoque.xlsx",
+    planilhas_repo: repo, planilhas_branch: campo(f, "planilhas_branch") || "main", planilha_estoque: campo(f, "planilha_estoque") || "dados_wms/controle-estoque.xlsx",
     planilha_uz: campo(f, "planilha_uz"), loc_virtual: (campo(f, "loc_virtual") || "REC").toUpperCase(), exigir_uz_alocadas: exigir ? "sim" : "nao",
   });
   revalidatePath("/", "layout");
