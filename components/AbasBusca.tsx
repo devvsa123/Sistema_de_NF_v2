@@ -16,6 +16,8 @@ export function Abas({ itens, atual }: { itens: readonly (readonly [string, stri
 }
 
 /** Alterna entre a busca de notas e a busca de itens. */
-export function AbasBusca({ atual }: { atual: "notas" | "itens" }) {
-  return <Abas atual={atual} itens={[["notas", "/notas", "Notas fiscais"], ["itens", "/notas/itens", "Itens das notas"]]} />;
+export function AbasBusca({ atual, interno = true }: { atual: "notas" | "itens" | "entrando"; interno?: boolean }) {
+  const itens: [string, string, string][] = [["notas", "/notas", "Notas fiscais"], ["itens", "/notas/itens", "Itens das notas"]];
+  if (interno) itens.push(["entrando", "/notas/entrando", "Itens entrando"]);
+  return <Abas atual={atual} itens={itens} />;
 }

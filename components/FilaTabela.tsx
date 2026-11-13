@@ -7,6 +7,7 @@ import { linkNota } from "@/lib/format";
 import type { Acao } from "@/lib/fluxo";
 import { ComentariosNota } from "./ComentariosNota";
 import { CampoIdPa } from "./CampoIdPa";
+import { ItensRapidos } from "./ItensRapidos";
 
 export type LinhaFila = {
   id: number; numero: string; empresa: string; valor: string; oc: string; dias: string; farol: "verde" | "amarelo" | "vermelho" | null;
@@ -84,6 +85,7 @@ export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, 
                   <td className="whitespace-nowrap">
                     <Link href={linkNota(l.id, volta)} className="font-semibold text-marinha hover:underline">{l.numero}</Link>
                     {l.sobMedida && <span title="Material sob medida" className="ml-2 rounded bg-violet-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Sob medida</span>}
+                    <ItensRapidos id={l.id} numero={l.numero} volta={volta} />
                     {docsRecebimento && <Link href={`/notas/${l.id}/recebimento${volta ? `?volta=${encodeURIComponent(volta)}` : ""}`} className="ml-2 rounded border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 hover:border-marinha hover:text-marinha">TAV / Check-list</Link>}
                     {laudo && <Link href={`/notas/${l.id}/laudo${volta ? `?volta=${encodeURIComponent(volta)}` : ""}`} className="ml-2 rounded border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 hover:border-marinha hover:text-marinha">Laudo</Link>}
                     {l.situacao && <span className="block text-xs text-slate-500">{l.situacao}</span>}

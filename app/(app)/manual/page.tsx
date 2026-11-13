@@ -146,6 +146,7 @@ export default async function Manual() {
         <p>Na página de cada NF com itens (XML ou PDF), o quadro <B>Itens × estoque (WMS)</B> liga cada item da nota ao item do estoque e calcula as caixas pelo padrão de caixa (<B>CXP</B>) do WMS.</p>
         <Lista>
           <li>Exemplo: 101 unidades com CXP 20 = <B>5 caixas cheias + 1 fracionada com 1 unidade</B> = 6 caixas.</li>
+          <li>Na fila, o botão <B>Itens</B> ao lado do número da NF abre os itens já ligados ao estoque, com CXP e caixas, sem sair da fila.</li>
           <li><B>PI na nota</B>: o fornecedor informou o PI. <B>Confirmada</B>: alguém já confirmou essa correlação para o fornecedor. <B>Automática</B>: a descrição bate com segurança. <B>Verificar</B>: a correlação é provável, confira. <B>Sem correlação</B>: nenhum item do estoque corresponde.</li>
           <li>Para corrigir, use <B>Escolher item do estoque</B>, <B>Confirmar ou trocar</B> ou <B>Trocar</B>: escolha uma sugestão, pesquise no catálogo ou digite o PI. A escolha vale para as próximas NF do mesmo fornecedor.</li>
           <li>O total de caixas pelo padrão aparece ao lado dos volumes declarados na NF, para ajudar na contagem.</li>
@@ -222,6 +223,16 @@ export default async function Manual() {
           <li>O resultado mostra cada item com quantidade e valores, agrupado pela NF, e o total encontrado.</li>
         </Lista>
         <Dica>Só aparecem itens das NF que têm XML ou PDF da consulta anexado.</Dica>
+      </>,
+    },
+    {
+      id: "entrando", titulo: "Itens entrando", para: ["admin", "interno", "consulta"], conteudo: <>
+        <p>A aba <Ir href="/notas/entrando">Itens entrando</Ir> mostra, somado por item do estoque, tudo o que está nas NF em tramitação e nas finalizadas ainda não armazenadas.</p>
+        <Lista>
+          <li>Em cada item: o PI e a descrição do estoque, a <B>quantidade total</B>, as <B>caixas previstas</B> pelo CXP, quantas NF trazem o item e <B>onde está</B> (quantidade por etapa).</li>
+          <li>Clique no item para ver as NF, a empresa, a etapa e a quantidade de cada uma.</li>
+          <li>Filtre por texto (item, PI, NF ou empresa), etapa e empresa; ordene por quantidade, número de NF ou nome. Marque <B>Só sem correlação</B> para ver o que ainda não foi ligado ao estoque.</li>
+        </Lista>
       </>,
     },
     {

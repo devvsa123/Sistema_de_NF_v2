@@ -51,7 +51,7 @@ export default async function BuscaItens({ searchParams }: PageProps<"/notas/ite
       <Cabecalho titulo={interno ? "Notas fiscais" : "Minhas notas fiscais"} descricao="Pesquise as notas pelo número, chave, empresa, OC ou empenho, ou procure pelos itens comprados.">
         {r.total > 0 && <a href={`/api/itens/csv?${qs({ pagina: "" })}`} className="botao-sec">Exportar planilha (CSV)</a>}
       </Cabecalho>
-      <AbasBusca atual="itens" />
+      <AbasBusca atual="itens" interno={interno} />
 
       <form className="cartao grid grid-cols-2 gap-3 p-4 md:grid-cols-4 lg:grid-cols-6" action="/notas/itens">
         <label className="col-span-2 lg:col-span-3">

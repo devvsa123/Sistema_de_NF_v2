@@ -27,7 +27,7 @@ export default async function Notas({ searchParams }: PageProps<"/notas">) {
       <Cabecalho titulo={interno ? "Notas fiscais" : "Minhas notas fiscais"} descricao="Pesquise as notas pelo número, chave, empresa, OC ou empenho, ou procure pelos itens comprados.">
         <a href={`/api/notas/csv?${qs({ pagina: "" })}`} className="botao-sec">Exportar planilha (CSV)</a>
       </Cabecalho>
-      <AbasBusca atual="notas" />
+      <AbasBusca atual="notas" interno={interno} />
 
       <form className="cartao grid grid-cols-2 gap-3 p-4 md:grid-cols-4 lg:grid-cols-6" action="/notas">
         <label className="col-span-2">
