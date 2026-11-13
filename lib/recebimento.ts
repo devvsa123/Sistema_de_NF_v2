@@ -72,16 +72,25 @@ export function podeEmitirRecebimento(u: Usuario, etapas: Etapa[], nota: { statu
   return etapasDoUsuario(u, etapas).some((e) => e.emite_docs_recebimento && e.id === nota.etapa_id);
 }
 
-export function validarRecebimento(d: DadosRecebimento): string | null {
+export type DocRecebimento = "tav" | "checklist";
+
+export function validarTav(d: DadosRecebimento): string | null {
   if (!/^\d{1,6}$/.test(d.numero_tav.trim())) return "Informe o número do TAV (somente números).";
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d.data_recebimento)) return "Informe a data do recebimento.";
   if (d.conferencia !== "Contagem manual" && d.conferencia !== "Pesagem") return "Escolha se a conferência foi por contagem manual ou pesagem.";
   if (d.respostas.length !== PERGUNTAS_TAV.length || d.respostas.some((r) => r !== "Sim" && r !== "Não"))
     return "Responda SIM ou NÃO para todas as perguntas do TAV.";
-  if (d.discrepancia !== "Sim" && d.discrepancia !== "Não") return "Informe se houve discrepância na contagem.";
-  if (d.observacao.length > 600 || d.obs_recebimento.length > 300 || d.obs_contagem.length > 900) return "Observação longa demais para o espaço do documento.";
+  if (d.observacao.length > 600) return "Observação longa demais para o espaço do documento.";
   return null;
 }
+
+export function validarChecklist(d: DadosRecebimento): string | null {
+  if (d.discrepancia !== "Sim" && d.discrepancia !== "Não") return "Informe se houve discrepância na contagem.";
+  if (d.obs_recebimento.length > 300 || d.obs_contagem.length > 900) return "Observação longa demais para o espaço do documento.";
+  return null;
+}
+
+export const CAMPOS_CHECKLIST = ["peso_kg", "itens_caixa", "data_envio_amostra", "obs_recebimento", "discrepancia", "obs_contagem"] as const;
 
 const dataBR = (iso: string) => (/^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso.split("-").reverse().join("/") : "");
 
@@ -90,19 +99,12 @@ export async function proximoTav(ano: number) {
   return r.n as number;
 }
 
-export async function emitirRecebimento(u: Usuario, notaId: number, d: DadosRecebimento) {
-  const [n] = await sql`select id, numero, oc, emit_cnpj, emit_nome from notas where id = ${notaId}`;
-  if (!n) throw new Error("NF não encontrada.");
-  const ano = Number(d.data_recebimento.slice(0, 4));
-  const numero = Number(d.numero_tav);
-  const [usado] = await sql`select n.numero from docs_recebimento r join notas n on n.id = r.nota_id
-                            where r.ano = ${ano} and r.numero_tav = ${numero} and r.nota_id <> ${notaId} limit 1`;
-  if (usado) throw new Error(`O TAV nº ${numero}/${ano} já foi usado na NF ${usado.numero}.`);
+async function valoresDoc(u: Usuario, n: { numero: string; oc: string | null; emit_nome: string; emit_cnpj: string }, d: DadosRecebimento) {
   const x = (cond: boolean) => (cond ? "X" : "");
   const fixos = await camposFixos();
-  const valores: Record<string, string> = {
+  return {
     numero_nf: n.numero, numero_oc: n.oc ?? "", nome_empresa: n.emit_nome, cnpj: cnpj(n.emit_cnpj), responsavel: u.nome,
-    numero_tav: String(numero), ano: String(ano), data_recebimento: dataBR(d.data_recebimento),
+    numero_tav: d.numero_tav.trim(), ano: d.data_recebimento.slice(0, 4), data_recebimento: dataBR(d.data_recebimento),
     id_pa: d.id_pa.trim(), lote: d.lote.trim(), fabricacao: d.fabricacao.trim(), volumes: d.volumes.trim(), observacao: d.observacao.trim() || "_________",
     x_contagem: x(d.conferencia === "Contagem manual"), x_pesagem: x(d.conferencia === "Pesagem"),
     ...Object.fromEntries(d.respostas.flatMap((r, i) => [[`q${i + 1}_sim`, x(r === "Sim")], [`q${i + 1}_nao`, x(r === "Não")]])),
@@ -110,20 +112,47 @@ export async function emitirRecebimento(u: Usuario, notaId: number, d: DadosRece
     obs_recebimento: d.obs_recebimento.trim() || "_".repeat(49), discrepancia_sim: x(d.discrepancia === "Sim"), discrepancia_nao: x(d.discrepancia === "Não"),
     obs_contagem: d.obs_contagem.trim() || "_".repeat(80), // vazio: mantém a linha para preencher à mão
     ...Object.fromEntries(fixos.map((f) => [f.chave, f.valor])),
-  };
+  } as Record<string, string>;
+}
+
+/** Último TAV emitido para a NF (o Check-list usa o número, a data e a identificação dele). */
+export async function ultimoTav(notaId: number) {
+  const [r] = await sql<{ id: number; dados: { formulario: DadosRecebimento } }[]>`
+    select id, dados from docs_recebimento where nota_id = ${notaId} and doc in ('tav', 'ambos') order by criado_em desc limit 1`;
+  return r ?? null;
+}
+
+/** Emite o TAV (Pré Recebimento) ou o Check-list (Contagem), cada um no seu momento. */
+export async function emitirDocRecebimento(u: Usuario, notaId: number, doc: DocRecebimento, d: DadosRecebimento) {
+  const [n] = await sql`select id, numero, oc, emit_cnpj, emit_nome from notas where id = ${notaId}`;
+  if (!n) throw new Error("NF não encontrada.");
+  if (doc === "checklist") {
+    const tav = await ultimoTav(notaId);
+    if (!tav) throw new Error("Emita primeiro o TAV desta NF: o Check-list usa o número e a data do TAV.");
+    const base = tav.dados.formulario;
+    d = { ...base, ...Object.fromEntries(CAMPOS_CHECKLIST.map((c) => [c, d[c]])) } as DadosRecebimento;
+  }
+  const ano = Number(d.data_recebimento.slice(0, 4));
+  const numero = Number(d.numero_tav);
+  if (doc === "tav") {
+    const [usado] = await sql`select n.numero from docs_recebimento r join notas n on n.id = r.nota_id
+                              where r.ano = ${ano} and r.numero_tav = ${numero} and r.nota_id <> ${notaId} limit 1`;
+    if (usado) throw new Error(`O TAV nº ${numero}/${ano} já foi usado na NF ${usado.numero}.`);
+  }
+  const valores = await valoresDoc(u, n as never, d);
+  const texto = doc === "tav" ? `TAV nº ${numero}/${ano} emitido` : `Check-list de Recebimento emitido (TAV nº ${numero}/${ano})`;
   return sql.begin(async (tx) => {
-    const [r] = await tx`insert into docs_recebimento (nota_id, numero_tav, ano, dados, criado_por, criado_por_nome)
-                         values (${notaId}, ${numero}, ${ano}, ${tx.json({ formulario: d, valores } as never)}, ${u.id}, ${u.nome}) returning id`;
-    if (d.id_pa.trim()) await tx`update notas set id_pa = ${d.id_pa.trim()} where id = ${notaId}`;
-    await tx`insert into eventos (nota_id, tipo, usuario_id, usuario_nome, texto)
-             values (${notaId}, 'docs_recebimento', ${u.id}, ${u.nome}, ${`TAV nº ${numero}/${ano} e Check-list de Recebimento emitidos`})`;
+    const [r] = await tx`insert into docs_recebimento (nota_id, numero_tav, ano, doc, dados, criado_por, criado_por_nome)
+                         values (${notaId}, ${numero}, ${ano}, ${doc}, ${tx.json({ formulario: d, valores } as never)}, ${u.id}, ${u.nome}) returning id`;
+    if (doc === "tav" && d.id_pa.trim()) await tx`update notas set id_pa = ${d.id_pa.trim()} where id = ${notaId}`;
+    await tx`insert into eventos (nota_id, tipo, usuario_id, usuario_nome, texto) values (${notaId}, 'docs_recebimento', ${u.id}, ${u.nome}, ${texto})`;
     return r.id as number;
   });
 }
 
 export async function docsDaNota(notaId: number) {
-  return sql<{ id: number; numero_tav: number; ano: number; criado_em: Date; por: string | null; dados: { formulario: DadosRecebimento } }[]>`
-    select r.id, r.numero_tav, r.ano, r.criado_em, coalesce(u.nome, r.criado_por_nome) as por, r.dados from docs_recebimento r left join usuarios u on u.id = r.criado_por
+  return sql<{ id: number; numero_tav: number; ano: number; doc: "tav" | "checklist" | "ambos"; criado_em: Date; por: string | null; dados: { formulario: DadosRecebimento } }[]>`
+    select r.id, r.numero_tav, r.ano, r.doc, r.criado_em, coalesce(u.nome, r.criado_por_nome) as por, r.dados from docs_recebimento r left join usuarios u on u.id = r.criado_por
     where r.nota_id = ${notaId} order by r.criado_em desc`;
 }
 
@@ -172,9 +201,9 @@ const volumesDaNota = (dados: DadosNF | null) => (dados?.transp?.volumes ?? []).
 
 /** Gera o TAV ou o Check-list de um registro, com o modelo atual. Quem imprime assina como responsável pelo pré-recebimento. */
 export async function documentoRecebimento(id: number, doc: "tav" | "checklist", quemImprime: Usuario) {
-  const [r] = await sql`select r.dados, r.numero_tav, r.ano, n.numero, n.emit_cnpj, n.itens, n.dados as nf
+  const [r] = await sql`select r.dados, r.numero_tav, r.ano, r.doc, n.numero, n.emit_cnpj, n.itens, n.dados as nf
                         from docs_recebimento r join notas n on n.id = r.nota_id where r.id = ${id}`;
-  if (!r) return null;
+  if (!r || (r.doc !== "ambos" && r.doc !== doc)) return null;
   const { arquivo, nome } = await modeloAtual(doc);
   const ext = /\.docx$/i.test(nome) ? "docx" : "odt";
   const prefixo = doc === "tav" ? "TAV" : "Check-list";

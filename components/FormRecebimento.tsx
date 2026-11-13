@@ -19,12 +19,16 @@ function Opcoes({ nome, opcoes, valor }: { nome: string; opcoes: string[]; valor
   );
 }
 
-export function FormRecebimento({ id, inicial, perguntas }: { id: number; inicial: DadosRecebimento; perguntas: string[] }) {
+export function FormTav({ id, inicial, perguntas }: { id: number; inicial: DadosRecebimento; perguntas: string[] }) {
   return (
-    <FormAcao acao={acaoEmitirRecebimento} botao="Emitir TAV e Check-list" className="space-y-5">
+    <FormAcao acao={acaoEmitirRecebimento} botao="Emitir TAV" className="space-y-5">
       <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="doc" value="tav" />
       <section className="cartao space-y-4 p-5">
-        <h2 className="text-[15px] font-semibold text-slate-900">Identificação</h2>
+        <div>
+          <h2 className="text-[15px] font-semibold text-slate-900">TAV — Termo de Abertura de Volumes</h2>
+          <p className="mt-0.5 text-xs text-slate-500">Pré Recebimento. Sai com a relação de itens para a contagem e assinado por quem o imprime.</p>
+        </div>
         <div className="grid gap-4 sm:grid-cols-3">
           <label><span className="rotulo">Nº do TAV *</span><input name="numero_tav" defaultValue={inicial.numero_tav} className="campo" required inputMode="numeric" maxLength={6} /></label>
           <label><span className="rotulo">Data do recebimento *</span><input type="date" name="data_recebimento" defaultValue={inicial.data_recebimento} className="campo" required /></label>
@@ -33,11 +37,7 @@ export function FormRecebimento({ id, inicial, perguntas }: { id: number; inicia
           <label><span className="rotulo">Fabricação</span><input name="fabricacao" defaultValue={inicial.fabricacao} className="campo" maxLength={30} placeholder="mês/ano" /></label>
           <label><span className="rotulo">Volumes</span><input name="volumes" defaultValue={inicial.volumes} className="campo" maxLength={60} placeholder="ex.: 40 caixas" /></label>
         </div>
-      </section>
-
-      <section className="cartao space-y-4 p-5">
-        <h2 className="text-[15px] font-semibold text-slate-900">TAV — Termo de Abertura de Volumes</h2>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-y border-slate-100 py-3">
           <span className="text-sm text-slate-700">Conferência feita por *</span>
           <Opcoes nome="conferencia" opcoes={["Contagem manual", "Pesagem"]} valor={inicial.conferencia} />
         </div>
@@ -53,9 +53,27 @@ export function FormRecebimento({ id, inicial, perguntas }: { id: number; inicia
         <label className="block"><span className="rotulo">Observação do TAV</span>
           <textarea name="observacao" defaultValue={inicial.observacao} rows={3} maxLength={600} className="campo" /></label>
       </section>
+    </FormAcao>
+  );
+}
 
-      <section className="cartao space-y-4 p-5">
+export function FormChecklist({ id, inicial, tav }: { id: number; inicial: DadosRecebimento; tav: string | null }) {
+  if (!tav)
+    return (
+      <section className="cartao p-5">
         <h2 className="text-[15px] font-semibold text-slate-900">Check-list de Recebimento</h2>
+        <p className="mt-1 text-sm text-slate-600">Disponível depois que o TAV desta NF for emitido: o Check-list usa o número e a data do TAV.</p>
+      </section>
+    );
+  return (
+    <FormAcao acao={acaoEmitirRecebimento} botao="Emitir Check-list" className="space-y-5">
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="doc" value="checklist" />
+      <section className="cartao space-y-4 p-5">
+        <div>
+          <h2 className="text-[15px] font-semibold text-slate-900">Check-list de Recebimento</h2>
+          <p className="mt-0.5 text-xs text-slate-500">Contagem. Usa os dados do TAV nº {tav}.</p>
+        </div>
         <div className="grid gap-4 sm:grid-cols-3">
           <label><span className="rotulo">1. Peso de um volume (kg)</span><input name="peso_kg" defaultValue={inicial.peso_kg} className="campo" inputMode="decimal" maxLength={20} /></label>
           <label><span className="rotulo">Itens por caixa</span><input name="itens_caixa" defaultValue={inicial.itens_caixa} className="campo" inputMode="numeric" maxLength={20} /></label>
@@ -70,7 +88,6 @@ export function FormRecebimento({ id, inicial, perguntas }: { id: number; inicia
         <label className="block"><span className="rotulo">Observação da contagem (item 4)</span>
           <textarea name="obs_contagem" defaultValue={inicial.obs_contagem} rows={3} maxLength={900} className="campo" /></label>
       </section>
-      <p className="text-xs text-slate-500">Os dois documentos saem preenchidos com os dados da NF (número, OC e empresa). Ficam registrados no histórico da NF e podem ser baixados de novo.</p>
     </FormAcao>
   );
 }

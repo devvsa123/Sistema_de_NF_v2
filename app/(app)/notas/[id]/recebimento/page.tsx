@@ -5,7 +5,7 @@ import { obterNota } from "@/lib/notas";
 import { docsDaNota, PERGUNTAS_TAV, podeEmitirRecebimento, proximoTav, type DadosRecebimento } from "@/lib/recebimento";
 import { cnpj, dataHora, destinoVolta, linkNota, moeda } from "@/lib/format";
 import { Cabecalho, Selo, Voltar } from "@/components/ui";
-import { FormRecebimento } from "@/components/FormRecebimento";
+import { FormChecklist, FormTav } from "@/components/FormRecebimento";
 
 export const metadata = { title: "Documentos do Recebimento — Tramitação de NF" };
 
@@ -19,25 +19,27 @@ export default async function DocsRecebimento({ params, searchParams }: PageProp
   const registros = await docsDaNota(id);
   const emitido = Number(sp.emitido) || null;
   const hoje = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
-  const ultimo = registros[0]?.dados.formulario;
-  const inicial: DadosRecebimento = ultimo ?? {
+  const regTav = registros.find((r) => r.doc !== "checklist");
+  const regChecklist = registros.find((r) => r.doc !== "tav");
+  const vazio: DadosRecebimento = {
     numero_tav: String(await proximoTav(Number(hoje.slice(0, 4)))), data_recebimento: hoje, id_pa: "", lote: "", fabricacao: "", volumes: "",
     conferencia: "", respostas: PERGUNTAS_TAV.map((_, i) => (i < PERGUNTAS_TAV.length - 1 ? "Sim" : "")), observacao: "",
     peso_kg: "", itens_caixa: "", data_envio_amostra: "", obs_recebimento: "", discrepancia: "", obs_contagem: "",
   };
+  const inicialTav = regTav?.dados.formulario ?? vazio;
+  const inicialChecklist = regChecklist?.dados.formulario ?? vazio;
+  const docEmitido = sp.doc === "checklist" ? "checklist" : "tav";
+  const NOME = { tav: "TAV", checklist: "Check-list" } as const;
 
   return (
     <div className="mx-auto max-w-4xl">
       <div className="mb-3"><Voltar href={linkNota(id, destinoVolta(sp.volta)?.href)}>NF {nota.numero}</Voltar></div>
-      <Cabecalho titulo="Documentos do Recebimento" descricao="TAV (Termo de Abertura de Volumes) e Check-list de Recebimento. Os dados da NF entram automaticamente; o número do TAV é sugerido em sequência. O TAV traz a relação de itens para a contagem e sai assinado por quem o imprime (responsável pelo pré-recebimento)." />
+      <Cabecalho titulo="Documentos do Recebimento" descricao="Cada documento é emitido no seu momento: o TAV no Pré Recebimento e o Check-list na Contagem. Os dados da NF entram automaticamente e o número do TAV é sugerido em sequência." />
 
       {emitido && registros.some((r) => r.id === emitido) && (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4">
-          <p className="text-sm text-emerald-900"><strong>Documentos emitidos.</strong> Baixe cada um:</p>
-          <div className="flex gap-2">
-            <a href={`/api/recebimento/${emitido}?doc=tav`} className="botao">Baixar TAV</a>
-            <a href={`/api/recebimento/${emitido}?doc=checklist`} className="botao">Baixar Check-list</a>
-          </div>
+          <p className="text-sm text-emerald-900"><strong>{NOME[docEmitido]} emitido.</strong></p>
+          <a href={`/api/recebimento/${emitido}?doc=${docEmitido}`} className="botao">Baixar {NOME[docEmitido]}</a>
         </div>
       )}
 
@@ -48,7 +50,10 @@ export default async function DocsRecebimento({ params, searchParams }: PageProp
         <div className="sm:col-span-3"><p className="rotulo">Empresa</p><p>{nota.emit_nome} · {cnpj(nota.emit_cnpj)}</p></div>
       </div>
 
-      <FormRecebimento id={id} inicial={inicial} perguntas={PERGUNTAS_TAV} />
+      <div className="space-y-6">
+        <div id="tav" className="scroll-mt-20"><FormTav id={id} inicial={inicialTav} perguntas={PERGUNTAS_TAV} /></div>
+        <div id="checklist" className="scroll-mt-20"><FormChecklist id={id} inicial={inicialChecklist} tav={regTav ? `${regTav.numero_tav}/${regTav.ano}` : null} /></div>
+      </div>
 
       {registros.length > 0 && (
         <section className="cartao mt-6 p-5">
@@ -56,15 +61,15 @@ export default async function DocsRecebimento({ params, searchParams }: PageProp
           <ul className="divide-y divide-slate-100 text-sm">
             {registros.map((r) => (
               <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                <span>TAV nº <strong>{r.numero_tav}/{r.ano}</strong> · {dataHora(r.criado_em)}{r.por ? ` · ${r.por}` : ""}</span>
+                <span>{r.doc === "checklist" ? "Check-list" : r.doc === "tav" ? "TAV" : "TAV e Check-list"} · TAV nº <strong>{r.numero_tav}/{r.ano}</strong> · {dataHora(r.criado_em)}{r.por ? ` · ${r.por}` : ""}</span>
                 <span className="flex gap-3">
-                  <a href={`/api/recebimento/${r.id}?doc=tav`} className="font-medium text-marinha hover:underline">TAV</a>
-                  <a href={`/api/recebimento/${r.id}?doc=checklist`} className="font-medium text-marinha hover:underline">Check-list</a>
+                  {r.doc !== "checklist" && <a href={`/api/recebimento/${r.id}?doc=tav`} className="font-medium text-marinha hover:underline">Baixar TAV</a>}
+                  {r.doc !== "tav" && <a href={`/api/recebimento/${r.id}?doc=checklist`} className="font-medium text-marinha hover:underline">Baixar Check-list</a>}
                 </span>
               </li>
             ))}
           </ul>
-          <p className="mt-2 text-xs text-slate-500">O formulário acima vem preenchido com o último registro, para facilitar uma correção.</p>
+          <p className="mt-2 text-xs text-slate-500">Cada formulário vem preenchido com o último registro dele, para facilitar uma correção.</p>
         </section>
       )}
     </div>

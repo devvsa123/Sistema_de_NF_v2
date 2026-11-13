@@ -103,12 +103,12 @@ export default async function Manual() {
     },
     {
       id: "docs-recebimento", titulo: "TAV e Check-list de Recebimento", para: ["admin", "interno"], conteudo: <>
-        <p>O <B>Recebimento</B> (e o administrador geral) emite o TAV (Termo de Abertura de Volumes) e o Check-list de Recebimento enquanto a NF está em <B>Pré Recebimento</B> ou <B>Contagem</B>, pelo botão <B>TAV / Check-list</B> ao lado da NF na fila ou por <B>Emitir TAV e Check-list</B> na página da NF.</p>
+        <p>O <B>Recebimento</B> (e o administrador geral) emite o TAV (Termo de Abertura de Volumes) e o Check-list de Recebimento enquanto a NF está em <B>Pré Recebimento</B> ou <B>Contagem</B>, pelo botão <B>TAV / Check-list</B> ao lado da NF na fila ou pelos botões <B>Emitir TAV</B> e <B>Emitir Check-list</B> na página da NF.</p>
         <Passos>
           <li>Confira o <B>número do TAV</B> (o sistema sugere o próximo do ano) e a data do recebimento; informe ID do PA, lote, fabricação e volumes.</li>
           <li>Marque se a conferência foi por contagem manual ou pesagem e responda SIM ou NÃO às perguntas do TAV.</li>
           <li>No Check-list, informe o peso de um volume, itens por caixa, a data de envio da amostra e se houve discrepância na contagem.</li>
-          <li>Clique em <B>Emitir TAV e Check-list</B> e baixe os dois documentos, já preenchidos com NF, OC e empresa.</li>
+          <li>Os dois documentos são emitidos separadamente, cada um com o seu botão: <B>Emitir TAV</B> no Pré Recebimento e, depois, <B>Emitir Check-list</B> na Contagem. O Check-list usa o número, a data e a identificação do último TAV da NF, por isso só fica disponível depois do TAV.</li>
         </Passos>
         <Lista>
           <li>Os documentos ficam registrados no histórico da NF e podem ser baixados de novo na página da nota.</li>

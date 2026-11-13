@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { exigirUsuario } from "@/lib/auth";
 import { etapasAtivas } from "@/lib/fluxo";
 import { obterNota } from "@/lib/notas";
-import { emitirRecebimento, PERGUNTAS_TAV, podeEmitirRecebimento, validarRecebimento, type DadosRecebimento } from "@/lib/recebimento";
+import { emitirDocRecebimento, PERGUNTAS_TAV, podeEmitirRecebimento, validarChecklist, validarTav, type DadosRecebimento } from "@/lib/recebimento";
 import type { Estado } from "@/components/FormAcao";
 
 const campo = (f: FormData, nome: string) => String(f.get(nome) ?? "").slice(0, 1000);
@@ -24,14 +24,15 @@ export async function acaoEmitirRecebimento(_: Estado, f: FormData): Promise<Est
     peso_kg: campo(f, "peso_kg"), itens_caixa: campo(f, "itens_caixa"), data_envio_amostra: campo(f, "data_envio_amostra"),
     obs_recebimento: campo(f, "obs_recebimento"), discrepancia: campo(f, "discrepancia"), obs_contagem: campo(f, "obs_contagem"),
   };
-  const erro = validarRecebimento(d);
+  const doc = campo(f, "doc") === "checklist" ? "checklist" : "tav";
+  const erro = doc === "tav" ? validarTav(d) : validarChecklist(d);
   if (erro) return { erro };
   let reg: number;
   try {
-    reg = await emitirRecebimento(u, id, d);
+    reg = await emitirDocRecebimento(u, id, doc, d);
   } catch (e) {
     return { erro: e instanceof Error ? e.message : "Erro inesperado." };
   }
   revalidatePath(`/notas/${id}`);
-  redirect(`/notas/${id}/recebimento?emitido=${reg}`);
+  redirect(`/notas/${id}/recebimento?emitido=${reg}&doc=${doc}`);
 }
