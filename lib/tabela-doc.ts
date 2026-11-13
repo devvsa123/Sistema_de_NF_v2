@@ -25,16 +25,16 @@ function substituirParagrafo(xml: string, re: RegExp, marcador: string, bloco: s
 function estilosOdt(t: Tabela) {
   const largura = t.colunas.reduce((s, c) => s + c.cm, 0);
   const cel = (nome: string, fundo?: string) =>
-    `<style:style style:name="${nome}" style:family="table-cell"><style:table-cell-properties fo:padding="0.04cm" fo:border="0.5pt solid #000000"${fundo ? ` fo:background-color="${fundo}"` : ""}/></style:style>`;
+    `<style:style style:name="${nome}" style:family="table-cell"><style:table-cell-properties fo:padding="0.05cm" fo:border="0.5pt solid #8c8c8c" style:vertical-align="middle"${fundo ? ` fo:background-color="${fundo}"` : ""}/></style:style>`;
   const par = (nome: string, alinhar: string, extra = "", tam = "7pt") =>
     `<style:style style:name="${nome}" style:family="paragraph"><style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0cm" fo:text-align="${alinhar}"/><style:text-properties fo:font-family="Arial" style:font-family-generic="swiss" fo:font-size="${tam}" style:font-size-asian="${tam}" style:font-size-complex="${tam}"${extra}/></style:style>`;
   const negrito = ' fo:font-weight="bold" style:font-weight-asian="bold" style:font-weight-complex="bold"';
   return (
-    `<style:style style:name="TabItens" style:family="table"><style:table-properties style:width="${largura}cm" table:align="center" fo:margin-top="0.15cm" fo:margin-bottom="0.15cm"/></style:style>` +
+    `<style:style style:name="TabItens" style:family="table"><style:table-properties style:width="${largura}cm" table:align="left" fo:margin-top="0cm" fo:margin-bottom="0.1cm"/></style:style>` +
     t.colunas.map((c, i) => `<style:style style:name="TabItensC${i}" style:family="table-column"><style:table-column-properties style:column-width="${c.cm}cm"/></style:style>`).join("") +
-    cel("TabItensCel") + cel("TabItensCab", "#d9d9d9") + cel("TabItensTot", "#f2f2f2") +
+    cel("TabItensCel") + cel("TabItensCab", "#e8edf4") + cel("TabItensTot", "#f2f2f2") +
     par("TabItensP", "start") + par("TabItensPD", "end") + par("TabItensPC", "center") +
-    par("TabItensPB", "center", negrito) + par("TabItensPBD", "end", negrito) + par("TabItensTit", "center", negrito, "9pt") + par("TabItensNota", "start", ' fo:font-style="italic"', "7pt")
+    par("TabItensPB", "center", negrito) + par("TabItensPBD", "end", negrito) + `<style:style style:name="TabItensTit" style:family="paragraph"><style:paragraph-properties fo:margin-top="0.4cm" fo:margin-bottom="0.15cm" fo:padding-bottom="0.05cm" fo:border-bottom="1.1pt solid #1f3864" fo:border-top="none" fo:border-left="none" fo:border-right="none" fo:keep-with-next="always"/><style:text-properties fo:font-family="Arial" style:font-family-generic="swiss" fo:font-size="9.5pt" fo:color="#1f3864" fo:letter-spacing="0.02cm"${negrito}/></style:style>` + par("TabItensNota", "start", ' fo:font-style="italic" fo:color="#595959"', "7.5pt")
   );
 }
 
@@ -78,13 +78,13 @@ function tabelaDocx(t: Tabela) {
     `<w:tr>${tipo === "cab" ? "<w:trPr><w:tblHeader/></w:trPr>" : ""}${vals
       .map((v, i) => {
         const c = t.colunas[i];
-        const fundo = tipo === "cab" ? '<w:shd w:val="clear" w:color="auto" w:fill="D9D9D9"/>' : tipo === "tot" ? '<w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/>' : "";
+        const fundo = tipo === "cab" ? '<w:shd w:val="clear" w:color="auto" w:fill="E8EDF4"/>' : tipo === "tot" ? '<w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/>' : "";
         return `<w:tc><w:tcPr><w:tcW w:w="${Math.round(c.cm * TWIPS)}" w:type="dxa"/>${fundo}</w:tcPr>${par(v, jc(c, tipo === "cab"), tipo !== "item")}</w:tc>`;
       })
       .join("")}</w:tr>`;
   const borda = (lado: string) => `<w:${lado} w:val="single" w:sz="4" w:space="0" w:color="000000"/>`;
   return (
-    par(t.titulo, "center", true, 18) +
+    `<w:p><w:pPr><w:keepNext/><w:pBdr><w:bottom w:val="single" w:sz="8" w:space="1" w:color="1F3864"/></w:pBdr><w:spacing w:before="220" w:after="80"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/><w:b/><w:color w:val="1F3864"/><w:sz w:val="19"/></w:rPr><w:t xml:space="preserve">${esc(t.titulo)}</w:t></w:r></w:p>` +
     `<w:tbl><w:tblPr><w:tblW w:w="${Math.round(t.colunas.reduce((s, c) => s + c.cm, 0) * TWIPS)}" w:type="dxa"/><w:jc w:val="center"/><w:tblBorders>${["top", "left", "bottom", "right", "insideH", "insideV"].map(borda).join("")}</w:tblBorders><w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="40" w:type="dxa"/><w:right w:w="40" w:type="dxa"/></w:tblCellMar></w:tblPr>` +
     `<w:tblGrid>${t.colunas.map((c) => `<w:gridCol w:w="${Math.round(c.cm * TWIPS)}"/>`).join("")}</w:tblGrid>` +
     linha(t.colunas.map((c) => c.titulo), "cab") +

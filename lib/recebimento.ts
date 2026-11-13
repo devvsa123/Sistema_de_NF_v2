@@ -174,14 +174,14 @@ export function tabelaContagem(linhas: LinhaCorrelacao[], volumesNf: number): Ta
     colunas: [
       { titulo: "#", cm: 0.7, alinhar: "centro" },
       { titulo: "PI", cm: 1.7, alinhar: "centro" },
-      { titulo: "ITEM NO ESTOQUE (WMS)", cm: 5.4 },
+      { titulo: "ITEM NO ESTOQUE (WMS)", cm: 6.0 },
       { titulo: "QTD. NF", cm: 1.4, alinhar: "dir" },
       { titulo: "CXP", cm: 1.0, alinhar: "dir" },
       { titulo: "CX. CHEIAS", cm: 1.2, alinhar: "dir" },
       { titulo: "FRACION.", cm: 1.5, alinhar: "dir" },
       { titulo: "TOTAL CX.", cm: 1.1, alinhar: "dir" },
-      { titulo: "QTD. CONTADA", cm: 1.5 },
-      { titulo: "CX. CONTADAS", cm: 1.5 },
+      { titulo: "QTD. CONTADA", cm: 1.6 },
+      { titulo: "CX. CONTADAS", cm: 1.8 },
     ],
     linhas: linhas.map((l) => [
       String(l.n),
