@@ -46,7 +46,7 @@ export default async function MinhaFila({ searchParams }: PageProps<"/">) {
     id: n.id, numero: n.numero, empresa: n.emit_nome, valor: moeda(n.valor), oc: n.oc ?? "", recebida: data(n.recebida_em),
     dias: aba.chave === "armazenar" ? dias(n.dias_arrecadada) : dias(n.dias_etapa),
     farol: prazo !== null ? farol(Number(n.dias_etapa), prazo) : null,
-    obs: n.ultima_obs ?? "", comentarios: n.n_comentarios ?? 0, obsOc: n.obs_oc ?? "", arrecadada: !!n.arrecadada_em,
+    obs: n.ultima_obs ?? "", comentarios: n.n_comentarios ?? 0, sobMedida: !!n.sob_medida, obsOc: n.obs_oc ?? "", arrecadada: !!n.arrecadada_em,
     situacao: aba.chave === "reprovadas" ? `Reprovada em ${n.etapa_nome ?? "—"}` : undefined,
   }));
   const atrasadas = prazo !== null ? notas.filter((n) => Number(n.dias_etapa) > prazo).length : 0;

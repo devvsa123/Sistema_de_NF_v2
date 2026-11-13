@@ -17,7 +17,7 @@ export function ComentariosNota({ id, numero, total }: { id: number; numero: str
   const fechar = useCallback(() => setAberto(null), []);
   return (
     <>
-      <span className="inline-flex gap-1.5">
+      <span className="inline-flex flex-wrap gap-1.5 whitespace-nowrap">
         <button type="button" onClick={() => setAberto("comentar")} title={`Registrar observação na NF ${numero}`}
           className="rounded border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 hover:border-marinha hover:text-marinha">
           + Observação

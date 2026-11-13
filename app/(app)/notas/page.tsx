@@ -109,6 +109,8 @@ export default async function Notas({ searchParams }: PageProps<"/notas">) {
                   <td className="whitespace-nowrap">
                     <Link href={linkNota(n.id, `/notas?${qs({})}`)} className="font-semibold text-marinha hover:underline">{n.numero}</Link>
                     {n.fonte && <span title={n.fonte === "xml" ? "XML anexado" : "Dados lidos do PDF da consulta na SEFAZ"} className="ml-1.5 rounded bg-slate-100 px-1 text-[10px] font-semibold uppercase text-slate-500">{n.fonte}</span>}
+                    {interno && n.sob_medida && <span title="Material sob medida" className="ml-1.5 rounded bg-violet-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Sob medida</span>}
+                    {interno && <span className={`block text-xs ${n.arrecadada_em ? "text-emerald-700" : "text-amber-700"}`}>{n.arrecadada_em ? "Arrecadada" : "Não arrecadada"}</span>}
                   </td>
                   {interno && (
                     <td className="max-w-64">

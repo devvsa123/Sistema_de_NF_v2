@@ -9,7 +9,7 @@ import { ComentariosNota } from "./ComentariosNota";
 
 export type LinhaFila = {
   id: number; numero: string; empresa: string; valor: string; oc: string; dias: string; farol: "verde" | "amarelo" | "vermelho" | null;
-  obs: string; comentarios: number; obsOc: string; arrecadada: boolean; recebida: string; situacao?: string;
+  obs: string; comentarios: number; sobMedida: boolean; obsOc: string; arrecadada: boolean; recebida: string; situacao?: string;
 };
 export type BotaoFila = { acao: Acao; rotulo: string; estilo?: "principal" | "sec" | "perigo" };
 
@@ -78,10 +78,11 @@ export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, 
             </thead>
             <tbody>
               {visiveis.map((l) => (
-                <tr key={l.id} className={sel.has(l.id) ? "!bg-blue-50" : ""}>
+                <tr key={l.id} className={sel.has(l.id) ? "!bg-blue-50" : l.sobMedida ? "bg-violet-50/70 shadow-[inset_3px_0_0_#7c3aed]" : ""}>
                   <td><input type="checkbox" aria-label={`Selecionar NF ${l.numero}`} checked={sel.has(l.id)} onChange={() => alternar(l.id)} /></td>
                   <td className="whitespace-nowrap">
                     <Link href={linkNota(l.id, volta)} className="font-semibold text-marinha hover:underline">{l.numero}</Link>
+                    {l.sobMedida && <span title="Material sob medida" className="ml-2 rounded bg-violet-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Sob medida</span>}
                     {docsRecebimento && <Link href={`/notas/${l.id}/recebimento${volta ? `?volta=${encodeURIComponent(volta)}` : ""}`} className="ml-2 rounded border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 hover:border-marinha hover:text-marinha">TAV / Check-list</Link>}
                     {laudo && <Link href={`/notas/${l.id}/laudo${volta ? `?volta=${encodeURIComponent(volta)}` : ""}`} className="ml-2 rounded border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 hover:border-marinha hover:text-marinha">Laudo</Link>}
                     {l.situacao && <span className="block text-xs text-slate-500">{l.situacao}</span>}
