@@ -186,9 +186,11 @@ export default async function Manual() {
     {
       id: "detalhe", titulo: "Página da NF", para: TODOS, conteudo: <>
         <Lista>
-          <li><B>Caminho da tramitação</B>: em que etapa a NF está, quando passou por cada uma e quanto tempo ficou.</li>
+          <li><B>Caminho da tramitação</B>: em que etapa a NF está{u.papel === "empresa" ? "" : ", quando passou por cada uma e quanto tempo ficou"}.</li>
           <li><B>Dados da NF-e</B> e <B>Itens da nota</B>, quando há XML ou PDF anexado. <B>Baixar XML</B> aparece quando o XML foi enviado.</li>
-          <li><B>{u.papel === "empresa" ? "Movimentações" : "Histórico e observações"}</B>: todas as movimentações{u.papel === "empresa" ? "" : ", com usuário e observações"}.</li>
+          {u.papel === "empresa"
+            ? <li><B>Situação atual</B> e data da <B>última movimentação</B> da NF.</li>
+            : <li><B>Histórico e observações</B>: todas as movimentações, com usuário e observações.</li>}
           {u.papel !== "empresa" && u.papel !== "consulta" && <li><B>Nova observação</B>: registra um comentário no histórico sem movimentar a NF.</li>}
         </Lista>
       </>,

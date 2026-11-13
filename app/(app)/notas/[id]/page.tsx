@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ehInterno, exigirUsuario, podeCadastrar } from "@/lib/auth";
 import { acoesPermitidas, etapasAtivas, prazoReprovada, vizinhos, type Acao } from "@/lib/fluxo";
-import { eventosDaNota, obterNota } from "@/lib/notas";
+import { eventosDaNota, obterNota, type Evento } from "@/lib/notas";
 import { cnpj, data, dataHora, destinoVolta, dias, moeda, numero } from "@/lib/format";
 import { Farol, Selo, Voltar } from "@/components/ui";
 import { AcoesNota } from "@/components/AcoesNota";
@@ -33,7 +33,7 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
   if (!nota) notFound();
   const volta = destinoVolta((await searchParams).volta);
   const interno = ehInterno(u);
-  const [eventos, etapas, prazoReprov, laudos, docsReceb] = await Promise.all([eventosDaNota(nota.id), etapasAtivas(), prazoReprovada(), interno ? laudosDaNota(nota.id) : [], interno ? docsDaNota(nota.id) : []]);
+  const [eventos, etapas, prazoReprov, laudos, docsReceb] = await Promise.all([interno ? eventosDaNota(nota.id) : Promise.resolve([] as Evento[]), etapasAtivas(), prazoReprovada(), interno ? laudosDaNota(nota.id) : [], interno ? docsDaNota(nota.id) : []]);
   const perito = podeEmitirLaudo(u, etapas);
   const recebedor = podeEmitirRecebimento(u, etapas, nota);
 
@@ -109,18 +109,21 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
             const p = porEtapa.get(e.id);
             const atual = emAberto && nota.etapa_id === e.id;
             const reprovadaAqui = atual && nota.status === "reprovada";
-            const feito = !!p && !atual;
+            // fornecedor não recebe o histórico: as etapas anteriores à atual contam como concluídas
+            const posAtual = etapas.findIndex((x) => x.id === nota.etapa_id);
+            const passou = interno ? !!p : nota.status === "finalizada" || (posAtual >= 0 && i <= posAtual);
+            const feito = passou && !atual;
             return (
               <li key={e.id} className="flex items-start">
-                {i > 0 && <span className={`mt-4 h-0.5 w-8 sm:w-12 ${p ? "bg-marinha" : "bg-slate-200"}`} />}
+                {i > 0 && <span className={`mt-4 h-0.5 w-8 sm:w-12 ${passou ? "bg-marinha" : "bg-slate-200"}`} />}
                 <div className="flex w-28 flex-col items-center text-center">
                   <span className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
                     reprovadaAqui ? "bg-red-600 text-white" : atual ? "bg-marinha text-white ring-4 ring-marinha/20" : feito ? "bg-marinha/90 text-white" : "bg-slate-200 text-slate-500"}`}>
                     {reprovadaAqui ? "✕" : feito ? "✓" : i + 1}
                   </span>
                   <span className={`mt-1.5 text-xs font-semibold ${atual ? "text-marinha" : "text-slate-700"}`}>{e.nome}</span>
-                  {p && <span className="text-[11px] text-slate-500">{data(p.entrada)}</span>}
-                  {p && (
+                  {interno && p && <span className="text-[11px] text-slate-500">{data(p.entrada)}</span>}
+                  {interno && p && (
                     <span className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-slate-500">
                       {interno && <Farol dias={p.dias} prazo={e.prazo_dias} />} {dias(p.dias)}
                     </span>
@@ -134,7 +137,7 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
             <div className="flex w-28 flex-col items-center text-center">
               <span className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${nota.status === "finalizada" ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"}`}>✓</span>
               <span className="mt-1.5 text-xs font-semibold text-slate-700">{interno ? "Finalizada" : "Enviada para o COMRJ"}</span>
-              {nota.status === "finalizada" && <span className="text-[11px] text-slate-500">{data(nota.concluida_em)}</span>}
+              {interno && nota.status === "finalizada" && <span className="text-[11px] text-slate-500">{data(nota.concluida_em)}</span>}
             </div>
           </li>
         </ol>
@@ -259,7 +262,20 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
         </p>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      {!interno && (
+        <div className="cartao grid gap-4 p-5 sm:grid-cols-2">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Situação atual</p>
+            <p className="mt-1"><Selo nota={nota} paraEmpresa /></p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Última movimentação</p>
+            <p className="mt-1 text-sm font-medium text-slate-800">{data(nota.etapa_desde)}</p>
+          </div>
+        </div>
+      )}
+
+      {interno && <div className="grid gap-4 lg:grid-cols-3">
         <div className="cartao p-5 lg:col-span-2">
           <h2 className="mb-4 text-[15px] font-semibold text-slate-900">{interno ? "Histórico e observações" : "Movimentações"}</h2>
           <ol className="space-y-3 border-l-2 border-slate-200 pl-4">
@@ -318,7 +334,7 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
             )}
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
