@@ -67,6 +67,7 @@ export default async function Manual() {
         <p className="my-3 rounded-lg bg-slate-50 px-4 py-3 font-medium text-slate-800">{caminho}</p>
         <Lista>
           <li>A NF só pode ser enviada <B>uma etapa para frente</B> ou <B>devolvida uma etapa para trás</B>.</li>
+          <li>Em todas as etapas, a fila segue a <B>ordem de chegada</B> da NF ao depósito: a que chegou primeiro fica no topo, mesmo que tenha ficado parada em alguma etapa. A coluna <B>Chegada</B> mostra a data e o tempo total em tramitação.</li>
           <li>Cada etapa tem um <B>prazo</B> em dias. O semáforo mostra 🟢 dentro do prazo, 🟡 acima de 70% do prazo e 🔴 prazo estourado.</li>
           <li>Pode reprovar: <B>{reprova}</B>. Exige marcar “arrecadada” antes de finalizar: <B>{arrecada}</B>. Marca “armazenada”: <B>{armazena}</B>.</li>
           <li>Material <B>sob medida</B> entra direto na etapa configurada para isso e aparece destacado na fila e na pesquisa, com a etiqueta roxa <B>SOB MEDIDA</B> e a linha em lilás.</li>

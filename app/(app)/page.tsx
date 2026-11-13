@@ -43,7 +43,7 @@ export default async function MinhaFila({ searchParams }: PageProps<"/">) {
   } else botoes.push({ acao: "armazenar", rotulo: "Marcar como armazenada" });
 
   const linhas: LinhaFila[] = notas.map((n) => ({
-    id: n.id, numero: n.numero, empresa: n.emit_nome, valor: moeda(n.valor), oc: n.oc ?? "", recebida: data(n.recebida_em),
+    id: n.id, numero: n.numero, empresa: n.emit_nome, valor: moeda(n.valor), oc: n.oc ?? "", recebida: data(n.recebida_em), total: dias(n.dias_total),
     dias: aba.chave === "armazenar" ? dias(n.dias_arrecadada) : dias(n.dias_etapa),
     farol: prazo !== null ? farol(Number(n.dias_etapa), prazo) : null,
     obs: n.ultima_obs ?? "", comentarios: n.n_comentarios ?? 0, sobMedida: !!n.sob_medida,
@@ -57,7 +57,7 @@ export default async function MinhaFila({ searchParams }: PageProps<"/">) {
 
   return (
     <div className="space-y-4">
-      <Cabecalho titulo="Minha fila" descricao="Notas fiscais aguardando ação nas etapas em que você atua. Selecione as NF e use os botões no fim da lista para tramitar." />
+      <Cabecalho titulo="Minha fila" descricao="Notas fiscais aguardando ação nas etapas em que você atua, na ordem de chegada (a que chegou primeiro ao depósito fica no topo). Selecione as NF e use os botões no fim da lista para tramitar." />
       <div className="flex flex-wrap gap-1.5">
         {abas.map((a) => (
           <Link

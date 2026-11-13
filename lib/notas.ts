@@ -87,7 +87,7 @@ export async function fila(tipo: { etapa: number } | "reprovadas" | "armazenar")
     : sql`n.status = 'em_tramite' and n.etapa_id = ${tipo.etapa}`;
   return sql<NotaLista[]>`select ${COLUNAS}, ${ULTIMA_OBS},
       (select count(*)::int from eventos ev where ev.nota_id = n.id and ev.texto is not null and ev.tipo <> 'ciente') as n_comentarios from notas n left join etapas e on e.id = n.etapa_id
-      where ${onde} order by ${tipo === "armazenar" ? sql`n.arrecadada_em` : sql`n.etapa_desde`} asc limit 1000`;
+      where ${onde} order by n.recebida_em asc, n.id asc limit 1000`; // ordem de chegada: quem chegou primeiro é atendido primeiro em todas as etapas
 }
 
 export async function contagemFilas() {
