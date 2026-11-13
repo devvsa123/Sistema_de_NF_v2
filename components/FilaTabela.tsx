@@ -5,10 +5,11 @@ import { useMemo, useState, useTransition } from "react";
 import { acaoTramitar } from "@/app/acoes/notas";
 import { linkNota } from "@/lib/format";
 import type { Acao } from "@/lib/fluxo";
+import { ComentariosNota } from "./ComentariosNota";
 
 export type LinhaFila = {
   id: number; numero: string; empresa: string; valor: string; oc: string; dias: string; farol: "verde" | "amarelo" | "vermelho" | null;
-  obs: string; obsOc: string; arrecadada: boolean; recebida: string; situacao?: string;
+  obs: string; comentarios: number; obsOc: string; arrecadada: boolean; recebida: string; situacao?: string;
 };
 export type BotaoFila = { acao: Acao; rotulo: string; estilo?: "principal" | "sec" | "perigo" };
 
@@ -72,7 +73,7 @@ export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, 
                     onChange={() => setSel(todasMarcadas ? new Set() : new Set(visiveis.map((l) => l.id)))}
                   />
                 </th>
-                <th>NF</th><th>Empresa</th><th className="text-right">Valor</th><th>OC</th><th>Na etapa há</th><th>Última observação</th>
+                <th>NF</th><th>Empresa</th><th className="text-right">Valor</th><th>OC</th><th>Na etapa há</th><th>Observações</th>
               </tr>
             </thead>
             <tbody>
@@ -96,8 +97,9 @@ export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, 
                     {l.dias}
                   </td>
                   <td className="max-w-md text-xs text-slate-600">
-                    {l.obs}
+                    {l.obs && <span className="line-clamp-2" title={l.obs}>{l.obs}</span>}
                     {l.obsOc && <span className="block text-slate-400">OC: {l.obsOc}</span>}
+                    <span className={l.obs || l.obsOc ? "mt-1.5 block" : "block"}><ComentariosNota id={l.id} numero={l.numero} total={l.comentarios} /></span>
                   </td>
                 </tr>
               ))}

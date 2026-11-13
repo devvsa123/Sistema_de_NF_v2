@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ehInterno, exigirUsuario, podeCadastrar } from "@/lib/auth";
 import { acoesPermitidas, etapasAtivas, prazoReprovada, vizinhos, type Acao } from "@/lib/fluxo";
 import { eventosDaNota, obterNota, type Evento } from "@/lib/notas";
-import { cnpj, data, dataHora, destinoVolta, dias, moeda, numero } from "@/lib/format";
+import { cnpj, data, dataHora, destinoVolta, dias, moeda, numero, TIPO_EVENTO } from "@/lib/format";
 import { Farol, Selo, Voltar } from "@/components/ui";
 import { AcoesNota } from "@/components/AcoesNota";
 import { FormAcao } from "@/components/FormAcao";
@@ -13,10 +13,7 @@ import { laudosDaNota, podeEmitirLaudo } from "@/lib/laudo";
 import { docsDaNota, numeroTav, podeEmitirRecebimento } from "@/lib/recebimento";
 import { AlocacaoWms, ItensEstoque } from "@/components/ItensEstoque";
 
-const TIPO: Record<string, string> = {
-  cadastro: "Cadastro", avanco: "Avanço", retorno: "Devolução", reprovacao: "Reprovação", retirada: "Retirada", finalizacao: "Finalização",
-  ajuste: "Ajuste do administrador", observacao: "Observação", laudo: "Laudo pericial", docs_recebimento: "Documentos do Recebimento", arrecadacao: "Arrecadação", armazenagem: "Armazenagem", xml: "Dados da NF-e",
-};
+const TIPO = TIPO_EVENTO;
 
 function Campo({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
   if (children === null || children === undefined || children === "" || children === false) return null;

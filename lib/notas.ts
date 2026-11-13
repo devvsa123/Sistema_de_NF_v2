@@ -10,7 +10,7 @@ export type NotaLista = {
   id: number; chave: string | null; numero: string; serie: string | null; emit_cnpj: string; emit_nome: string; valor: string;
   oc: string | null; status: string; etapa_id: number | null; etapa_nome: string | null; prazo_dias: number | null;
   recebida_em: Date; concluida_em: Date | null; etapa_desde: Date; arrecadada_em: Date | null; armazenada_em: Date | null;
-  tem_xml: boolean; fonte: string | null; sob_medida: boolean; dias_etapa: number; dias_arrecadada: number | null; dias_total: number; ultima_obs: string | null; obs_oc: string | null;
+  tem_xml: boolean; fonte: string | null; sob_medida: boolean; dias_etapa: number; dias_arrecadada: number | null; dias_total: number; ultima_obs: string | null; obs_oc: string | null; n_comentarios?: number;
 };
 
 export type Nota = NotaLista & {
@@ -85,7 +85,8 @@ export async function fila(tipo: { etapa: number } | "reprovadas" | "armazenar")
     tipo === "reprovadas" ? sql`n.status = 'reprovada'`
     : tipo === "armazenar" ? sql`n.arrecadada_em is not null and n.armazenada_em is null and n.status in ('em_tramite','finalizada')`
     : sql`n.status = 'em_tramite' and n.etapa_id = ${tipo.etapa}`;
-  return sql<NotaLista[]>`select ${COLUNAS}, ${ULTIMA_OBS} from notas n left join etapas e on e.id = n.etapa_id
+  return sql<NotaLista[]>`select ${COLUNAS}, ${ULTIMA_OBS},
+      (select count(*)::int from eventos ev where ev.nota_id = n.id and ev.texto is not null) as n_comentarios from notas n left join etapas e on e.id = n.etapa_id
       where ${onde} order by ${tipo === "armazenar" ? sql`n.arrecadada_em` : sql`n.etapa_desde`} asc limit 1000`;
 }
 

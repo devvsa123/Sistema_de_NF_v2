@@ -81,6 +81,8 @@ export default async function Manual() {
           <li>Abra a aba da etapa.</li>
           <li>Marque as NF que vai movimentar (a caixa do cabeçalho marca todas). Use o filtro para achar por número, empresa ou OC.</li>
           <li>Se quiser, escreva uma <B>observação</B>; ela vai para o histórico de todas as NF marcadas.</li>
+          <li>Para comentar uma NF sem tramitá-la, clique em <B>+ Observação</B> na coluna Observações da própria linha: abre uma janela para escrever e registrar.</li>
+          <li>O botão <B>Comentários (n)</B> abre a janela com todos os comentários da NF (observações, devoluções, reprovações e demais registros), do mais recente para o mais antigo, com quem escreveu e quando. Dá para registrar uma nova observação na mesma janela.</li>
           <li>Clique em <B>Enviar para …</B> (próxima etapa) ou <B>← Devolver para …</B> (etapa anterior).</li>
         </Passos>
         <p>Também é possível tramitar uma NF pela própria página dela, no quadro <B>Tramitar</B>.</p>

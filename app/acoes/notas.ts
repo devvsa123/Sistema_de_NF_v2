@@ -7,6 +7,7 @@ import { exigirUsuario, podeCadastrar } from "@/lib/auth";
 import { ajustarComoAdmin, executarAcao, registrarEvento, type Acao, type OpcoesAcao } from "@/lib/fluxo";
 import { analisarDocumento, cadastrarManual, cadastrarPorDocumento, obterNota, type Documento } from "@/lib/notas";
 import { textoBusca } from "@/lib/nfe";
+import { TIPO_EVENTO } from "@/lib/format";
 import type { Estado } from "@/components/FormAcao";
 
 const ACOES: Acao[] = ["avancar", "retornar", "reprovar", "retirar", "reabrir", "arrecadar", "armazenar"];
@@ -42,6 +43,40 @@ export async function acaoObservacao(_: Estado, f: FormData): Promise<Estado> {
   await registrarEvento(sql, { nota_id: id, tipo: "observacao", usuario: u, texto });
   revalidatePath(`/notas/${id}`);
   return { ok: "Observação registrada." };
+}
+
+export type Comentario = { id: number; tipo: string; titulo: string; usuario: string; texto: string; em: string };
+
+/** Todos os comentários (registros com texto) do histórico da NF, do mais recente para o mais antigo. */
+export async function acaoComentarios(id: number): Promise<{ erro?: string; numero?: string; obsOc?: string; itens: Comentario[] }> {
+  const u = await exigirUsuario();
+  if (u.papel !== "admin" && u.papel !== "interno") return { erro: "Seu perfil não permite ver os comentários.", itens: [] };
+  const nota = await obterNota(u, Number(id));
+  if (!nota) return { erro: "NF não encontrada.", itens: [] };
+  const linhas = await sql`select id, tipo, movimento, de_nome, para_nome, usuario_nome, texto, criado_em from eventos
+                           where nota_id = ${nota.id} and texto is not null and btrim(texto) <> '' order by criado_em desc, id desc limit 500`;
+  return {
+    numero: nota.numero, obsOc: nota.obs_oc ?? undefined,
+    itens: linhas.map((e) => ({
+      id: e.id as number, tipo: e.tipo as string, texto: e.texto as string, usuario: (e.usuario_nome as string | null) ?? "—",
+      titulo: e.movimento && e.de_nome ? `${e.de_nome} → ${e.para_nome}` : (TIPO_EVENTO[e.tipo as string] ?? (e.tipo as string)),
+      em: (e.criado_em as Date).toISOString(),
+    })),
+  };
+}
+
+/** Registra uma observação direto da fila e devolve a lista atualizada. */
+export async function acaoComentar(id: number, texto: string) {
+  const u = await exigirUsuario();
+  if (u.papel !== "admin" && u.papel !== "interno") return { erro: "Seu perfil não permite registrar observações.", itens: [] as Comentario[] };
+  const t = String(texto ?? "").trim().slice(0, 2000);
+  if (!t) return { erro: "Escreva a observação.", itens: [] as Comentario[] };
+  const nota = await obterNota(u, Number(id));
+  if (!nota) return { erro: "NF não encontrada.", itens: [] as Comentario[] };
+  await registrarEvento(sql, { nota_id: nota.id, tipo: "observacao", usuario: u, texto: t });
+  revalidatePath("/");
+  revalidatePath(`/notas/${nota.id}`);
+  return acaoComentarios(nota.id);
 }
 
 export async function acaoEditarNota(_: Estado, f: FormData): Promise<Estado> {
