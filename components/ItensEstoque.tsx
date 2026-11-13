@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import { correlacionarNota, configWms, situacaoEstoque, situacaoUz } from "@/lib/estoque";
 import type { Nota } from "@/lib/notas";
 import { numero, dataHora } from "@/lib/format";
@@ -26,7 +27,7 @@ export async function ItensEstoque({ nota, podeCorrigir }: { nota: Nota; podeCor
         <p className="mt-1">O catálogo do estoque ainda não foi carregado. O administrador geral pode atualizá-lo em <Link href="/admin/estoque" className="font-medium text-marinha underline">Administração → Estoque (WMS)</Link>.</p>
       </div>
     );
-  const semCorrelacao = linhas.filter((l) => !l.item).length;
+  const semCorrelacao = linhas.filter((l) => !l.item).length; // conta tamanhos da grade separadamente
   const totais = linhas.reduce((a, l) => ({ cheias: a.cheias + (l.caixas?.cheias ?? 0), frac: a.frac + (l.caixas?.fracionada ? 1 : 0), total: a.total + (l.caixas?.total ?? 0) }), { cheias: 0, frac: 0, total: 0 });
   const semCxp = linhas.filter((l) => l.item && !l.caixas).length;
   const volumes = (nota.dados?.transp?.volumes ?? []).reduce((s, v) => s + (Number(v.qVol) || 0), 0);
@@ -59,29 +60,47 @@ export async function ItensEstoque({ nota, podeCorrigir }: { nota: Nota; podeCor
         <tbody>
           {linhas.map((l) => {
             const [rot, cor] = SELO[l.confianca];
+            const filho = !!l.tamanho;
             return (
-              <tr key={l.n} className={!l.item ? "bg-red-50/30" : l.confianca === "media" ? "bg-amber-50/30" : ""}>
-                <td>{l.n}</td>
-                <td className="min-w-64">
-                  <span className="font-medium text-slate-800">{l.descricao}</span>
-                  {l.infAd && <span className="block text-xs text-slate-500">{l.infAd}</span>}
-                  {l.codigo && <span className="block font-mono text-[11px] text-slate-400">cód. {l.codigo}</span>}
-                </td>
-                <td className="whitespace-nowrap text-right tabular-nums">{qtd(l.qtd)} {l.un}</td>
-                <td className="min-w-56">
-                  {l.item ? <><span className="font-mono text-xs text-slate-500">{l.item.pi}</span> <span className="text-slate-800">{l.item.descricao}</span></>
-                    : <span className="text-red-700">{l.candidatos.length ? "Mais de uma opção — escolha" : "Nenhum item correspondente no estoque"}</span>}
-                  {podeCorrigir && (
-                    <div><CorrigirCorrelacao id={nota.id} n={l.n} candidatos={l.candidatos.map(({ pi, descricao, cxp }) => ({ pi, descricao, cxp }))} confirmada={l.confianca === "confirmada"}
-                      rotulo={l.item ? (l.confianca === "media" ? "Confirmar ou trocar" : "Trocar") : "Escolher item do estoque"} /></div>
-                  )}
-                </td>
-                <td><span className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${cor}`}>{rot}</span></td>
-                <td className="text-right tabular-nums">{l.item?.cxp ?? "—"}</td>
-                <td className="text-right tabular-nums">{l.caixas ? l.caixas.cheias : "—"}</td>
-                <td className="whitespace-nowrap text-right tabular-nums">{l.caixas ? (l.caixas.fracionada ? `1 cx c/ ${qtd(l.caixas.fracionada)}` : "—") : "—"}</td>
-                <td className="text-right font-semibold tabular-nums">{l.caixas ? l.caixas.total : "—"}</td>
-              </tr>
+              <Fragment key={l.ref}>
+                {l.grade && (
+                  <tr className="bg-slate-50">
+                    <td className="font-semibold">{l.n}</td>
+                    <td colSpan={8} className="text-sm">
+                      <span className="font-medium text-slate-800">{l.descricao.replace(/ TAM \S+$/, "")}</span>
+                      {l.codigo && <span className="ml-2 font-mono text-[11px] text-slate-400">cód. {l.codigo.replace(/ TAM \S+$/, "")}</span>}
+                      <span className="mt-0.5 block text-xs text-slate-600">
+                        Dividido pela grade da NF em <strong>{l.grade.tamanhos}</strong> tamanho(s) · soma da grade {qtd(l.grade.qtdGrade)} de {qtd(l.grade.qtdItem)} {l.un}
+                        {l.grade.qtdGrade !== l.grade.qtdItem && <strong className="ml-1 text-red-700">— a soma da grade não bate com a quantidade do item; confira com o fornecedor.</strong>}
+                      </span>
+                    </td>
+                  </tr>
+                )}
+                <tr className={!l.item ? "bg-red-50/30" : l.confianca === "media" ? "bg-amber-50/30" : ""}>
+                  <td className={filho ? "pl-6 text-xs text-slate-400" : ""}>{filho ? "↳" : l.n}</td>
+                  <td className="min-w-64">
+                    {filho ? <span className="font-medium text-slate-800">Tamanho {l.tamanho}</span> : <>
+                      <span className="font-medium text-slate-800">{l.descricao}</span>
+                      {l.infAd && <span className="block text-xs text-slate-500">{l.infAd}</span>}
+                      {l.codigo && <span className="block font-mono text-[11px] text-slate-400">cód. {l.codigo}</span>}
+                    </>}
+                  </td>
+                  <td className="whitespace-nowrap text-right tabular-nums">{qtd(l.qtd)} {l.un}</td>
+                  <td className="min-w-56">
+                    {l.item ? <><span className="font-mono text-xs text-slate-500">{l.item.pi}</span> <span className="text-slate-800">{l.item.descricao}</span></>
+                      : <span className="text-red-700">{l.confianca === "media" ? "Mais de uma opção — escolha" : "Nenhum item correspondente no estoque"}</span>}
+                    {podeCorrigir && (
+                      <div><CorrigirCorrelacao id={nota.id} refItem={l.ref} candidatos={l.candidatos.map(({ pi, descricao, cxp }) => ({ pi, descricao, cxp }))} confirmada={l.confianca === "confirmada"}
+                        rotulo={l.item ? (l.confianca === "media" ? "Confirmar ou trocar" : "Trocar") : "Escolher item do estoque"} /></div>
+                    )}
+                  </td>
+                  <td><span className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${cor}`}>{rot}</span></td>
+                  <td className="text-right tabular-nums">{l.item?.cxp ?? "—"}</td>
+                  <td className="text-right tabular-nums">{l.caixas ? l.caixas.cheias : "—"}</td>
+                  <td className="whitespace-nowrap text-right tabular-nums">{l.caixas ? (l.caixas.fracionada ? `1 cx c/ ${qtd(l.caixas.fracionada)}` : "—") : "—"}</td>
+                  <td className="text-right font-semibold tabular-nums">{l.caixas ? l.caixas.total : "—"}</td>
+                </tr>
+              </Fragment>
             );
           })}
         </tbody>

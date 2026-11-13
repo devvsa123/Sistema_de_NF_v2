@@ -26,7 +26,7 @@ export async function acaoConfirmarCorrelacao(_: Estado, f: FormData): Promise<E
     const { u, nota } = await notaInterna(Number(f.get("id")));
     const pi = campo(f, "pi") || campo(f, "pi_digitado");
     if (!pi) return { erro: "Escolha um item do estoque ou digite o PI." };
-    await confirmarCorrelacao(u, nota, Number(f.get("n")), pi);
+    await confirmarCorrelacao(u, nota, campo(f, "ref"), pi);
     revalidatePath(`/notas/${nota.id}`);
     return { ok: "Correlação confirmada. Vale também para as próximas NF deste fornecedor." };
   } catch (e) {
@@ -37,7 +37,7 @@ export async function acaoConfirmarCorrelacao(_: Estado, f: FormData): Promise<E
 export async function acaoDesfazerCorrelacao(_: Estado, f: FormData): Promise<Estado> {
   try {
     const { nota } = await notaInterna(Number(f.get("id")));
-    await desfazerCorrelacao(nota, Number(f.get("n")));
+    await desfazerCorrelacao(nota, campo(f, "ref"));
     revalidatePath(`/notas/${nota.id}`);
     return { ok: "Correlação desfeita." };
   } catch (e) {

@@ -7,7 +7,7 @@ import { acaoBuscarNoEstoque, acaoConfirmarCorrelacao, acaoDesfazerCorrelacao } 
 type Opcao = { pi: string; descricao: string; cxp: number | null };
 
 /** Escolher o item do estoque para um item da NF (entre as sugestões ou pesquisando no catálogo). */
-export function CorrigirCorrelacao({ id, n, candidatos, confirmada, rotulo }: { id: number; n: number; candidatos: Opcao[]; confirmada: boolean; rotulo: string }) {
+export function CorrigirCorrelacao({ id, refItem, candidatos, confirmada, rotulo }: { id: number; refItem: string; candidatos: Opcao[]; confirmada: boolean; rotulo: string }) {
   const [aberto, setAberto] = useState(false);
   const [busca, setBusca] = useState("");
   const [achados, setAchados] = useState<Opcao[]>([]);
@@ -31,7 +31,7 @@ export function CorrigirCorrelacao({ id, n, candidatos, confirmada, rotulo }: { 
       </div>
       <FormAcao acao={acaoConfirmarCorrelacao} botao="Confirmar" className="space-y-2" classeBotao="botao h-8 px-3 text-xs">
         <input type="hidden" name="id" value={id} />
-        <input type="hidden" name="n" value={n} />
+        <input type="hidden" name="ref" value={refItem} />
         <div className="max-h-52 space-y-1 overflow-y-auto">
           {opcoes.length === 0 && <p className="text-xs text-slate-500">Nenhuma sugestão. Pesquise acima ou digite o PI.</p>}
           {opcoes.map((o) => (
@@ -48,7 +48,7 @@ export function CorrigirCorrelacao({ id, n, candidatos, confirmada, rotulo }: { 
         {confirmada && (
           <FormAcao acao={acaoDesfazerCorrelacao} botao="Desfazer correlação confirmada" classeBotao="text-xs text-red-600 hover:underline cursor-pointer">
             <input type="hidden" name="id" value={id} />
-            <input type="hidden" name="n" value={n} />
+            <input type="hidden" name="ref" value={refItem} />
           </FormAcao>
         )}
       </div>

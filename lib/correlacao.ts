@@ -27,22 +27,48 @@ const tokens = (s: string) => normalizar(s).split(" ").filter((t) => t && !PARAD
 
 /** Tamanho do item do estoque: último termo de tamanho, ignorando o que está entre parênteses. */
 export function tamanhoDoEstoque(descricao: string): string | null {
+  // último termo de tamanho, mesmo com algo depois ("DOLMA FEM BRANCO CFN CURTO 36 E CALCA")
   const t = tokens(descricao.replace(/\([^)]*\)/g, " "));
-  const ult = t[t.length - 1];
-  return ult && TAMANHO.test(ult) && t.length > 1 ? ult : null;
+  for (let i = t.length - 1; i >= 1; i--) if (TAMANHO.test(t[i])) return semZero(t[i]);
+  return null;
 }
 
-/** Tamanhos citados na NF: fim de cada trecho ("... - M", "(PED) G") ou depois de TAM / Nº. */
+const semZero = (t: string) => t.replace(/^0+(?=\d)/, "");
+const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+/** Tamanhos citados na NF: fim de cada trecho ("... - M", "(PED) G") ou depois de TAM / Nº. A grade é tratada à parte. */
 export function tamanhosDaNF(texto: string): Set<string> {
   const out = new Set<string>();
-  const sem = texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase();
-  for (const m of sem.matchAll(/\b(?:TAM(?:ANHO)?|N[º°O]?|NUMERO|NR)\.?\s*[:\-]?\s*([A-Z0-9]{1,3})\b/g)) if (TAMANHO.test(m[1])) out.add(m[1]);
+  const sem = semAcento(semGrade(texto)).toUpperCase();
+  for (const m of sem.matchAll(/\b(?:TAM(?:ANHO)?|N[º°O]?|NUMERO|NR)\.?\s*[:\-]?\s*([A-Z0-9]{1,3})\b/g)) if (TAMANHO.test(m[1])) out.add(semZero(m[1]));
   for (const trecho of sem.split(/\s[-–]\s|[,;|]|\(|\)/)) {
     const t = trecho.replace(/[^A-Z0-9 ]+/g, " ").trim().split(/\s+/);
     const ult = t[t.length - 1];
-    if (ult && TAMANHO.test(ult) && t.length >= 1) out.add(ult);
+    if (ult && TAMANHO.test(ult)) out.add(semZero(ult));
   }
   return out;
+}
+
+// ------------------------------------------------------------------ grade de tamanhos
+
+const RE_GRADE = /\bGRADE\b\s*:?\s*((?:\(?\s*[A-Z0-9]{1,4}\s*[/xX\-:=]\s*\d{1,6}\s*\)?[\s,;]*)+)/i;
+
+/** Remove a grade de tamanhos do texto ("GRADE (36/05) (50/01)"). */
+export function semGrade(texto: string) {
+  return texto.replace(RE_GRADE, " ");
+}
+
+/**
+ * Grade de tamanhos que alguns fornecedores colocam no item: "GRADE (36/05) (50/01) (54/02)"
+ * = tamanho 36 com 5 peças, 50 com 1 e 54 com 2. Também aceita "36-5, 50-1" e "36x5".
+ */
+export function lerGrade(texto: string | null | undefined): { tamanho: string; qtd: number }[] | null {
+  const m = (texto ?? "").match(RE_GRADE);
+  if (!m) return null;
+  const pares = [...m[1].matchAll(/([A-Z0-9]{1,4})\s*[/xX\-:=]\s*(\d{1,6})/gi)]
+    .map((p) => ({ tamanho: semZero(p[1].toUpperCase()), qtd: Number(p[2]) }))
+    .filter((p) => TAMANHO.test(p.tamanho) && p.qtd > 0);
+  return pares.length ? pares : null;
 }
 
 export function pisNoTexto(...textos: (string | null | undefined)[]) {
@@ -75,6 +101,17 @@ function aparece(t: string, nfTokens: Set<string>, nfLista: string[], compacto: 
   return t.length >= 5 && compacto.includes(t);
 }
 
+/** Grupos de variações excludentes; compara pelo começo da palavra (BRANCO = BRANCA). */
+const VARIACOES = [
+  ["BRANC", "PRET", "AZUL", "VERDE", "BEGE", "CINZA", "MARROM", "GARANCA", "CAQUI", "AMAREL", "VERMELH", "ROSA", "LARANJA", "PRATA", "OURO", "DOURAD", "BRONZE"],
+  ["CURTO", "MEDIO", "LONGO"],
+  ["MANGACURTA", "MANGALONGA"],
+];
+const variacao = (g: number, lista: string[]) => new Set(lista.flatMap((t) => VARIACOES[g].filter((v) => t.startsWith(v))));
+
+/** Feminino / masculino declarado (FEM, FEMININO, FEMININA, MASC, MASCULINO). */
+const genero = (lista: string[]) => (lista.some((t) => t.startsWith("FEM")) ? "F" : lista.some((t) => t.startsWith("MASC")) ? "M" : "");
+
 export function correlacionar(
   idx: Indice,
   item: { codigo?: string | null; descricao: string; infAd?: string | null },
@@ -95,6 +132,8 @@ export function correlacionar(
   const compacto = nfLista.join("");
   const principais = tokens(item.descricao).filter((t) => !TAMANHO.test(t));
   const tamanhos = tamanhosDaNF(texto);
+  const generoNf = genero(nfLista);
+  const variacoesNf = VARIACOES.map((_, g) => variacao(g, nfLista));
 
   const cand: Candidato[] = [];
   for (const d of idx.doc) {
@@ -111,6 +150,12 @@ export function correlacionar(
     const doEstoque = new Set(d.t);
     const precisao = principais.length ? principais.filter((t) => doEstoque.has(t) || d.t.some((x) => x.length >= 3 && t.startsWith(x))).length / principais.length : 0;
     let pontos = 0.75 * cobertura + 0.25 * precisao;
+    if (generoNf !== genero(d.t)) pontos *= 0.6; // feminino x masculino precisa bater
+    // variações que não podem trocar: cor (branco x azul), comprimento (curto x médio x longo) e manga
+    for (let g = 0; g < VARIACOES.length; g++) {
+      const est = variacao(g, d.t);
+      if (variacoesNf[g].size && est.size && ![...est].some((v) => variacoesNf[g].has(v))) pontos *= 0.5;
+    }
     if (d.tam && !tamanhos.size) pontos *= 0.7; // NF não informa o tamanho
     if (!d.tam && tamanhos.size) pontos *= 0.85; // NF tem tamanho e o item do estoque não
     if (pontos > 0.35) cand.push({ ...d.c, pontos });

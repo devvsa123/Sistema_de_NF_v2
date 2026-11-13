@@ -3,7 +3,7 @@ import { cache } from "react";
 import { readSheet } from "read-excel-file/node";
 import { sql } from "./db";
 import type { Usuario } from "./auth";
-import { caixas, chavesAprendizado, correlacionar, indexar, type Confianca, type ItemEstoque } from "./correlacao";
+import { caixas, chavesAprendizado, correlacionar, indexar, lerGrade, semGrade, type Confianca, type ItemEstoque } from "./correlacao";
 import type { ItemNF } from "./nfe";
 
 // ------------------------------------------------------------------ configuração
@@ -99,33 +99,60 @@ const catalogo = cache(async () => indexar(await sql<ItemEstoque[]>`select pi, d
 // ------------------------------------------------------------------ correlação dos itens da NF
 
 export type LinhaCorrelacao = {
-  n: number; codigo: string; descricao: string; infAd?: string; qtd: number; un: string;
+  ref: string; n: number; codigo: string; descricao: string; infAd?: string; qtd: number; un: string;
+  tamanho?: string; grade?: { tamanhos: number; qtdGrade: number; qtdItem: number } | null;
   confianca: Confianca; item: ItemEstoque | null; candidatos: (ItemEstoque & { pontos: number })[];
   caixas: { cheias: number; fracionada: number; total: number } | null;
 };
+
+type ItemCorrelacao = { ref: string; n: number; codigo: string; descricao: string; infAd?: string; qtd: number; un: string; tamanho?: string };
+
+/** Quebra o item pela grade de tamanhos ("GRADE (36/05) (50/01)"): uma linha por tamanho, cada uma com o seu PI. */
+function linhasDoItem(i: ItemNF): { linhas: ItemCorrelacao[]; grade: LinhaCorrelacao["grade"] } {
+  const grade = lerGrade(i.infAd) ?? lerGrade(i.descricao);
+  if (!grade || grade.length < 1) return { linhas: [{ ref: String(i.n), n: i.n, codigo: i.codigo, descricao: i.descricao, infAd: i.infAd, qtd: i.qtd, un: i.un }], grade: null };
+  const infAd = semGrade(i.infAd ?? "").trim() || undefined;
+  const desc = semGrade(i.descricao).trim();
+  return {
+    linhas: grade.map((g) => ({
+      ref: `${i.n}:${g.tamanho}`, n: i.n, tamanho: g.tamanho, qtd: g.qtd, un: i.un,
+      codigo: i.codigo ? `${i.codigo} TAM ${g.tamanho}` : "", descricao: `${desc} TAM ${g.tamanho}`, infAd,
+    })),
+    grade: { tamanhos: grade.length, qtdGrade: grade.reduce((s, g) => s + g.qtd, 0), qtdItem: i.qtd },
+  };
+}
 
 export async function correlacionarNota(nota: { emit_cnpj: string; itens: ItemNF[] | null }) {
   const itens = nota.itens ?? [];
   const idx = await catalogo();
   if (!itens.length || !idx.porPi.size) return { linhas: [] as LinhaCorrelacao[], catalogoVazio: !idx.porPi.size };
-  const chaves = [...new Set(itens.flatMap((i) => chavesAprendizado(i)))];
+  const expandidos = itens.map(linhasDoItem);
+  const todas = expandidos.flatMap((e) => e.linhas);
+  const chaves = [...new Set(todas.flatMap((i) => chavesAprendizado(i)))];
   const aprendidos = new Map(
     (await sql`select chave, pi from mapa_itens where emit_cnpj = ${nota.emit_cnpj} and chave in ${sql(chaves)}`).map((r) => [r.chave as string, r.pi as string]),
   );
-  const linhas = itens.map((i) => {
-    const aprendido = chavesAprendizado(i).map((k) => aprendidos.get(k)).find(Boolean);
-    const r = correlacionar(idx, i, aprendido);
-    return {
-      n: i.n, codigo: i.codigo, descricao: i.descricao, infAd: i.infAd, qtd: i.qtd, un: i.un,
-      confianca: r.confianca, item: r.item, candidatos: r.candidatos, caixas: caixas(i.qtd, r.item?.cxp),
-    };
-  });
+  const linhas: LinhaCorrelacao[] = expandidos.flatMap((e) =>
+    e.linhas.map((i, k) => {
+      const aprendido = chavesAprendizado(i).map((c) => aprendidos.get(c)).find(Boolean);
+      const r = correlacionar(idx, i, aprendido);
+      return { ...i, grade: k === 0 ? e.grade : undefined, confianca: r.confianca, item: r.item, candidatos: r.candidatos, caixas: caixas(i.qtd, r.item?.cxp) };
+    }),
+  );
   return { linhas, catalogoVazio: false };
 }
 
-/** Grava a correlação escolhida pelo usuário: vale para esta e para as próximas NF do mesmo fornecedor. */
-export async function confirmarCorrelacao(u: Usuario, nota: { emit_cnpj: string; itens: ItemNF[] | null }, n: number, pi: string) {
+/** Linha (item ou tamanho da grade) identificada por "3" ou "3:36". */
+function linhaPorRef(nota: { itens: ItemNF[] | null }, ref: string) {
+  const n = Number(ref.split(":")[0]);
   const item = (nota.itens ?? []).find((i) => i.n === n);
+  if (!item) return null;
+  return linhasDoItem(item).linhas.find((l) => l.ref === ref) ?? null;
+}
+
+/** Grava a correlação escolhida pelo usuário: vale para esta e para as próximas NF do mesmo fornecedor. */
+export async function confirmarCorrelacao(u: Usuario, nota: { emit_cnpj: string; itens: ItemNF[] | null }, ref: string, pi: string) {
+  const item = linhaPorRef(nota, ref);
   if (!item) throw new Error("Item não encontrado na NF.");
   const [e] = await sql`select pi from estoque_itens where pi = ${pi.trim().toUpperCase()}`;
   if (!e) throw new Error(`O PI ${pi} não existe no catálogo do estoque.`);
@@ -134,8 +161,8 @@ export async function confirmarCorrelacao(u: Usuario, nota: { emit_cnpj: string;
               on conflict (emit_cnpj, chave) do update set pi = excluded.pi, por = excluded.por, em = now()`;
 }
 
-export async function desfazerCorrelacao(nota: { emit_cnpj: string; itens: ItemNF[] | null }, n: number) {
-  const item = (nota.itens ?? []).find((i) => i.n === n);
+export async function desfazerCorrelacao(nota: { emit_cnpj: string; itens: ItemNF[] | null }, ref: string) {
+  const item = linhaPorRef(nota, ref);
   if (!item) return;
   await sql`delete from mapa_itens where emit_cnpj = ${nota.emit_cnpj} and chave in ${sql(chavesAprendizado(item))}`;
 }

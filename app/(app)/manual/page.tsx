@@ -125,6 +125,7 @@ export default async function Manual() {
           <li><B>PI na nota</B>: o fornecedor informou o PI. <B>Confirmada</B>: alguém já confirmou essa correlação para o fornecedor. <B>Automática</B>: a descrição bate com segurança. <B>Verificar</B>: a correlação é provável, confira. <B>Sem correlação</B>: nenhum item do estoque corresponde.</li>
           <li>Para corrigir, use <B>Escolher item do estoque</B>, <B>Confirmar ou trocar</B> ou <B>Trocar</B>: escolha uma sugestão, pesquise no catálogo ou digite o PI. A escolha vale para as próximas NF do mesmo fornecedor.</li>
           <li>O total de caixas pelo padrão aparece ao lado dos volumes declarados na NF, para ajudar na contagem.</li>
+          <li>Quando o fornecedor informa a <B>grade de tamanhos</B> no item (ex.: “GRADE (36/05) (50/01) (54/02)” = 5 peças tamanho 36, 1 tamanho 50 e 2 tamanho 54), o item é <B>quebrado por tamanho</B>: cada tamanho ganha o seu PI e o seu cálculo de caixas, e o sistema avisa se a soma da grade não bater com a quantidade da nota.</li>
         </Lista>
         <p className="mt-3 font-semibold text-slate-900">Alocação no WMS (ID de PA e UZ)</p>
         <Lista>
