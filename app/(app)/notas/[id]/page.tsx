@@ -8,6 +8,7 @@ import { Farol, Selo, Voltar } from "@/components/ui";
 import { AcoesNota } from "@/components/AcoesNota";
 import { FormAcao } from "@/components/FormAcao";
 import { FormObservacao } from "@/components/FormObservacao";
+import { DocumentosNota } from "@/components/DocumentosNota";
 import type { BotaoFila } from "@/components/FilaTabela";
 import { acaoAjusteAdmin, acaoEditarNota } from "@/app/acoes/notas";
 import { laudosDaNota, podeEmitirLaudo } from "@/lib/laudo";
@@ -153,6 +154,8 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
           <AcoesNota id={nota.id} botoes={botoes} />
         </div>
       )}
+
+      {interno && <DocumentosNota nota={nota} podeAnexar={u.papel === "admin" || u.papel === "interno"} ehAdmin={u.papel === "admin"} usuarioId={u.id} />}
 
       {(recebedor || docsReceb.length > 0) && (
         <div className="cartao flex flex-wrap items-start justify-between gap-4 p-5">

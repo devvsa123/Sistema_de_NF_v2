@@ -11,7 +11,7 @@ import { ItensRapidos } from "./ItensRapidos";
 
 export type LinhaFila = {
   id: number; numero: string; empresa: string; valor: string; oc: string; dias: string; farol: "verde" | "amarelo" | "vermelho" | null;
-  obs: string; comentarios: number; sobMedida: boolean; idPa: string; editaIdPa: boolean; exigeIdPa: boolean; obsOc: string; arrecadada: boolean; recebida: string; total: string; situacao?: string;
+  obs: string; comentarios: number; docs: number; docsFaltando: string; sobMedida: boolean; idPa: string; editaIdPa: boolean; exigeIdPa: boolean; obsOc: string; arrecadada: boolean; recebida: string; total: string; situacao?: string;
 };
 export type BotaoFila = { acao: Acao; rotulo: string; estilo?: "principal" | "sec" | "perigo" };
 
@@ -86,6 +86,10 @@ export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, 
                     <Link href={linkNota(l.id, volta)} className="font-semibold text-marinha hover:underline">{l.numero}</Link>
                     {l.sobMedida && <span title="Material sob medida" className="ml-2 rounded bg-violet-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Sob medida</span>}
                     <ItensRapidos id={l.id} numero={l.numero} volta={volta} />
+                    <Link href={`${linkNota(l.id, volta)}#documentos`} title={l.docsFaltando ? `Falta anexar: ${l.docsFaltando}` : `${l.docs} documento(s) anexado(s)`}
+                      className={`ml-2 rounded border px-1.5 py-0.5 text-[11px] font-medium ${l.docsFaltando ? "border-red-300 bg-red-50 text-red-700 hover:border-red-500" : "border-slate-200 text-slate-600 hover:border-marinha hover:text-marinha"}`}>
+                      Docs{l.docs ? ` (${l.docs})` : ""}{l.docsFaltando ? " !" : ""}
+                    </Link>
                     {docsRecebimento && <Link href={`/notas/${l.id}/recebimento${volta ? `?volta=${encodeURIComponent(volta)}` : ""}`} className="ml-2 rounded border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 hover:border-marinha hover:text-marinha">TAV / Check-list</Link>}
                     {laudo && <Link href={`/notas/${l.id}/laudo${volta ? `?volta=${encodeURIComponent(volta)}` : ""}`} className="ml-2 rounded border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 hover:border-marinha hover:text-marinha">Laudo</Link>}
                     {l.situacao && <span className="block text-xs text-slate-500">{l.situacao}</span>}

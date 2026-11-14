@@ -108,6 +108,22 @@ export default async function Manual() {
       </>,
     },
     {
+      id: "documentos", titulo: "Documentos da NF e assinaturas", para: ["admin", "interno"], conteudo: <>
+        <p>Na página de cada NF, o quadro <B>Documentos da NF</B> guarda a NF, a OC, os laudos do fornecedor e os documentos assinados de cada etapa (TAV, Check-list, relatório de ensaio, laudo pericial…), no lugar da pasta da rede.</p>
+        <Passos>
+          <li>Gere e assine o documento como de costume (gov.br ou token A3).</li>
+          <li>Na NF, escolha o <B>tipo do documento</B>, selecione o arquivo e clique em <B>Anexar à NF</B>. Dá para enviar vários arquivos do mesmo tipo de uma vez (até 4 MB cada).</li>
+        </Passos>
+        <Lista>
+          <li>O sistema confere a assinatura digital do PDF e mostra quem assinou, quando e se foi pelo <B>gov.br</B> ou por <B>certificado ICP-Brasil (token)</B>. Se o arquivo foi alterado depois de assinado, a assinatura aparece como inválida.</li>
+          <li>Documentos marcados como “assinados” (TAV, Check-list, relatório de ensaio, laudo pericial) só são aceitos com assinatura digital íntegra.</li>
+          <li>Se a etapa exige um documento, ele aparece em <B>Para sair de…</B> e a NF só avança depois de anexado. Na fila, o botão <B>Docs</B> fica vermelho com “!” enquanto falta algo.</li>
+          <li>Cada envio e cada remoção (com o motivo) ficam no histórico, com nome, data e hora. Só quem enviou ou o administrador pode remover.</li>
+          <li>O administrador define os tipos e os documentos obrigatórios por etapa em <B>Administração → Documentos da NF</B>.</li>
+        </Lista>
+      </>,
+    },
+    {
       id: "mensagens", titulo: "Mensagens: marcar pessoas e setores", para: ["admin", "interno"], conteudo: <>
         <p>Para tratar problemas, erros e dúvidas de uma NF sem telefonema nem deslocamento, escreva uma observação e <B>marque</B> a pessoa ou o setor. Tudo fica registrado no histórico da NF.</p>
         <Passos>

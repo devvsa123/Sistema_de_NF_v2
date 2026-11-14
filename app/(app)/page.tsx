@@ -46,7 +46,7 @@ export default async function MinhaFila({ searchParams }: PageProps<"/">) {
     id: n.id, numero: n.numero, empresa: n.emit_nome, valor: moeda(n.valor), oc: n.oc ?? "", recebida: data(n.recebida_em), total: dias(n.dias_total),
     dias: aba.chave === "armazenar" ? dias(n.dias_arrecadada) : dias(n.dias_etapa),
     farol: prazo !== null ? farol(Number(n.dias_etapa), prazo) : null,
-    obs: n.ultima_obs ?? "", comentarios: n.n_comentarios ?? 0, sobMedida: !!n.sob_medida,
+    obs: n.ultima_obs ?? "", comentarios: n.n_comentarios ?? 0, docs: n.n_docs ?? 0, docsFaltando: n.docs_faltando ?? "", sobMedida: !!n.sob_medida,
     idPa: n.id_pa ?? "", editaIdPa: podeEditarIdPa(u, etapas, n),
     exigeIdPa: !!n.exige_id_pa && n.status === "em_tramite" && !!etapas.find((x) => x.id === n.etapa_id)?.edita_id_pa, obsOc: n.obs_oc ?? "", arrecadada: !!n.arrecadada_em,
     situacao: aba.chave === "reprovadas" ? `Reprovada em ${n.etapa_nome ?? "—"}` : undefined,

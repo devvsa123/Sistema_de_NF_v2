@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   experimental: {
-    serverActions: { bodySizeLimit: "3mb" }, // XML de NF-e e lotes de importação
+    serverActions: { bodySizeLimit: "4.5mb" }, // XML de NF-e, lotes de importação e documentos da NF (limite da Vercel)
   },
   turbopack: {
     rules: {

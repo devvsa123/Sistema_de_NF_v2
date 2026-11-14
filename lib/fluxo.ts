@@ -147,6 +147,12 @@ export async function executarAcao(u: Usuario, notaId: number, acao: Acao, op: O
 
     if (acao === "avancar" && atual?.edita_id_pa && nota.exige_id_pa && !nota.id_pa)
       throw new Error(`NF ${nota.numero}: informe o ID de PA antes de enviar para a próxima etapa.`);
+    if (acao === "avancar") {
+      const { pendencias } = await import("./documentos");
+      const { faltando } = await pendencias(tx, nota.id, nota.etapa_id);
+      if (faltando.length)
+        throw new Error(`NF ${nota.numero}: anexe ${faltando.map((t) => (t.exige_assinatura ? `${t.nome} (assinado)` : t.nome)).join(", ")} antes de enviar para a próxima etapa.`);
+    }
 
     switch (acao) {
       case "avancar":

@@ -38,6 +38,20 @@ O catálogo do estoque (`dados_wms/controle-estoque.xlsx`) é lido do repositór
 | `PLANILHAS_GITHUB_TOKEN` | Token do GitHub com permissão **somente de leitura** (Contents: Read-only) no repositório das planilhas |
 | `CRON_SECRET` | Texto secreto qualquer; protege a atualização automática diária (`vercel.json`, 6h de Brasília) |
 
+## Documentos da NF (Cloudflare R2)
+
+Os PDFs anexados às NF ficam no Cloudflare R2 quando estas variáveis existem; sem elas, ficam no banco de dados
+(só para testes, o banco gratuito tem pouco espaço). Limite de 4 MB por arquivo (limite de requisição da Vercel).
+
+| Variável | Para quê |
+| --- | --- |
+| `R2_ACCOUNT_ID` | ID da conta Cloudflare |
+| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | Token de API do R2 com permissão **Object Read & Write** só no bucket |
+| `R2_BUCKET` | Nome do bucket (ex.: `sistema-nf-documentos`) |
+
+A assinatura digital dos PDFs (gov.br e ICP-Brasil) é conferida no envio (`lib/assinatura.ts`): integridade do conteúdo
+assinado, titular, data e tipo de certificado.
+
 ## Desenvolvimento local
 
 ```bash

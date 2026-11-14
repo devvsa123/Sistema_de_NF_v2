@@ -10,7 +10,7 @@ export type NotaLista = {
   id: number; chave: string | null; numero: string; serie: string | null; emit_cnpj: string; emit_nome: string; valor: string;
   oc: string | null; status: string; etapa_id: number | null; etapa_nome: string | null; prazo_dias: number | null;
   recebida_em: Date; concluida_em: Date | null; etapa_desde: Date; arrecadada_em: Date | null; armazenada_em: Date | null;
-  tem_xml: boolean; fonte: string | null; sob_medida: boolean; dias_etapa: number; dias_arrecadada: number | null; dias_total: number; ultima_obs: string | null; obs_oc: string | null; n_comentarios?: number; id_pa: string | null; exige_id_pa: boolean;
+  tem_xml: boolean; fonte: string | null; sob_medida: boolean; dias_etapa: number; dias_arrecadada: number | null; dias_total: number; ultima_obs: string | null; obs_oc: string | null; n_comentarios?: number; n_docs?: number; docs_faltando?: string | null; id_pa: string | null; exige_id_pa: boolean;
 };
 
 export type Nota = NotaLista & {
@@ -86,7 +86,13 @@ export async function fila(tipo: { etapa: number } | "reprovadas" | "armazenar")
     : tipo === "armazenar" ? sql`n.arrecadada_em is not null and n.armazenada_em is null and n.status in ('em_tramite','finalizada')`
     : sql`n.status = 'em_tramite' and n.etapa_id = ${tipo.etapa}`;
   return sql<NotaLista[]>`select ${COLUNAS}, ${ULTIMA_OBS},
-      (select count(*)::int from eventos ev where ev.nota_id = n.id and ev.texto is not null and ev.tipo <> 'ciente') as n_comentarios from notas n left join etapas e on e.id = n.etapa_id
+      (select count(*)::int from eventos ev where ev.nota_id = n.id and ev.texto is not null and ev.tipo <> 'ciente') as n_comentarios,
+      (select count(*)::int from documentos d where d.nota_id = n.id and d.removido_em is null) as n_docs,
+      (select string_agg(t.nome, ', ' order by t.ordem) from etapa_documentos ed join tipos_documento t on t.id = ed.tipo_id and t.ativo
+        where n.status = 'em_tramite' and ed.etapa_id = n.etapa_id and not exists (
+          select 1 from documentos d where d.nota_id = n.id and d.tipo_id = ed.tipo_id and d.removido_em is null
+            and (not t.exige_assinatura or exists (select 1 from jsonb_array_elements(d.assinaturas) a where (a->>'integra')::boolean)))) as docs_faltando
+      from notas n left join etapas e on e.id = n.etapa_id
       where ${onde} order by n.recebida_em asc, n.id asc limit 1000`; // ordem de chegada: quem chegou primeiro é atendido primeiro em todas as etapas
 }
 
