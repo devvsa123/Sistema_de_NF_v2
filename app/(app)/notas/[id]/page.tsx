@@ -167,9 +167,9 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
                   <li key={r.id}>
                     {r.doc === "checklist" ? "Check-list" : r.doc === "tav" ? "TAV" : "TAV e Check-list"} · TAV nº <strong>{numeroTav(r.numero_tav, r.ano)}</strong>
                     <span className="text-slate-500"> · {dataHora(r.criado_em)}{r.por ? ` · ${r.por}` : ""} · </span>
-                    {r.doc !== "checklist" && <a href={`/api/recebimento/${r.id}?doc=tav`} className="font-medium text-marinha hover:underline">Baixar TAV</a>}
+                    {r.doc !== "checklist" && <a href={`/api/recebimento/${r.id}?doc=tav`} className="font-medium text-marinha hover:underline">TAV em PDF</a>}
                     {r.doc === "ambos" && <span className="text-slate-300"> | </span>}
-                    {r.doc !== "tav" && <a href={`/api/recebimento/${r.id}?doc=checklist`} className="font-medium text-marinha hover:underline">Baixar Check-list</a>}
+                    {r.doc !== "tav" && <a href={`/api/recebimento/${r.id}?doc=checklist`} className="font-medium text-marinha hover:underline">Check-list em PDF</a>}
                   </li>
                 ))}
               </ul>

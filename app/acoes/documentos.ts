@@ -20,7 +20,7 @@ export async function acaoEnviarDocumento(_: Estado, f: FormData): Promise<Estad
   const feitos: string[] = [];
   try {
     for (const a of arquivos) {
-      const r = await enviarDocumento(u, nota.id, Number(f.get("tipo")), a);
+      const r = await enviarDocumento(u, nota.id, Number(f.get("tipo")) || 0, a);
       const ok = r.assinaturas.filter((x) => x.integra);
       feitos.push(ok.length ? `${a.name}: assinado por ${[...new Set(ok.map((x) => x.nome))].join(", ")}` : `${a.name}: anexado`);
     }

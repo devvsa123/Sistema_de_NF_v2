@@ -43,8 +43,12 @@ export default async function DocsRecebimento({ params, searchParams }: PageProp
 
       {emitido && registros.some((r) => r.id === emitido) && (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4">
-          <p className="text-sm text-emerald-900"><strong>{NOME[docEmitido]} emitido.</strong></p>
-          <a href={`/api/recebimento/${emitido}?doc=${docEmitido}`} className="botao">Baixar {NOME[docEmitido]}</a>
+          <p className="text-sm text-emerald-900"><strong>{NOME[docEmitido]} emitido.</strong> Baixe o PDF, abra no Adobe, clique no campo de assinatura e assine com o token; depois anexe o PDF assinado na NF.</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <a href={`/api/recebimento/${emitido}?doc=${docEmitido}`} className="botao">Baixar PDF para assinar</a>
+            <a href={`/api/recebimento/${emitido}?doc=${docEmitido}&formato=modelo`} className="text-xs font-medium text-emerald-900 underline">versão editável</a>
+            <a href={`/notas/${id}#documentos`} className="text-xs font-medium text-emerald-900 underline">anexar o PDF assinado na NF</a>
+          </div>
         </div>
       )}
 
@@ -68,8 +72,8 @@ export default async function DocsRecebimento({ params, searchParams }: PageProp
               <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                 <span>{r.doc === "checklist" ? "Check-list" : r.doc === "tav" ? "TAV" : "TAV e Check-list"} · TAV nº <strong>{numeroTav(r.numero_tav, r.ano)}</strong> · {dataHora(r.criado_em)}{r.por ? ` · ${r.por}` : ""}</span>
                 <span className="flex gap-3">
-                  {r.doc !== "checklist" && <a href={`/api/recebimento/${r.id}?doc=tav`} className="font-medium text-marinha hover:underline">Baixar TAV</a>}
-                  {r.doc !== "tav" && <a href={`/api/recebimento/${r.id}?doc=checklist`} className="font-medium text-marinha hover:underline">Baixar Check-list</a>}
+                  {r.doc !== "checklist" && <a href={`/api/recebimento/${r.id}?doc=tav`} className="font-medium text-marinha hover:underline">TAV em PDF</a>}
+                  {r.doc !== "tav" && <a href={`/api/recebimento/${r.id}?doc=checklist`} className="font-medium text-marinha hover:underline">Check-list em PDF</a>}
                 </span>
               </li>
             ))}

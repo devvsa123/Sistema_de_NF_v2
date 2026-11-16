@@ -4,6 +4,19 @@ import type { Usuario } from "./auth";
 import { registrarEvento } from "./fluxo";
 import { guardar, ler } from "./arquivos";
 import { assinaturasDoPdf, sha256, type Assinatura } from "./assinatura";
+import { PDFDocument } from "pdf-lib";
+
+/** Marcas que o sistema grava nos PDFs que gera (TAV, Check-list): tipo do documento e NF. */
+async function marcasDoPdf(bytes: Uint8Array): Promise<{ doc?: string; nota?: number }> {
+  try {
+    const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false, throwOnInvalidObject: false });
+    const k = pdf.getKeywords() ?? "";
+    return { doc: /nf-doc:(\w+)/.exec(k)?.[1], nota: Number(/nf-nota:(\d+)/.exec(k)?.[1]) || undefined };
+  } catch {
+    return {};
+  }
+}
+const TIPO_GERADO: Record<string, string> = { tav: "TAV", checklist: "Check-list de Recebimento" };
 
 /** Documentos da NF: envio, conferência das assinaturas, download e regras de tramitação. */
 
@@ -58,10 +71,19 @@ export async function enviarDocumento(u: Usuario, notaId: number, tipoId: number
   if (!mime) throw new Error("Envie um arquivo PDF (ou imagem JPG/PNG, ou XML).");
   if (!arquivo.size) throw new Error("O arquivo está vazio.");
   if (arquivo.size > TAMANHO_MAX) throw new Error(`O arquivo tem ${(arquivo.size / 1048576).toFixed(1)} MB; o limite é 4 MB. Reduza o PDF (ex.: “Reduzir tamanho” no leitor de PDF) e envie de novo.`);
-  const [tipo] = await sql<TipoDocumento[]>`select * from tipos_documento where id = ${tipoId} and ativo`;
-  if (!tipo) throw new Error("Escolha o tipo do documento.");
   const bytes = new Uint8Array(await arquivo.arrayBuffer());
   if (ext === "pdf" && Buffer.from(bytes.subarray(0, 1024)).toString("latin1").indexOf("%PDF") < 0) throw new Error("O arquivo não é um PDF válido.");
+  const marcas = ext === "pdf" ? await marcasDoPdf(bytes) : {};
+  if (marcas.nota && marcas.nota !== notaId) {
+    const [outra] = await sql`select numero from notas where id = ${marcas.nota}`;
+    throw new Error(`Este documento foi gerado para outra NF${outra ? ` (NF ${outra.numero})` : ""}. Confira o arquivo.`);
+  }
+  const gerado = marcas.doc ? TIPO_GERADO[marcas.doc] : undefined;
+  const [tipo] = tipoId
+    ? await sql<TipoDocumento[]>`select * from tipos_documento where id = ${tipoId} and ativo`
+    : gerado ? await sql<TipoDocumento[]>`select * from tipos_documento where nome = ${gerado} and ativo` : [];
+  if (!tipo) throw new Error(gerado ? `O tipo “${gerado}” não está ativo. Escolha o tipo do documento.` : "Escolha o tipo do documento (só o TAV e o Check-list gerados pelo sistema são reconhecidos sozinhos).");
+  if (gerado && tipo.nome !== gerado) throw new Error(`Este arquivo é um ${gerado} gerado pelo sistema, mas foi escolhido o tipo “${tipo.nome}”.`);
   const hash = sha256(bytes);
   const [repetido] = await sql`select t.nome from documentos d join tipos_documento t on t.id = d.tipo_id where d.nota_id = ${notaId} and d.sha256 = ${hash} and d.removido_em is null`;
   if (repetido) throw new Error(`Este mesmo arquivo já está anexado nesta NF (${repetido.nome}).`);

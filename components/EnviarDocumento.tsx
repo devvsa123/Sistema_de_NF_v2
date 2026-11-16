@@ -17,8 +17,8 @@ export function EnviarDocumento({ id, tipos }: { id: number; tipos: Tipo[] }) {
       <div className="grid gap-3 sm:grid-cols-[18rem_1fr]">
       <label>
         <span className="rotulo">Tipo do documento</span>
-        <select name="tipo" required className="campo" value={tipo} onChange={(e) => setTipo(Number(e.target.value) || "")}>
-          <option value="">Selecione…</option>
+        <select name="tipo" className="campo" value={tipo} onChange={(e) => setTipo(Number(e.target.value) || "")}>
+          <option value="">Identificar pelo arquivo (TAV e Check-list do sistema)</option>
           {tipos.map((t) => <option key={t.id} value={t.id}>{t.nome}{t.exige ? " (assinado)" : ""}{t.pendente ? " — pendente" : ""}</option>)}
         </select>
       </label>

@@ -7,6 +7,7 @@ import { preencherDocx } from "./docx";
 import { camposFixos, modeloAtual } from "./laudo";
 import { correlacionarNota, type LinhaCorrelacao } from "./estoque";
 import { inserirTabela, type Tabela } from "./tabela-doc";
+import { pdfChecklist, pdfTav } from "./pdf-recebimento";
 import { numero as fmtNumero } from "./format";
 import type { DadosNF, ItemNF } from "./nfe";
 
@@ -205,24 +206,27 @@ export function tabelaContagem(linhas: LinhaCorrelacao[], volumesNf: number): Ta
 const volumesDaNota = (dados: DadosNF | null) => (dados?.transp?.volumes ?? []).reduce((s, v) => s + (Number(v.qVol) || 0), 0);
 
 /** Gera o TAV ou o Check-list de um registro, com o modelo atual. Quem imprime assina como responsável pelo pré-recebimento. */
-export async function documentoRecebimento(id: number, doc: "tav" | "checklist", quemImprime: Usuario) {
-  const [r] = await sql`select r.dados, r.numero_tav, r.ano, r.doc, n.numero, n.emit_cnpj, n.itens, n.dados as nf
+export async function documentoRecebimento(id: number, doc: "tav" | "checklist", quemImprime: Usuario, formato: "pdf" | "modelo" = "pdf") {
+  const [r] = await sql`select r.dados, r.numero_tav, r.ano, r.doc, r.nota_id, n.numero, n.emit_cnpj, n.itens, n.dados as nf
                         from docs_recebimento r join notas n on n.id = r.nota_id where r.id = ${id}`;
   if (!r || (r.doc !== "ambos" && r.doc !== doc)) return null;
-  const { arquivo, nome } = await modeloAtual(doc);
-  const ext = /\.docx$/i.test(nome) ? "docx" : "odt";
   const prefixo = doc === "tav" ? "TAV" : "Check-list";
+  const base = `${prefixo}-${String(r.numero_tav).padStart(4, "0")}-${r.ano}-NF${String(r.numero).replace(/\W/g, "")}`;
   const valores = { ...(r.dados as { valores: Record<string, string> }).valores, numero_tav: String(r.numero_tav).padStart(4, "0"), responsavel: quemImprime.nome };
-  let modelo: Uint8Array = arquivo;
+  let tabela: Tabela | null = null;
   if (doc === "tav") {
     const { linhas } = await correlacionarNota({ emit_cnpj: r.emit_cnpj, itens: r.itens as ItemNF[] | null });
-    if (linhas.length) modelo = inserirTabela(modelo, "{{tabela_itens}}", tabelaContagem(linhas, volumesDaNota(r.nf as DadosNF | null)));
+    if (linhas.length) tabela = tabelaContagem(linhas, volumesDaNota(r.nf as DadosNF | null));
   }
-  return {
-    bytes: preencherDocx(modelo, valores),
-    nome: `${prefixo}-${String(r.numero_tav).padStart(4, "0")}-${r.ano}-NF${String(r.numero).replace(/\W/g, "")}.${ext}`,
-    mime: MIME[ext],
-  };
+  if (formato === "pdf") {
+    const ids = { registro: id, nota: r.nota_id as number };
+    const bytes = doc === "tav" ? await pdfTav(valores, tabela, ids) : await pdfChecklist(valores, ids);
+    return { bytes, nome: `${base}.pdf`, mime: "application/pdf" };
+  }
+  const { arquivo, nome } = await modeloAtual(doc);
+  const ext = /\.docx$/i.test(nome) ? "docx" : "odt";
+  const modelo: Uint8Array = tabela ? inserirTabela(arquivo, "{{tabela_itens}}", tabela) : arquivo;
+  return { bytes: preencherDocx(modelo, valores), nome: `${base}.${ext}`, mime: MIME[ext] };
 }
 
 /** Exemplo preenchido com dados fictícios, para conferir um modelo. */
