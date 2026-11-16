@@ -21,13 +21,15 @@ export default async function DocsRecebimento({ params, searchParams }: PageProp
   const hoje = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
   const regTav = registros.find((r) => r.doc !== "checklist");
   const regChecklist = registros.find((r) => r.doc !== "tav");
+  // data sugerida: o dia em que a SECOM cadastrou a NF no sistema (pode ser alterada)
+  const recebida = nota.recebida_em ? new Date(nota.recebida_em).toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" }) : hoje;
   const vazio: DadosRecebimento = {
-    numero_tav: "", data_recebimento: hoje, id_pa: "", lote: "", fabricacao: "", volumes: "",
+    numero_tav: "", data_recebimento: recebida, id_pa: nota.id_pa ?? "", lote: "", fabricacao: "", volumes: "",
     conferencia: "", respostas: PERGUNTAS_TAV.map((_, i) => (i < PERGUNTAS_TAV.length - 1 ? "Sim" : "")), observacao: "",
     peso_kg: "", itens_caixa: "", data_envio_amostra: "", obs_recebimento: "", discrepancia: "", obs_contagem: "",
   };
-  const inicialTav = regTav?.dados.formulario ?? vazio;
-  const anoAtual = Number(hoje.slice(0, 4));
+  const inicialTav = regTav ? { ...regTav.dados.formulario, id_pa: nota.id_pa ?? regTav.dados.formulario.id_pa } : vazio;
+  const anoAtual = Number(inicialTav.data_recebimento.slice(0, 4)) || Number(hoje.slice(0, 4));
   const reemissao = !!regTav && regTav.ano === anoAtual;
   const proximoNumero = reemissao ? numeroTav(regTav.numero_tav, regTav.ano) : numeroTav(await proximoTav(anoAtual), anoAtual);
   const inicialChecklist = regChecklist?.dados.formulario ?? vazio;
