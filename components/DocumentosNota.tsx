@@ -5,6 +5,7 @@ import { armazenamentoExterno } from "@/lib/arquivos";
 import { dataHora } from "@/lib/format";
 import { FormAcao } from "./FormAcao";
 import { EnviarDocumento } from "./EnviarDocumento";
+import { BotaoDocumentos } from "./DocumentosProcesso";
 import { acaoRemoverDocumento } from "@/app/acoes/documentos";
 
 const tamanho = (b: number) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
@@ -24,7 +25,7 @@ function SeloAssinatura({ a }: { a: Assinatura }) {
 
 /** Quadro "Documentos da NF" na página da nota. */
 export async function DocumentosNota({ nota, podeAnexar, ehAdmin, usuarioId }: {
-  nota: { id: number; status: string; etapa_id: number | null; etapa_nome: string | null }; podeAnexar: boolean; ehAdmin: boolean; usuarioId: number;
+  nota: { id: number; numero: string; status: string; etapa_id: number | null; etapa_nome: string | null }; podeAnexar: boolean; ehAdmin: boolean; usuarioId: number;
 }) {
   const [docs, tipos, regra] = await Promise.all([
     documentosDaNota(nota.id), tiposDocumento(), nota.status === "em_tramite" ? pendencias(sql, nota.id, nota.etapa_id) : null,
@@ -38,6 +39,7 @@ export async function DocumentosNota({ nota, podeAnexar, ehAdmin, usuarioId }: {
         <div>
           <h2 className="text-[15px] font-semibold text-slate-900">Documentos da NF</h2>
           <p className="mt-0.5 text-xs text-slate-500">NF, OC, laudos e os documentos assinados de cada etapa. A assinatura digital dos PDFs é conferida no envio.</p>
+          {docs.length > 0 && <div className="mt-2"><BotaoDocumentos notaId={nota.id} numero={nota.numero} total={docs.length} rotulo="Ver e assinar documentos" className="botao h-9 px-3 text-sm" /></div>}
         </div>
         {regra && regra.exigidos.length > 0 && (
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">

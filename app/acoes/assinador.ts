@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { exigirUsuario } from "@/lib/auth";
-import { camposParaAssinar, concluirAssinatura, identificarCertificado, prepararAssinatura } from "@/lib/assinador";
+import { camposParaAssinar, concluirAssinatura, documentosParaAssinar, identificarCertificado, prepararAssinatura, prepararDocumento, type Alvo } from "@/lib/assinador";
+import { obterNota } from "@/lib/notas";
+import { etapasAtivas, etapasDoUsuario } from "@/lib/fluxo";
 
 const doc = (d: string) => (d === "checklist" ? "checklist" : "tav");
 const msg = (e: unknown) => (e instanceof Error ? e.message : "Erro inesperado.");
@@ -44,6 +46,25 @@ export async function acaoIdentificarCertificado(assinatura: string) {
   try {
     const t = await identificarCertificado(await interno(), String(assinatura));
     return { nome: t.nome, cpf: t.cpf };
+  } catch (e) {
+    return { erro: msg(e) };
+  }
+}
+
+export async function acaoDocumentosParaAssinar(notaId: number) {
+  try {
+    const u = await interno();
+    if (!(await obterNota(u, Number(notaId)))) return { erro: "NF não encontrada.", docs: [] };
+    const setores = u.papel === "admin" ? [] : [...new Set(etapasDoUsuario(u, await etapasAtivas()).map((e) => e.setor))];
+    return { docs: await documentosParaAssinar(Number(notaId)), setores };
+  } catch (e) {
+    return { erro: msg(e), docs: [] };
+  }
+}
+
+export async function acaoPrepararDocumento(documentoId: number, alvo: Alvo) {
+  try {
+    return await prepararDocumento(await interno(), Number(documentoId), alvo);
   } catch (e) {
     return { erro: msg(e) };
   }

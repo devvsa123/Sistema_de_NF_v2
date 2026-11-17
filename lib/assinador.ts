@@ -4,7 +4,7 @@ import type { Usuario } from "./auth";
 import { documentoRecebimento } from "./recebimento";
 import { arquivoDoDocumento, enviarDocumento } from "./documentos";
 import { registrarEvento } from "./fluxo";
-import { camposDeAssinatura, encaixarAssinatura, prepararCampo } from "./pdf-assinar";
+import { camposDeAssinatura, encaixarAssinatura, prepararCampo, prepararNovoCampo, type CampoAssinatura } from "./pdf-assinar";
 import { titularDaAssinatura } from "./assinatura";
 
 type Certificado = { nome: string; cpf: string | null };
@@ -71,7 +71,12 @@ export async function concluirAssinatura(u: Usuario, id: number, assinaturaBase6
     return { refazer: true as const, mensagem: "" };
   }
   const pdf = encaixarAssinatura(new Uint8Array(s.pdf as Buffer), s.posicao as number, assinaturaBase64);
-  const r = await enviarDocumento(u, s.nota_id as number, 0, new File([Buffer.from(pdf)], s.nome_arquivo as string, { type: "application/pdf" }));
+  let tipoId = 0;
+  if (s.documento_origem_id) {
+    const [o] = await sql`select tipo_id from documentos where id = ${s.documento_origem_id}`;
+    tipoId = (o?.tipo_id as number) ?? 0;
+  }
+  const r = await enviarDocumento(u, s.nota_id as number, tipoId, new File([Buffer.from(pdf)], s.nome_arquivo as string, { type: "application/pdf" }));
   const ultima = r.assinaturas[r.assinaturas.length - 1];
   if (!ultima?.integra) throw new Error("A assinatura devolvida pelo Assinador não confere com o documento.");
   await sql.begin(async (tx) => {
@@ -84,4 +89,46 @@ export async function concluirAssinatura(u: Usuario, id: number, assinaturaBase6
   });
   const [n] = await sql`select numero from notas where id = ${s.nota_id}`;
   return { refazer: false as const, mensagem: `${r.tipo} da NF ${n.numero} assinado por ${ultima.nome} (${ultima.tipo === "ICP-Brasil" ? "certificado ICP-Brasil" : ultima.tipo}).` };
+}
+
+// ------------------------------------------------------------------ qualquer documento anexado à NF
+
+export type DocParaAssinar = {
+  id: number; tipo: string; nome: string; criado_em: Date; assinaturas: string[]; campos: CampoAssinatura[];
+};
+
+/** Documentos PDF da NF, com os campos de assinatura (vazios ou não) e quem já assinou. */
+export async function documentosParaAssinar(notaId: number): Promise<DocParaAssinar[]> {
+  const docs = await sql<{ id: number; tipo: string; nome_arquivo: string; criado_em: Date; assinaturas: { nome: string; integra: boolean }[] }[]>`
+    select d.id, t.nome as tipo, d.nome_arquivo, d.criado_em, d.assinaturas from documentos d join tipos_documento t on t.id = d.tipo_id
+    where d.nota_id = ${notaId} and d.removido_em is null and d.mime = 'application/pdf' order by t.ordem, d.criado_em`;
+  const saida: DocParaAssinar[] = [];
+  for (const d of docs) {
+    let campos: CampoAssinatura[] = [];
+    try {
+      const a = await arquivoDoDocumento(d.id);
+      if (a) campos = await camposDeAssinatura(a.bytes);
+    } catch { /* PDF sem formulário legível: assina em posição escolhida */ }
+    saida.push({ id: d.id, tipo: d.tipo, nome: d.nome_arquivo, criado_em: d.criado_em, assinaturas: d.assinaturas.filter((x) => x.integra).map((x) => x.nome), campos });
+  }
+  return saida;
+}
+
+export type Alvo = { campo: string } | { pagina: number; x: number; y: number };
+
+/** Prepara a assinatura de um documento anexado: num campo existente ou numa posição escolhida na página. */
+export async function prepararDocumento(u: Usuario, documentoId: number, alvo: Alvo) {
+  const cert = await certificadoDoUsuario(u);
+  if (!cert) return { identificar: true as const };
+  const [d] = await sql`select id, nota_id, nome_arquivo from documentos where id = ${documentoId} and removido_em is null`;
+  if (!d) throw new Error("Documento não encontrado (talvez já tenha sido substituído por uma versão mais nova). Atualize a página.");
+  const a = await arquivoDoDocumento(d.id as number);
+  if (!a) throw new Error("Arquivo não encontrado.");
+  const p = "campo" in alvo
+    ? await prepararCampo(a.bytes, alvo.campo, cert)
+    : await prepararNovoCampo(a.bytes, Math.max(0, Math.floor(alvo.pagina)), Number(alvo.x), Number(alvo.y), `Assinatura de ${cert.nome}`, cert);
+  const [s] = await sql`insert into assinaturas_token (usuario_id, nota_id, campo, nome_arquivo, pdf, posicao, resumo, base_documento_id, documento_origem_id)
+                        values (${u.id}, ${d.nota_id}, ${"campo" in alvo ? alvo.campo : `página ${alvo.pagina + 1}`}, ${d.nome_arquivo}, ${Buffer.from(p.pdf)},
+                                ${p.posicao}, ${p.resumo}, ${d.id}, ${d.id}) returning id`;
+  return { id: s.id as number, resumo: p.resumo };
 }

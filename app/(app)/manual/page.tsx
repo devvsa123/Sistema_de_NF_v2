@@ -67,6 +67,7 @@ export default async function Manual() {
         <p className="my-3 rounded-lg bg-slate-50 px-4 py-3 font-medium text-slate-800">{caminho}</p>
         <Lista>
           <li>A NF só pode ser enviada <B>uma etapa para frente</B> ou <B>devolvida uma etapa para trás</B>.</li>
+          <li>Depois do <B>Controle</B>, a NF vai ao <B>Enc. Abastecimento</B> (Gestor de Bens Patrimoniais) e volta ao Controle, na etapa <B>Controle — Finalização</B>, que finaliza a NF.</li>
           <li>Em todas as etapas, a fila segue a <B>ordem de chegada</B> da NF ao depósito: a que chegou primeiro fica no topo, mesmo que tenha ficado parada em alguma etapa. A coluna <B>Chegada</B> mostra a data e o tempo total em tramitação.</li>
           <li>Cada etapa tem um <B>prazo</B> em dias. O semáforo mostra 🟢 dentro do prazo, 🟡 acima de 70% do prazo e 🔴 prazo estourado.</li>
           <li>Pode reprovar: <B>{reprova}</B>. Exige marcar “arrecadada” antes de finalizar: <B>{arrecada}</B>. Marca “armazenada”: <B>{armazena}</B>.</li>
@@ -137,6 +138,22 @@ export default async function Manual() {
           <li>O sistema confere a assinatura e anexa o documento em <B>Documentos da NF</B>. Quem assina depois recebe a versão já assinada e assina o campo que falta.</li>
           <li>Se aparecer “Não foi possível falar com o Assinador SERPRO”, confira se ele está aberto e se o navegador foi autorizado (<a href="https://tutorial.assinadorserpro.estaleiro.serpro.gov.br/html/demo_53.html" target="_blank" rel="noopener" className="font-medium text-marinha underline">passo a passo</a>).</li>
           <li>Continua valendo o caminho manual: baixar o PDF, assinar no Adobe e anexar na NF.</li>
+        </Lista>
+      </>,
+    },
+    {
+      id: "documentos-processo", titulo: "Documentos do processo: ver e assinar vários de uma vez", para: ["admin", "interno"], conteudo: <>
+        <p>O botão <B>Docs</B> na fila (ou <B>Ver e assinar documentos</B> na página da NF) abre todos os documentos da NF num só lugar: a lista à esquerda e o documento, página a página, à direita.</p>
+        <Passos>
+          <li>Clique num documento da lista para vê-lo. Use <B>Abrir em nova aba</B> ou <B>Baixar</B> se preferir.</li>
+          <li>Para assinar, marque os documentos (pode marcar vários, ex.: o parecer e o relatório de ensaio).</li>
+          <li>Se o documento tem campo de assinatura (TAV, Check-list, NF com certificado), escolha o seu campo; o sistema já sugere o do seu setor.</li>
+          <li>Se não tem (relatórios e pareceres feitos no Word), clique na página, à direita, no lugar onde a sua assinatura deve ficar.</li>
+          <li>Clique em <B>Assinar … documento(s) com o token</B> e confirme no Assinador SERPRO. As assinaturas que já existiam no documento continuam válidas.</li>
+        </Passos>
+        <Lista>
+          <li><B>NF e Certificado de Recebimento de Bens</B>: ao anexar o PDF da NF, o sistema acrescenta automaticamente o certificado (código OM, contas e ND fixos), com campos para o fiel de armazenagem, o perito, o fiel de suprimentos e o gestor de bens patrimoniais. Se o PDF já tiver um certificado ou já estiver assinado, nada é acrescentado.</li>
+          <li>Cada assinatura gera uma nova versão do documento; a anterior fica guardada e tudo vai para o histórico.</li>
         </Lista>
       </>,
     },

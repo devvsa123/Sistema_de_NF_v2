@@ -300,3 +300,96 @@ export async function pdfChecklist(v: Valores, ids: { registro: number; nota: nu
   c.y -= 84;
   return finalizar(c);
 }
+
+// ------------------------------------------------------------------ Certificado de Recebimento de Bens
+
+/** Valores fixos do certificado (padrão do Depósito); podem ser trocados aqui se mudarem. */
+export const CERTIFICADO_FIXOS = { codigoOm: "71100/71260", cPatrimonial: "EFO", cContabil: "1.5.5.8.1.02.01", nd: "339030-23" };
+
+/** Campo de assinatura num retângulo qualquer (x, y = canto inferior esquerdo). */
+function campoEm(c: Ctx, nomeCampo: string, rotulo: string, x: number, y: number, w: number, h: number) {
+  const widget = c.doc.context.obj({ Type: "Annot", Subtype: "Widget", FT: "Sig", Rect: [x, y, x + w, y + h], F: 4, P: c.pag.ref, T: PDFString.of(nomeCampo), TU: PDFString.of(rotulo) });
+  const ref = c.doc.context.register(widget);
+  c.pag.node.addAnnot(ref);
+  (c.doc.getForm().acroForm as unknown as { addField: (r: PDFRef) => void }).addField(ref);
+}
+
+/**
+ * Página do Certificado de Recebimento de Bens (material), no modelo usado pelo Depósito, com campos de assinatura
+ * para o fiel de armazenagem, o perito, o fiel de suprimentos e o gestor de bens patrimoniais.
+ */
+function paginaCertificado(c: Ctx, v: { numero_nf: string; ano: string }) {
+  const x0 = 34, W = A4[0] - 68, meio = x0 + W * 0.42;
+  let y = A4[1] - 40;
+  const linha = (h: number) => { c.pag.drawRectangle({ x: x0, y: y - h, width: W, height: h, borderColor: rgb(0, 0, 0), borderWidth: 0.6 }); };
+  const t = (s: string, x: number, yy: number, tam = 7, neg = false, larg?: number) => {
+    if (larg) quebrar(neg ? c.b : c.f, s, tam, larg).forEach((l, i) => texto(c, l, x, yy - i * (tam + 1.6), { tam, negrito: neg }));
+    else texto(c, s, x, yy, { tam, negrito: neg });
+  };
+  const vert = (x: number, topo: number, base: number) => c.pag.drawLine({ start: { x, y: topo }, end: { x, y: base }, thickness: 0.6 });
+  const data = `DATA:      /      /${v.ano}`;
+
+  linha(14);
+  texto(c, "CERTIFICADO DE RECEBIMENTO DE BENS", x0, y - 10, { tam: 8, negrito: true, alinhar: "centro", largura: W });
+  y -= 14;
+  linha(14); t(`1) DOCUMENTO DE ORIGEM: ${v.numero_nf}`, x0 + 3, y - 10); y -= 14;
+
+  // blocos com declaração em cima e, embaixo, DATA à esquerda e assinatura à direita
+  const bloco = (num: string, declaracao: string, cargo: string, campo: string | null, extra?: string) => {
+    const ls = quebrar(c.f, `${num} ${declaracao}`, 7, W - 6);
+    const hDecl = 6 + ls.length * 8.6;
+    const hAss = 50;
+    linha(hDecl + hAss + (extra ? 14 : 0));
+    ls.forEach((l, i) => texto(c, l, x0 + 3, y - 9 - i * 8.6, { tam: 7 }));
+    const topo = y - hDecl;
+    c.pag.drawLine({ start: { x: x0, y: topo }, end: { x: x0 + W, y: topo }, thickness: 0.6 });
+    vert(meio, topo, topo - hAss);
+    t(data, x0 + 3, topo - 28);
+    t(`${cargo}:`, meio + 3, topo - 9);
+    if (campo) campoEm(c, campo, cargo, meio + 4, topo - hAss + 2, x0 + W - meio - 8, hAss - 14);
+    if (extra) { const yb = topo - hAss; c.pag.drawLine({ start: { x: x0, y: yb }, end: { x: x0 + W, y: yb }, thickness: 0.6 }); t(extra, x0 + 3, yb - 10); }
+    y -= hDecl + hAss + (extra ? 14 : 0);
+  };
+  bloco("2)", "CERTIFICO QUE O BEM A QUE SE REFERE O PRESENTE DOCUMENTO FOI POR MIM RECEBIDO.", "FIEL DE ARMAZENAGEM", "Fiel de Armazenagem");
+  bloco("3)", "O MATERIAL A QUE SE REFERE O PRESENTE DOCUMENTO FOI POR MIM PERICIADO, CONFERIDO E APROVADO PARA USO.", "PERITO", "Perito");
+  bloco("4)", "CERTIFICO QUE O BEM A QUE SE REFERE O PRESENTE DOCUMENTO JÁ FOI PERICIADO, ASSIM, DECLARO A ACEITAÇÃO, ACHANDO-SE O BEM EM PERFEITAS CONDIÇÕES DE APLICAÇÃO E DEVIDAMENTE JUSTIFICADO CONFORME CAMPO ABAIXO.", "REPRESENTANTE DO SETOR REQUISITANTE", null, "JUSTIFICATIVA: ____________________________________________________________________________________");
+  bloco("5)", "DECLARO QUE O MATERIAL A QUE SE REFERE O PRESENTE DOCUMENTO FOI REGISTRADO NO CONTROLE DE ESTOQUE.", "FIEL DE SUPRIMENTOS", "Fiel de Suprimentos");
+  bloco("6)", "DECLARO QUE O MATERIAL A QUE SE REFERE O PRESENTE DOCUMENTO FOI REGISTRADO NO CONTROLE DE BENS MÓVEIS OU BENS INTANGÍVEIS.", "FIEL DE MATERIAL", null);
+
+  // 7, 8, 9 numa linha
+  linha(14);
+  const tc = W / 3;
+  t(`7) C. PATRIMONIAL: ${CERTIFICADO_FIXOS.cPatrimonial}`, x0 + 3, y - 10); vert(x0 + tc, y, y - 14);
+  t(`8) C. CONTÁBIL: ${CERTIFICADO_FIXOS.cContabil}`, x0 + tc + 3, y - 10); vert(x0 + 2 * tc, y, y - 14);
+  t(`9) ND: ${CERTIFICADO_FIXOS.nd}`, x0 + 2 * tc + 3, y - 10);
+  y -= 14;
+  linha(14); t("10) NÚMERO PATRIMONIAL: ________________________________________", x0 + 3, y - 10); y -= 14;
+  bloco("11)", "DECLARO QUE O MATERIAL A QUE SE REFERE O PRESENTE DOCUMENTO JÁ PASSOU POR TODAS AS FASES DO RECEBIMENTO DO MATERIAL (INCISO 2.6.2 DA SGM-303 REV. 7).", "GESTOR DE BENS PATRIMONIAIS", "Gestor de Bens Patrimoniais");
+
+  // 12, 13, 14
+  linha(24);
+  t(`12) CÓDIGO OM: ${CERTIFICADO_FIXOS.codigoOm}`, x0 + 3, y - 10, 7, true); vert(x0 + tc, y, y - 24);
+  t("13) DOC. Nº", x0 + tc + 3, y - 10); vert(x0 + 2 * tc, y, y - 24);
+  t("14) LICITAÇÃO", x0 + 2 * tc + 3, y - 10); t("TIPO:                    Nº:", x0 + 2 * tc + 3, y - 20);
+  y -= 24;
+  for (const [n, ag] of [["15)", "AGENTE FISCAL DA OM APOIADA (OMAp):"], ["16)", "AGENTE FINANCEIRO:"], ["17)", "AGENTE FISCAL OM CENTRALIZADORA / UGE:"]]) {
+    linha(30); t(`${n} ${data}`, x0 + 3, y - 12); vert(meio, y, y - 30); t(ag, meio + 3, y - 12); y -= 30;
+  }
+}
+
+/**
+ * NF com o Certificado de Recebimento de Bens: acrescenta a página do certificado ao PDF da NF.
+ * Se o PDF da NF já estiver assinado, devolve null (não se mexe num documento assinado).
+ */
+export async function nfComCertificado(nf: Uint8Array, v: { numero_nf: string; ano: string }, ids: { nota: number }) {
+  const bruto = Buffer.from(nf).toString("latin1");
+  if (/\/ByteRange\s*\[/.test(bruto)) return null;
+  const doc = await PDFDocument.load(nf, { ignoreEncryption: true, updateMetadata: false });
+  const [f, b] = await Promise.all([doc.embedFont(StandardFonts.Helvetica), doc.embedFont(StandardFonts.HelveticaBold)]);
+  const pag = doc.addPage(A4);
+  const c: Ctx = { doc, f, b, pag, y: A4[1] - M, paginas: [pag], rodape: "" };
+  paginaCertificado(c, v);
+  doc.setKeywords(["nf-sistema", "nf-doc:nf-certificado", `nf-nota:${ids.nota}`]);
+  doc.setTitle(`NF ${v.numero_nf} e Certificado de Recebimento de Bens`);
+  return doc.save({ useObjectStreams: false });
+}

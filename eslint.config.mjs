@@ -7,6 +7,8 @@ const eslintConfig = defineConfig([
   ...nextTs,
   // Override default ignores of eslint-config-next.
   globalIgnores([
+    // arquivo de terceiros (pdf.js), já minificado
+    "public/pdfjs/**",
     // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
