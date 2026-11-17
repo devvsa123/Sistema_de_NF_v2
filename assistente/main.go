@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	versao    = "1.1.0"
+	versao    = "1.2.0"
 	titulo    = "Assistente de Assinatura — Tramitação de NF"
 	protocolo = "assinanf"
 	espera    = 45 * time.Minute

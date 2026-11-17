@@ -30,6 +30,7 @@ var (
 	pInternetReadFile    = wininet.NewProc("InternetReadFile")
 	pInternetCloseHandle = wininet.NewProc("InternetCloseHandle")
 	pInternetSetOption   = wininet.NewProc("InternetSetOptionW")
+	pInternetQueryOption = wininet.NewProc("InternetQueryOptionW")
 )
 
 const (
@@ -47,6 +48,10 @@ const (
 	optConnectTimeout           = 2
 	optSendTimeout              = 5
 	optReceiveTimeout           = 6
+	optSecurityCertificate      = 35
+	errInvalidCA                = 12045
+	// identifica-se como o navegador: alguns proxies tratam programas desconhecidos de outro jeito
+	agente = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0 AssinaNF"
 )
 
 type respostaHTTP struct {
@@ -87,7 +92,7 @@ func wininetReq(metodo, endereco string, cabecalhos map[string]string, corpo []b
 	if err != nil {
 		return res, err
 	}
-	hInet, _, e := pInternetOpen.Call(uintptr(unsafe.Pointer(u16("AssinaNF/"+versao))), internetOpenTypePreconfig, 0, 0, 0)
+	hInet, _, e := pInternetOpen.Call(uintptr(unsafe.Pointer(u16(agente))), internetOpenTypePreconfig, 0, 0, 0)
 	if hInet == 0 {
 		return res, fmt.Errorf("InternetOpen: %v", e)
 	}
@@ -137,6 +142,12 @@ func wininetReq(metodo, endereco string, cabecalhos map[string]string, corpo []b
 		pCorpo = uintptr(unsafe.Pointer(&corpo[0]))
 	}
 	ok, _, e := pHttpSendRequest.Call(hReq, uintptr(unsafe.Pointer(pCab)), nCab, pCorpo, uintptr(len(corpo)))
+	if ok == 0 && e == windows.Errno(errInvalidCA) {
+		// só registra o certificado apresentado (diagnóstico); a conexão não é aceita
+		cert := certificado(hReq)
+		log.Printf("certificado não confiável pelo Windows (12045): %s", cert)
+		return res, fmt.Errorf("o Windows não confia no certificado apresentado pela rede (erro 12045). Certificado: %s", cert)
+	}
 	if ok == 0 {
 		return res, fmt.Errorf("HttpSendRequest: %v", e)
 	}
@@ -186,4 +197,14 @@ func diretoReq(metodo, endereco string, cabecalhos map[string]string, corpo []by
 	res.disposicao = r.Header.Get("Content-Disposition")
 	res.corpo, err = io.ReadAll(r.Body)
 	return res, err
+}
+
+// certificado descreve o certificado apresentado na conexão (emissor, titular, validade), para diagnóstico.
+func certificado(hReq uintptr) string {
+	buf := make([]uint16, 4096)
+	tam := uint32(len(buf) * 2)
+	if r, _, _ := pInternetQueryOption.Call(hReq, optSecurityCertificate, uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(&tam))); r == 0 {
+		return "(não foi possível ler)"
+	}
+	return strings.Join(strings.Fields(windows.UTF16ToString(buf)), " ")
 }
