@@ -9,21 +9,47 @@ import { acaoCamposAssinatura, acaoConcluirAssinatura, acaoPrepararAssinatura } 
  * (wss://127.0.0.1:65156/signer/), que pede o certificado e o PIN e assina o resumo do documento.
  */
 
-const URL_ASSINADOR = "wss://127.0.0.1:65156/signer/";
+// Endereços do serviço local do Assinador: as versões novas usam o nome assinador-desktop.serpro.gov.br
+// (apontado para 127.0.0.1 no arquivo hosts); as antigas, o IP direto.
+const ENDERECOS = [
+  "wss://assinador-desktop.serpro.gov.br:65156/signer/",
+  "wss://127.0.0.1:65156/signer/",
+  "wss://localhost:65156/signer/",
+];
+const GUARDADO = "assinador-serpro-endereco";
 const TUTORIAL_INSTALAR = "https://tutorial.assinadorserpro.estaleiro.serpro.gov.br/html/demo_3.html";
 const TUTORIAL_AUTORIZAR = "https://tutorial.assinadorserpro.estaleiro.serpro.gov.br/html/demo_53.html";
 
 type Campo = { nome: string; rotulo: string; assinado: boolean };
 type Etapa = "conectando" | "sem-assinador" | "escolher" | "assinando" | "concluido" | "erro";
 
-function conectar(): Promise<WebSocket> {
+function tentar(url: string): Promise<WebSocket> {
   return new Promise((ok, falha) => {
     let ws: WebSocket;
-    try { ws = new WebSocket(URL_ASSINADOR); } catch (e) { falha(e); return; }
-    const t = setTimeout(() => { try { ws.close(); } catch { /* */ } falha(new Error("tempo")); }, 5000);
+    try { ws = new WebSocket(url); } catch (e) { falha(e); return; }
+    const t = setTimeout(() => { try { ws.close(); } catch { /* */ } falha(new Error("sem resposta")); }, 5000);
     ws.onopen = () => { clearTimeout(t); ok(ws); };
-    ws.onerror = () => { clearTimeout(t); falha(new Error("conexão")); };
+    ws.onerror = () => { clearTimeout(t); falha(new Error("conexão recusada")); };
   });
+}
+
+/** Tenta os endereços do Assinador (primeiro o que funcionou da última vez). */
+async function conectar(registro?: (s: string) => void): Promise<WebSocket> {
+  let preferido = "";
+  try { preferido = localStorage.getItem(GUARDADO) ?? ""; } catch { /* */ }
+  const ordem = [...new Set([preferido, ...ENDERECOS].filter(Boolean))];
+  const falhas: string[] = [];
+  for (const url of ordem) {
+    try {
+      const ws = await tentar(url);
+      try { localStorage.setItem(GUARDADO, url); } catch { /* */ }
+      return ws;
+    } catch (e) {
+      falhas.push(`${new URL(url.replace("wss:", "https:")).host}: ${e instanceof Error ? e.message : "falha"}`);
+    }
+  }
+  registro?.(falhas.join(" · "));
+  throw new Error("sem assinador");
 }
 
 /** Envia um comando ao Assinador e espera a resposta com o mesmo requestId. */
@@ -59,6 +85,7 @@ function Janela({ registroId, doc, fechar }: { registroId: number; doc: "tav" | 
   const [campos, setCampos] = useState<Campo[]>([]);
   const [campo, setCampo] = useState("");
   const [msg, setMsg] = useState("");
+  const [diag, setDiag] = useState("");
   const ws = useRef<WebSocket | null>(null);
   const router = useRouter();
   const nomeDoc = doc === "tav" ? "TAV" : "Check-list";
@@ -67,7 +94,7 @@ function Janela({ registroId, doc, fechar }: { registroId: number; doc: "tav" | 
     setEtapa("conectando"); setMsg("");
     try {
       ws.current?.close();
-      ws.current = await conectar();
+      ws.current = await conectar(setDiag);
     } catch {
       setEtapa("sem-assinador");
       return;
@@ -132,6 +159,10 @@ function Janela({ registroId, doc, fechar }: { registroId: number; doc: "tav" | 
                 <li>Se o navegador perguntar sobre <strong>acesso à rede local</strong>, clique em <strong>Permitir</strong>.</li>
                 <li>Na primeira vez, autorize o navegador: <a href={TUTORIAL_AUTORIZAR} target="_blank" rel="noopener" className="text-marinha underline">passo a passo do SERPRO</a>.</li>
               </ol>
+              <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                Teste rápido: abra <a href="https://assinador-desktop.serpro.gov.br:65156/" target="_blank" rel="noopener" className="text-marinha underline">assinador-desktop.serpro.gov.br:65156</a> e <a href="https://127.0.0.1:65156/" target="_blank" rel="noopener" className="text-marinha underline">127.0.0.1:65156</a> em uma nova aba e veja se aparece aviso de certificado ou erro. Mande um print para o suporte.
+                {diag && <span className="mt-1 block font-mono text-[11px] text-slate-500">Detalhe: {diag}</span>}
+              </p>
               <button type="button" className="botao" onClick={iniciar}>Tentar de novo</button>
             </div>
           )}
