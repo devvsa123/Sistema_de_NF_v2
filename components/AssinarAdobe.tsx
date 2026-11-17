@@ -7,7 +7,14 @@ import { acaoIniciarAssinatura, acaoSituacaoAssinatura } from "@/app/acoes/assin
 type Estado = "parado" | "abrindo" | "aguardando" | "aberto" | "enviado" | "expirado" | "erro";
 
 /** "Assinar no Adobe": o Assistente de Assinatura abre o PDF no Adobe e devolve o assinado para a NF. */
-export function AssinarAdobe({ registroId, doc, rotulo = "Assinar no Adobe", compacto = false }: { registroId: number; doc: "tav" | "checklist"; rotulo?: string; compacto?: boolean }) {
+/** Desligado: o antivírus da rede (Kaspersky) bloqueou o Assistente não assinado; aguardando a solução definitiva. */
+const ATIVO = false;
+
+export function AssinarAdobe(props: { registroId: number; doc: "tav" | "checklist"; rotulo?: string; compacto?: boolean }) {
+  return ATIVO ? <AssinarAdobeAtivo {...props} /> : null;
+}
+
+function AssinarAdobeAtivo({ registroId, doc, rotulo = "Assinar no Adobe", compacto = false }: { registroId: number; doc: "tav" | "checklist"; rotulo?: string; compacto?: boolean }) {
   const [estado, setEstado] = useState<Estado>("parado");
   const [msg, setMsg] = useState("");
   const [semAssistente, setSemAssistente] = useState(false);

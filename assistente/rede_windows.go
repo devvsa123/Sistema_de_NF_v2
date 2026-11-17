@@ -50,8 +50,7 @@ const (
 	optReceiveTimeout           = 6
 	optSecurityCertificate      = 35
 	errInvalidCA                = 12045
-	// identifica-se como o navegador: alguns proxies tratam programas desconhecidos de outro jeito
-	agente = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0 AssinaNF"
+	agente                      = "AssinaNF"
 )
 
 type respostaHTTP struct {
