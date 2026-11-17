@@ -52,6 +52,15 @@ Os PDFs anexados às NF ficam no Cloudflare R2 quando estas variáveis existem; 
 A assinatura digital dos PDFs (gov.br e ICP-Brasil) é conferida no envio (`lib/assinatura.ts`): integridade do conteúdo
 assinado, titular, data e tipo de certificado.
 
+## Assistente de Assinatura (Windows)
+
+`assistente/` contém o programa (Go) que registra o endereço `assinanf://`, baixa o PDF por um link de uso único
+(`/api/assinador/<código>`), abre no Adobe, espera o PDF assinado ser salvo e o devolve ao sistema. Para gerar o executável:
+
+```bash
+cd assistente && GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-H=windowsgui -s -w" -o ../public/assistente/AssinaNF.exe .
+```
+
 ## Desenvolvimento local
 
 ```bash

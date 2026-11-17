@@ -124,6 +124,22 @@ export default async function Manual() {
       </>,
     },
     {
+      id: "assinar-adobe", titulo: "Assinar no Adobe pelo sistema", para: ["admin", "interno"], conteudo: <>
+        <p>Com o <B>Assistente de Assinatura</B> instalado, o botão <B>Assinar no Adobe</B> (no TAV e no Check-list) abre o documento no Adobe; depois de assinar e salvar, o PDF assinado volta sozinho para a NF.</p>
+        <Passos>
+          <li>Uma vez por computador: baixe o <a href="/assistente/AssinaNF.exe" className="font-medium text-marinha underline">Assistente de Assinatura (AssinaNF.exe)</a> e dê dois cliques. Se o Windows avisar “editor desconhecido”, clique em <B>Mais informações → Executar assim mesmo</B>.</li>
+          <li>No sistema, clique em <B>Assinar no Adobe</B>. Se o navegador perguntar, marque <B>Sempre permitir</B> e clique em <B>Abrir</B>.</li>
+          <li>O Adobe abre o documento. Clique no <B>campo de assinatura</B> do seu cargo, escolha o certificado do token, digite o PIN e <B>salve na pasta sugerida</B> (Documentos\Assinaturas NF).</li>
+          <li>O Assistente envia o PDF assinado, o sistema confere a assinatura e anexa na NF, e o documento é fechado no Adobe.</li>
+        </Passos>
+        <Lista>
+          <li>Quando o documento tem mais de uma assinatura (ex.: TAV), quem assina depois recebe a versão já assinada e assina o campo que falta. A versão anterior é substituída e fica guardada.</li>
+          <li>O link de cada assinatura vale por 45 minutos e só uma vez.</li>
+          <li>Registro do Assistente, para suporte: %LOCALAPPDATA%\AssinaNF\assinanf.log.</li>
+        </Lista>
+      </>,
+    },
+    {
       id: "mensagens", titulo: "Mensagens: marcar pessoas e setores", para: ["admin", "interno"], conteudo: <>
         <p>Para tratar problemas, erros e dúvidas de uma NF sem telefonema nem deslocamento, escreva uma observação e <B>marque</B> a pessoa ou o setor. Tudo fica registrado no histórico da NF.</p>
         <Passos>
