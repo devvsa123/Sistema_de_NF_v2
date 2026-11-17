@@ -1,4 +1,5 @@
 import "server-only";
+import https from "node:https";
 import { AwsClient } from "aws4fetch";
 
 /**
@@ -20,9 +21,25 @@ const caminho = (chave: string) => chave.split("/").map(encodeURIComponent).join
 export async function guardar(chave: string, bytes: Uint8Array, mime: string): Promise<{ armazenamento: "r2" | "banco"; chave: string | null }> {
   const r = r2();
   if (!r) return { armazenamento: "banco", chave: null };
-  const resp = await r.cliente.fetch(`${r.base}/${caminho(chave)}`, { method: "PUT", body: Buffer.from(bytes), headers: { "content-type": mime } });
-  if (!resp.ok) throw new Error(`Não foi possível guardar o arquivo no armazenamento (${resp.status}).`);
+  const corpo = Buffer.from(bytes);
+  // assina a requisição (S3/R2) e envia pela conexão HTTPS do Node com o tamanho explícito:
+  // o fetch do Next.js pode mandar o corpo em pedaços (sem Content-Length) e o R2 recusa com 411
+  const assinado = await r.cliente.sign(`${r.base}/${caminho(chave)}`, { method: "PUT", body: corpo, headers: { "content-type": mime } });
+  const status = await enviarPut(assinado.url, Object.fromEntries(assinado.headers.entries()), corpo);
+  if (status < 200 || status >= 300) throw new Error(`Não foi possível guardar o arquivo no armazenamento (${status}).`);
   return { armazenamento: "r2", chave };
+}
+
+function enviarPut(url: string, cabecalhos: Record<string, string>, corpo: Buffer): Promise<number> {
+  return new Promise((ok, falha) => {
+    const req = https.request(url, { method: "PUT", headers: { ...cabecalhos, "content-length": String(corpo.length) }, timeout: 60000 }, (res) => {
+      res.resume();
+      res.on("end", () => ok(res.statusCode ?? 0));
+    });
+    req.on("timeout", () => req.destroy(new Error("Tempo esgotado ao guardar o arquivo.")));
+    req.on("error", falha);
+    req.end(corpo);
+  });
 }
 
 export async function ler(chave: string): Promise<Uint8Array> {
