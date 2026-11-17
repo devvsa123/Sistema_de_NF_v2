@@ -36,6 +36,41 @@ function tipoDoCertificado(cert: pkijs.Certificate): Assinatura["tipo"] {
   return "outro";
 }
 
+/** Nome, CPF, emissor e tipo do titular do certificado. */
+function titular(cert: pkijs.Certificate) {
+  const cn = campo(cert.subject, OID.cn)[0] ?? "—";
+  const [nome, cpfCn] = cn.includes(":") ? [cn.split(":")[0], cn.split(":")[1]] : [cn, null];
+  let cpf = cpfCn && /^\d{11}$/.test(cpfCn) ? cpfCn : null;
+  if (!cpf) cpf = cpfDoSan(cert); // ICP-Brasil: CPF no campo 2.16.76.1.3.1 (nascimento + CPF + ...)
+  return { nome: nome.trim(), cpf, emissor: campo(cert.issuer, OID.cn)[0] ?? "—", tipo: tipoDoCertificado(cert) };
+}
+
+function cpfDoSan(cert: pkijs.Certificate): string | null {
+  const ext = cert.extensions?.find((e) => e.extnID === "2.5.29.17");
+  if (!ext) return null;
+  try {
+    const bruto = Buffer.from(ext.extnValue.valueBlock.valueHexView).toString("latin1");
+    const i = bruto.indexOf(Buffer.from([0x06, 0x05, 0x60, 0x4c, 0x01, 0x03, 0x01]).toString("latin1")); // OID 2.16.76.1.3.1
+    if (i < 0) return null;
+    const m = /(\d{8})(\d{11})/.exec(bruto.slice(i + 7, i + 80));
+    return m && !/^0+$/.test(m[2]) ? m[2] : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Titular do certificado de uma assinatura CMS (base64), sem conferir conteúdo: usado para identificar o certificado. */
+export function titularDaAssinatura(base64: string) {
+  const asn = asn1js.fromBER(new Uint8Array(Buffer.from(base64.replace(/\s+/g, ""), "base64")).buffer);
+  if (asn.offset === -1) throw new Error("Assinatura ilegível.");
+  const sd = new pkijs.SignedData({ schema: new pkijs.ContentInfo({ schema: asn.result }).content });
+  const certs = (sd.certificates ?? []).filter((x): x is pkijs.Certificate => x instanceof pkijs.Certificate);
+  const sid = sd.signerInfos[0]?.sid as pkijs.IssuerAndSerialNumber;
+  const cert = certs.find((x) => sid?.serialNumber && x.serialNumber.isEqual(sid.serialNumber)) ?? certs[0];
+  if (!cert) throw new Error("Certificado não encontrado na assinatura.");
+  return titular(cert);
+}
+
 /** Assinaturas de um PDF, na ordem em que foram feitas. */
 export async function assinaturasDoPdf(pdf: Uint8Array): Promise<Assinatura[]> {
   const texto = Buffer.from(pdf).toString("latin1");
@@ -84,14 +119,7 @@ async function conferir(der: Buffer, assinado: Buffer, cobreTudo: boolean): Prom
       if (v && "toDate" in v) quando = v.toDate().toISOString();
     }
     if (!cert) return { ...vazio, integra, quando, erro: "Certificado não encontrado na assinatura." };
-    const cn = campo(cert.subject, OID.cn)[0] ?? "—";
-    const [nome, cpf] = cn.includes(":") ? [cn.split(":")[0], cn.split(":")[1]] : [cn, null];
-    return {
-      nome: nome.trim(), cpf: cpf && /^\d{11}$/.test(cpf) ? cpf : null,
-      email: campo(cert.subject, OID.email)[0] ?? null,
-      emissor: campo(cert.issuer, OID.cn)[0] ?? "—",
-      tipo: tipoDoCertificado(cert), quando, integra, cobreTudo,
-    };
+    return { ...titular(cert), email: campo(cert.subject, OID.email)[0] ?? null, quando, integra, cobreTudo };
   } catch (e) {
     return { ...vazio, erro: e instanceof Error ? e.message : "Falha ao ler a assinatura." };
   }

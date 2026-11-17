@@ -5,6 +5,21 @@ import { documentoRecebimento } from "./recebimento";
 import { arquivoDoDocumento, enviarDocumento } from "./documentos";
 import { registrarEvento } from "./fluxo";
 import { camposDeAssinatura, encaixarAssinatura, prepararCampo } from "./pdf-assinar";
+import { titularDaAssinatura } from "./assinatura";
+
+type Certificado = { nome: string; cpf: string | null };
+
+async function certificadoDoUsuario(u: Usuario): Promise<Certificado | null> {
+  const [r] = await sql`select cert_nome, cert_cpf from usuarios where id = ${u.id}`;
+  return r?.cert_nome ? { nome: r.cert_nome as string, cpf: (r.cert_cpf as string | null) ?? null } : null;
+}
+
+/** Guarda o titular do certificado a partir de uma assinatura feita pelo Assinador (nome completo e CPF para o selo). */
+export async function identificarCertificado(u: Usuario, assinaturaBase64: string) {
+  const t = titularDaAssinatura(assinaturaBase64);
+  await sql`update usuarios set cert_nome = ${t.nome}, cert_cpf = ${t.cpf}, cert_emissor = ${t.emissor}, cert_em = now() where id = ${u.id}`;
+  return t;
+}
 
 /** Assinatura com o token pelo Assinador SERPRO (o navegador fala com o Assinador; o sistema prepara e confere o PDF). */
 
@@ -33,8 +48,10 @@ export async function camposParaAssinar(u: Usuario, registroId: number, doc: "ta
 }
 
 export async function prepararAssinatura(u: Usuario, registroId: number, doc: "tav" | "checklist", campo: string) {
+  const cert = await certificadoDoUsuario(u);
+  if (!cert) return { identificar: true as const };
   const v = await versaoAtual(u, registroId, doc);
-  const p = await prepararCampo(v.pdf, campo, u.nome);
+  const p = await prepararCampo(v.pdf, campo, cert);
   const [s] = await sql`insert into assinaturas_token (usuario_id, nota_id, registro_id, doc, campo, nome_arquivo, pdf, posicao, resumo, base_documento_id)
                         values (${u.id}, ${v.notaId}, ${registroId}, ${doc}, ${campo}, ${v.nome}, ${Buffer.from(p.pdf)}, ${p.posicao}, ${p.resumo}, ${v.baseId}) returning id`;
   return { id: s.id as number, resumo: p.resumo };
@@ -45,6 +62,14 @@ export async function concluirAssinatura(u: Usuario, id: number, assinaturaBase6
   if (!s) throw new Error("Assinatura não encontrada.");
   if (s.concluido_em) throw new Error("Esta assinatura já foi concluída.");
   if (Date.now() - new Date(s.criado_em).getTime() > VALIDADE_MIN * 60000) throw new Error("O tempo para assinar acabou. Clique em Assinar de novo.");
+  // o selo foi desenhado com o certificado guardado; se a pessoa usou outro token, atualiza e pede para assinar de novo
+  const cert = await certificadoDoUsuario(u);
+  const t = titularDaAssinatura(assinaturaBase64);
+  if (!cert || cert.nome !== t.nome || (cert.cpf ?? null) !== (t.cpf ?? null)) {
+    await identificarCertificado(u, assinaturaBase64);
+    await sql`delete from assinaturas_token where id = ${id}`;
+    return { refazer: true as const, mensagem: "" };
+  }
   const pdf = encaixarAssinatura(new Uint8Array(s.pdf as Buffer), s.posicao as number, assinaturaBase64);
   const r = await enviarDocumento(u, s.nota_id as number, 0, new File([Buffer.from(pdf)], s.nome_arquivo as string, { type: "application/pdf" }));
   const ultima = r.assinaturas[r.assinaturas.length - 1];
@@ -58,5 +83,5 @@ export async function concluirAssinatura(u: Usuario, id: number, assinaturaBase6
     }
   });
   const [n] = await sql`select numero from notas where id = ${s.nota_id}`;
-  return `${r.tipo} da NF ${n.numero} assinado por ${ultima.nome} (${ultima.tipo === "ICP-Brasil" ? "certificado ICP-Brasil" : ultima.tipo}).`;
+  return { refazer: false as const, mensagem: `${r.tipo} da NF ${n.numero} assinado por ${ultima.nome} (${ultima.tipo === "ICP-Brasil" ? "certificado ICP-Brasil" : ultima.tipo}).` };
 }

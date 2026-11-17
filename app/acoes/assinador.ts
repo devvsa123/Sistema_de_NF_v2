@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { exigirUsuario } from "@/lib/auth";
-import { camposParaAssinar, concluirAssinatura, prepararAssinatura } from "@/lib/assinador";
+import { camposParaAssinar, concluirAssinatura, identificarCertificado, prepararAssinatura } from "@/lib/assinador";
 
 const doc = (d: string) => (d === "checklist" ? "checklist" : "tav");
 const msg = (e: unknown) => (e instanceof Error ? e.message : "Erro inesperado.");
@@ -31,9 +31,19 @@ export async function acaoPrepararAssinatura(registroId: number, d: string, camp
 
 export async function acaoConcluirAssinatura(id: number, assinatura: string) {
   try {
-    const m = await concluirAssinatura(await interno(), Number(id), String(assinatura));
+    const r = await concluirAssinatura(await interno(), Number(id), String(assinatura));
+    if (r.refazer) return { refazer: true };
     revalidatePath("/", "layout");
-    return { ok: m };
+    return { ok: r.mensagem };
+  } catch (e) {
+    return { erro: msg(e) };
+  }
+}
+
+export async function acaoIdentificarCertificado(assinatura: string) {
+  try {
+    const t = await identificarCertificado(await interno(), String(assinatura));
+    return { nome: t.nome, cpf: t.cpf };
   } catch (e) {
     return { erro: msg(e) };
   }

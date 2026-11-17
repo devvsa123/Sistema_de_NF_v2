@@ -1,6 +1,6 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFRef, PDFString, type PDFObject } from "pdf-lib";
+import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFRef, PDFString, StandardFonts, type PDFFont, type PDFObject } from "pdf-lib";
 
 /**
  * Assinatura digital de um campo existente do PDF (PAdES / adbe.pkcs7.detached), feita em duas etapas:
@@ -53,11 +53,21 @@ function dataPdf(d: Date) {
 }
 
 function dataBR(d: Date) {
-  return d.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
+  return d.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" }).replace(",", "") + "-0300";
+}
+
+export type Selo = { nome: string; cpf?: string | null };
+const cpfFormatado = (c: string) => c.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4");
+
+let metricas: Promise<{ normal: PDFFont; negrito: PDFFont }> | null = null;
+function fontes() {
+  metricas ??= PDFDocument.create().then(async (d) => ({ normal: await d.embedFont(StandardFonts.Helvetica), negrito: await d.embedFont(StandardFonts.HelveticaBold) }));
+  return metricas;
 }
 
 /** Prepara o PDF com a assinatura vazia no campo e devolve o resumo (base64) que o Assinador vai assinar. */
-export async function prepararCampo(pdf: Uint8Array, campo: string, quem: string, quando = new Date()) {
+export async function prepararCampo(pdf: Uint8Array, campo: string, selo: Selo, quando = new Date()) {
+  const quem = selo.nome;
   const fonte = Buffer.from(pdf);
   const fim = fonte.toString("latin1", Math.max(0, fonte.length - 1024));
   const sx = /startxref\s+(\d+)\s+%%EOF\s*$/.exec(fim);
@@ -84,17 +94,26 @@ export async function prepararCampo(pdf: Uint8Array, campo: string, quem: string
   const maior = doc.context.largestObjectNumber;
   const nSig = maior + 1, nAp = maior + 2, tamanho = maior + 3;
 
-  // aparência visível da assinatura dentro do campo
+  // aparência visível da assinatura, no padrão dos selos de assinatura digital (gov.br / Adobe)
+  const { normal, negrito } = await fontes();
+  const larguraUtil = w - 12;
+  let tamNome = 8.5;
+  while (tamNome > 5.5 && negrito.widthOfTextAtSize(quem.replace(/[^\x20-\xff]/g, "?"), tamNome) > larguraUtil) tamNome -= 0.25;
   const linhas = [
-    { f: "F1", t: 6.5, s: "Assinado digitalmente por" },
-    { f: "F2", t: 8, s: quem },
-    { f: "F1", t: 6.5, s: `em ${dataBR(quando)} com certificado digital` },
+    { f: "F1", t: 6.3, s: "Documento assinado digitalmente", cor: "0.35 0.35 0.35" },
+    { f: "F2", t: tamNome, s: quem.toUpperCase(), cor: "0 0 0" },
+    ...(selo.cpf ? [{ f: "F1", t: 6.3, s: `CPF: ${cpfFormatado(selo.cpf)}`, cor: "0 0 0" }] : []),
+    { f: "F1", t: 6.3, s: `Data: ${dataBR(quando)}`, cor: "0 0 0" },
+    { f: "F1", t: 6.3, s: "Verifique em https://validar.iti.gov.br", cor: "0.35 0.35 0.35" },
   ];
-  let conteudo = "q 0.12 0.22 0.39 RG 0.6 w 1 1 " + (w - 2).toFixed(2) + " " + (h - 2).toFixed(2) + " re S Q\nBT 0.12 0.22 0.39 rg\n";
-  let y = h / 2 + 9;
+  void normal;
+  const alturaTexto = linhas.reduce((t, l) => t + l.t + 2.2, 0);
+  let y = h - Math.max(2, (h - alturaTexto) / 2) - linhas[0].t;
+  // barra vertical à esquerda, como nos selos de assinatura
+  let conteudo = `q 0.12 0.22 0.39 rg 0 ${(y - alturaTexto + linhas[0].t + 4).toFixed(2)} 2 ${(alturaTexto + 1).toFixed(2)} re f Q\nBT\n`;
   for (const l of linhas) {
-    conteudo += `/${l.f} ${l.t} Tf 1 0 0 1 5 ${y.toFixed(2)} Tm ${literalWinAnsi(l.s)} Tj\n`;
-    y -= l.t + 3.5;
+    conteudo += `${l.cor} rg /${l.f} ${l.t} Tf 1 0 0 1 7 ${y.toFixed(2)} Tm ${literalWinAnsi(l.s)} Tj\n`;
+    y -= l.t + 2.2;
   }
   conteudo += "ET";
   const conteudoBytes = Buffer.from(conteudo, "latin1");

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { acaoCamposAssinatura, acaoConcluirAssinatura, acaoPrepararAssinatura } from "@/app/acoes/assinador";
+import { acaoCamposAssinatura, acaoConcluirAssinatura, acaoIdentificarCertificado, acaoPrepararAssinatura } from "@/app/acoes/assinador";
 
 /**
  * "Assinar com token": o navegador conversa com o Assinador SERPRO instalado no computador
@@ -112,26 +112,52 @@ function Janela({ registroId, doc, fechar }: { registroId: number; doc: "tav" | 
     return () => { clearTimeout(t); ws.current?.close(); };
   }, [iniciar]);
 
+  /** Pede ao Assinador para assinar um resumo; devolve a assinatura, ou null se a pessoa cancelou. */
+  async function assinarResumo(resumo: string): Promise<string | null> {
+    if (!ws.current || ws.current.readyState !== WebSocket.OPEN) ws.current = await conectar();
+    const r = await comando(ws.current, { command: "sign", type: "hash", inputData: resumo });
+    if (r.actionCanceled) return null;
+    if (r.error || !r.signature) throw new Error(`O Assinador SERPRO informou: ${String(r.error ?? "sem assinatura")}`);
+    return String(r.signature);
+  }
+
   async function assinar() {
     if (!campo || !ws.current) return;
     setEtapa("assinando"); setMsg("");
-    const p = await acaoPrepararAssinatura(registroId, doc, campo);
-    if ("erro" in p && p.erro) { setEtapa("erro"); setMsg(p.erro); return; }
-    const { id, resumo } = p as { id: number; resumo: string };
-    let r: Record<string, unknown>;
     try {
-      if (ws.current.readyState !== WebSocket.OPEN) ws.current = await conectar();
-      r = await comando(ws.current, { command: "sign", type: "hash", inputData: resumo });
+      for (let tentativa = 0; tentativa < 3; tentativa++) {
+        let p = await acaoPrepararAssinatura(registroId, doc, campo);
+        if ("identificar" in p) {
+          // primeira assinatura desta pessoa pelo sistema: identifica o certificado (nome completo e CPF para o selo)
+          setMsg("Primeira assinatura pelo sistema: o Assinador vai pedir o PIN uma vez para identificar o seu certificado, e depois outra para assinar.");
+          const aleatorio = new Uint8Array(32);
+          crypto.getRandomValues(aleatorio);
+          const resumoTeste = btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.digest("SHA-256", aleatorio))));
+          const sigTeste = await assinarResumo(resumoTeste);
+          if (!sigTeste) { setEtapa("escolher"); setMsg("Assinatura cancelada no Assinador."); return; }
+          const idt = await acaoIdentificarCertificado(sigTeste);
+          if ("erro" in idt && idt.erro) throw new Error(idt.erro);
+          p = await acaoPrepararAssinatura(registroId, doc, campo);
+        }
+        if ("erro" in p && p.erro) throw new Error(p.erro);
+        if ("identificar" in p) throw new Error("Não foi possível identificar o certificado.");
+        const { id, resumo } = p as { id: number; resumo: string };
+        const assinatura = await assinarResumo(resumo);
+        if (!assinatura) { setEtapa("escolher"); setMsg("Assinatura cancelada no Assinador."); return; }
+        const c = await acaoConcluirAssinatura(id, assinatura);
+        if ("refazer" in c && c.refazer) {
+          setMsg("O certificado usado é diferente do anterior: o selo foi atualizado. Confirme o PIN mais uma vez.");
+          continue;
+        }
+        if (c.erro) throw new Error(c.erro);
+        setEtapa("concluido"); setMsg(c.ok ?? "");
+        router.refresh();
+        return;
+      }
+      throw new Error("Não foi possível concluir a assinatura.");
     } catch (e) {
       setEtapa("erro"); setMsg(e instanceof Error ? e.message : "Falha ao falar com o Assinador SERPRO.");
-      return;
     }
-    if (r.actionCanceled) { setEtapa("escolher"); setMsg("Assinatura cancelada no Assinador."); return; }
-    if (r.error || !r.signature) { setEtapa("erro"); setMsg(`O Assinador SERPRO informou: ${String(r.error ?? "sem assinatura")}`); return; }
-    const c = await acaoConcluirAssinatura(id, String(r.signature));
-    if (c.erro) { setEtapa("erro"); setMsg(c.erro); return; }
-    setEtapa("concluido"); setMsg(c.ok ?? "");
-    router.refresh();
   }
 
   const todos = campos.length > 0 && campos.every((c) => c.assinado);
@@ -180,9 +206,9 @@ function Janela({ registroId, doc, fechar }: { registroId: number; doc: "tav" | 
                     </label>
                   ))}
                 </div>
-                {msg && <p className="text-amber-700">{msg}</p>}
+                {msg && etapa !== "assinando" && <p className="text-amber-700">{msg}</p>}
                 {etapa === "assinando"
-                  ? <p className="rounded-lg bg-blue-50 px-3 py-2 text-blue-900">Confirme no <strong>Assinador SERPRO</strong>: escolha o certificado do token e digite o PIN. A janela dele pode abrir atrás do navegador.</p>
+                  ? <p className="rounded-lg bg-blue-50 px-3 py-2 text-blue-900">{msg && <span className="mb-1 block font-medium">{msg}</span>}Confirme no <strong>Assinador SERPRO</strong>: escolha o certificado do token e digite o PIN. A janela dele pode abrir atrás do navegador.</p>
                   : <button type="button" className="botao" disabled={!campo} onClick={assinar}>Assinar com o token</button>}
               </>
             )
