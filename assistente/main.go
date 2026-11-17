@@ -11,13 +11,9 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
-	"mime"
-	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -33,7 +29,7 @@ import (
 )
 
 const (
-	versao    = "1.0.0"
+	versao    = "1.1.0"
 	titulo    = "Assistente de Assinatura — Tramitação de NF"
 	protocolo = "assinanf"
 	espera    = 45 * time.Minute
@@ -99,7 +95,13 @@ func main() {
 		mensagem("Não foi possível instalar: "+err.Error(), mbIconError)
 		return
 	}
-	mensagem("Assistente de Assinatura instalado (versão "+versao+").\n\nVolte ao sistema e clique em \"Assinar no Adobe\".\nSe o navegador perguntar, marque \"Sempre permitir\" e clique em Abrir.", mbIconInfo)
+	conexao := "Conexão com o sistema: OK."
+	if r, err := requisicao("GET", "https://"+hostsPermitidos[0]+"/api/assinador/teste/pdf", nil, nil); err != nil {
+		conexao = "ATENÇÃO: não foi possível falar com o sistema (" + err.Error() + "). Envie o arquivo " + filepath.Join(pastaApp(), "assinanf.log") + " para o suporte."
+	} else {
+		log.Printf("teste de conexão: %d", r.status)
+	}
+	mensagem("Assistente de Assinatura instalado (versão "+versao+").\n\n"+conexao+"\n\nVolte ao sistema e clique em \"Assinar no Adobe\".\nSe o navegador perguntar, marque \"Sempre permitir\" e clique em Abrir.", mbIconInfo)
 }
 
 // instalar copia o programa para %LOCALAPPDATA%\AssinaNF e registra o endereço assinanf:// para o usuário.
@@ -151,23 +153,20 @@ func assinar(endereco string) error {
 	if !permitido(b) {
 		return fmt.Errorf("o endereço %s não é o do sistema de NF; a assinatura foi cancelada por segurança", b.Host)
 	}
-	cliente := &http.Client{Timeout: 2 * time.Minute}
-
-	// 1. baixa o PDF
-	resp, err := cliente.Get(base + "/pdf")
+	// 1. baixa o PDF (pela rede do Windows, com o proxy da organização)
+	resp, err := requisicao("GET", base+"/pdf", nil, nil)
 	if err != nil {
 		return fmt.Errorf("não foi possível baixar o documento: %w", err)
 	}
-	corpo, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if resp.StatusCode != 200 {
+	corpo := resp.corpo
+	if resp.status != 200 {
 		var r resposta
 		_ = json.Unmarshal(corpo, &r)
-		return fmt.Errorf("%s", firstNonEmpty(r.Mensagem, resp.Status))
+		return fmt.Errorf("%s", firstNonEmpty(r.Mensagem, fmt.Sprintf("o sistema respondeu %d", resp.status)))
 	}
 	nome := "documento.pdf"
-	if _, p, err := mime.ParseMediaType(resp.Header.Get("Content-Disposition")); err == nil && p["filename"] != "" {
-		nome = filepath.Base(p["filename"])
+	if n := resp.nomeArquivo(); n != "" {
+		nome = filepath.Base(n)
 	}
 	pasta := filepath.Join(pastaDocumentos(), "Assinaturas NF")
 	if err := os.MkdirAll(pasta, 0o755); err != nil {
@@ -203,17 +202,15 @@ func assinar(endereco string) error {
 		log.Printf("assinado encontrado: %s (%d bytes)", cand, len(dados))
 
 		// 4. envia para o sistema
-		req, _ := http.NewRequest("POST", base+"/enviar", bytes.NewReader(dados))
-		req.Header.Set("Content-Type", "application/pdf")
-		req.Header.Set("X-Nome-Arquivo", url.QueryEscape(filepath.Base(cand)))
-		r2, err := cliente.Do(req)
+		r2, err := requisicao("POST", base+"/enviar", map[string]string{"Content-Type": "application/pdf", "X-Nome-Arquivo": url.QueryEscape(filepath.Base(cand))}, dados)
 		if err != nil {
 			mensagem("Não foi possível enviar o documento assinado ao sistema:\n"+err.Error()+"\n\nVerifique a internet e salve o PDF de novo.", mbIconWarning)
 			continue
 		}
 		var r resposta
-		_ = json.NewDecoder(r2.Body).Decode(&r)
-		r2.Body.Close()
+		if err := json.Unmarshal(r2.corpo, &r); err != nil {
+			r.Mensagem = fmt.Sprintf("resposta inesperada do sistema (%d)", r2.status)
+		}
 		if !r.Ok {
 			log.Printf("recusado: %s", r.Mensagem)
 			mensagem("O sistema não aceitou o documento:\n\n"+r.Mensagem+"\n\nCorrija no Adobe e salve de novo; o Assistente continua aguardando.", mbIconWarning)
