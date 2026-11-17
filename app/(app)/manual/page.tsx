@@ -124,6 +124,23 @@ export default async function Manual() {
       </>,
     },
     {
+      id: "assinar-token", titulo: "Assinar com o token pelo sistema (Assinador SERPRO)", para: ["admin", "interno"], conteudo: <>
+        <p>O TAV e o Check-list podem ser assinados com o token direto pelo sistema, usando o <B>Assinador SERPRO</B> (programa oficial do governo) instalado no computador. A assinatura entra no campo certo do documento e o PDF assinado já fica na NF.</p>
+        <Passos>
+          <li>Uma vez por computador: instale o Assinador SERPRO (<a href="https://tutorial.assinadorserpro.estaleiro.serpro.gov.br/html/demo_3.html" target="_blank" rel="noopener" className="font-medium text-marinha underline">tutorial do SERPRO</a>) e deixe-o aberto.</li>
+          <li>Clique em <B>Assinar com token</B> no TAV ou no Check-list.</li>
+          <li>Se o navegador perguntar sobre acesso à <B>rede local</B>, clique em <B>Permitir</B>.</li>
+          <li>Escolha o campo da sua assinatura (o sistema já sugere o primeiro em aberto) e clique em <B>Assinar com o token</B>.</li>
+          <li>Na janela do Assinador SERPRO (pode abrir atrás do navegador), escolha o certificado do token e digite o PIN.</li>
+        </Passos>
+        <Lista>
+          <li>O sistema confere a assinatura e anexa o documento em <B>Documentos da NF</B>. Quem assina depois recebe a versão já assinada e assina o campo que falta.</li>
+          <li>Se aparecer “Não foi possível falar com o Assinador SERPRO”, confira se ele está aberto e se o navegador foi autorizado (<a href="https://tutorial.assinadorserpro.estaleiro.serpro.gov.br/html/demo_53.html" target="_blank" rel="noopener" className="font-medium text-marinha underline">passo a passo</a>).</li>
+          <li>Continua valendo o caminho manual: baixar o PDF, assinar no Adobe e anexar na NF.</li>
+        </Lista>
+      </>,
+    },
+    {
       id: "mensagens", titulo: "Mensagens: marcar pessoas e setores", para: ["admin", "interno"], conteudo: <>
         <p>Para tratar problemas, erros e dúvidas de uma NF sem telefonema nem deslocamento, escreva uma observação e <B>marque</B> a pessoa ou o setor. Tudo fica registrado no histórico da NF.</p>
         <Passos>

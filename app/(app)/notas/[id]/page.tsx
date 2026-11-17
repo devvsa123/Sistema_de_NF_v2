@@ -9,7 +9,7 @@ import { AcoesNota } from "@/components/AcoesNota";
 import { FormAcao } from "@/components/FormAcao";
 import { FormObservacao } from "@/components/FormObservacao";
 import { DocumentosNota } from "@/components/DocumentosNota";
-import { AssinarAdobe } from "@/components/AssinarAdobe";
+import { AssinarToken } from "@/components/AssinarToken";
 import type { BotaoFila } from "@/components/FilaTabela";
 import { acaoAjusteAdmin, acaoEditarNota } from "@/app/acoes/notas";
 import { laudosDaNota, podeEmitirLaudo } from "@/lib/laudo";
@@ -168,10 +168,10 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
                   <li key={r.id}>
                     {r.doc === "checklist" ? "Check-list" : r.doc === "tav" ? "TAV" : "TAV e Check-list"} · TAV nº <strong>{numeroTav(r.numero_tav, r.ano)}</strong>
                     <span className="text-slate-500"> · {dataHora(r.criado_em)}{r.por ? ` · ${r.por}` : ""} · </span>
-                    {r.doc !== "checklist" && <><AssinarAdobe registroId={r.id} doc="tav" rotulo="Assinar TAV no Adobe" compacto /> · </>}
+                    {r.doc !== "checklist" && <><AssinarToken registroId={r.id} doc="tav" rotulo="Assinar TAV com token" compacto /> · </>}
                     {r.doc !== "checklist" && <a href={`/api/recebimento/${r.id}?doc=tav`} className="font-medium text-marinha hover:underline">TAV em PDF</a>}
                     {r.doc === "ambos" && <span className="text-slate-300"> | </span>}
-                    {r.doc !== "tav" && <><AssinarAdobe registroId={r.id} doc="checklist" rotulo="Assinar Check-list no Adobe" compacto /> · </>}
+                    {r.doc !== "tav" && <><AssinarToken registroId={r.id} doc="checklist" rotulo="Assinar Check-list com token" compacto /> · </>}
                     {r.doc !== "tav" && <a href={`/api/recebimento/${r.id}?doc=checklist`} className="font-medium text-marinha hover:underline">Check-list em PDF</a>}
                   </li>
                 ))}

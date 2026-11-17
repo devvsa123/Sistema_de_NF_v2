@@ -6,7 +6,7 @@ import { docsDaNota, numeroTav, PERGUNTAS_TAV, podeEmitirRecebimento, proximoTav
 import { cnpj, dataHora, destinoVolta, linkNota, moeda } from "@/lib/format";
 import { Cabecalho, Selo, Voltar } from "@/components/ui";
 import { FormChecklist, FormTav } from "@/components/FormRecebimento";
-import { AssinarAdobe } from "@/components/AssinarAdobe";
+import { AssinarToken } from "@/components/AssinarToken";
 
 export const metadata = { title: "Documentos do Recebimento — Tramitação de NF" };
 
@@ -44,9 +44,9 @@ export default async function DocsRecebimento({ params, searchParams }: PageProp
 
       {emitido && registros.some((r) => r.id === emitido) && (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4">
-          <p className="text-sm text-emerald-900"><strong>{NOME[docEmitido]} emitido.</strong> Baixe o PDF, abra no Adobe, clique no campo de assinatura e assine com o token; depois anexe o PDF assinado na NF.</p>
+          <p className="text-sm text-emerald-900"><strong>{NOME[docEmitido]} emitido.</strong> Assine com o token pelo Assinador SERPRO (o documento assinado já vai para a NF) ou baixe o PDF, assine no Adobe e anexe na NF.</p>
           <div className="flex flex-wrap items-center gap-3">
-            <AssinarAdobe registroId={emitido} doc={docEmitido} />
+            <AssinarToken registroId={emitido} doc={docEmitido} />
             <a href={`/api/recebimento/${emitido}?doc=${docEmitido}`} className="botao-sec">Baixar PDF</a>
             <a href={`/api/recebimento/${emitido}?doc=${docEmitido}&formato=modelo`} className="text-xs font-medium text-emerald-900 underline">versão editável</a>
             <a href={`/notas/${id}#documentos`} className="text-xs font-medium text-emerald-900 underline">anexar o PDF assinado na NF</a>
@@ -74,9 +74,9 @@ export default async function DocsRecebimento({ params, searchParams }: PageProp
               <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                 <span>{r.doc === "checklist" ? "Check-list" : r.doc === "tav" ? "TAV" : "TAV e Check-list"} · TAV nº <strong>{numeroTav(r.numero_tav, r.ano)}</strong> · {dataHora(r.criado_em)}{r.por ? ` · ${r.por}` : ""}</span>
                 <span className="flex gap-3">
-                  {r.doc !== "checklist" && <AssinarAdobe registroId={r.id} doc="tav" rotulo="Assinar TAV no Adobe" compacto />}
+                  {r.doc !== "checklist" && <AssinarToken registroId={r.id} doc="tav" rotulo="Assinar TAV com token" compacto />}
                   {r.doc !== "checklist" && <a href={`/api/recebimento/${r.id}?doc=tav`} className="font-medium text-marinha hover:underline">TAV em PDF</a>}
-                  {r.doc !== "tav" && <AssinarAdobe registroId={r.id} doc="checklist" rotulo="Assinar Check-list no Adobe" compacto />}
+                  {r.doc !== "tav" && <AssinarToken registroId={r.id} doc="checklist" rotulo="Assinar Check-list com token" compacto />}
                   {r.doc !== "tav" && <a href={`/api/recebimento/${r.id}?doc=checklist`} className="font-medium text-marinha hover:underline">Check-list em PDF</a>}
                 </span>
               </li>
