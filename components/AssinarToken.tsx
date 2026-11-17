@@ -12,9 +12,9 @@ import { acaoCamposAssinatura, acaoConcluirAssinatura, acaoPrepararAssinatura } 
 // Endereços do serviço local do Assinador: as versões novas usam o nome assinador-desktop.serpro.gov.br
 // (apontado para 127.0.0.1 no arquivo hosts); as antigas, o IP direto.
 const ENDERECOS = [
-  "wss://assinador-desktop.serpro.gov.br:65156/signer/",
   "wss://127.0.0.1:65156/signer/",
   "wss://localhost:65156/signer/",
+  "wss://assinador-desktop.serpro.gov.br:65156/signer/", // em redes com proxy este nome pode ir para o proxy
 ];
 const GUARDADO = "assinador-serpro-endereco";
 const TUTORIAL_INSTALAR = "https://tutorial.assinadorserpro.estaleiro.serpro.gov.br/html/demo_3.html";
@@ -160,7 +160,7 @@ function Janela({ registroId, doc, fechar }: { registroId: number; doc: "tav" | 
                 <li>Na primeira vez, autorize o navegador: <a href={TUTORIAL_AUTORIZAR} target="_blank" rel="noopener" className="text-marinha underline">passo a passo do SERPRO</a>.</li>
               </ol>
               <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                Teste rápido: abra <a href="https://assinador-desktop.serpro.gov.br:65156/" target="_blank" rel="noopener" className="text-marinha underline">assinador-desktop.serpro.gov.br:65156</a> e <a href="https://127.0.0.1:65156/" target="_blank" rel="noopener" className="text-marinha underline">127.0.0.1:65156</a> em uma nova aba e veja se aparece aviso de certificado ou erro. Mande um print para o suporte.
+                No <strong>Firefox</strong> (ou na primeira vez em qualquer navegador): abra <a href="https://127.0.0.1:65156/" target="_blank" rel="noopener" className="text-marinha underline">127.0.0.1:65156</a> em uma nova aba. Se aparecer aviso de certificado, clique em <strong>Avançado → Aceitar o risco e continuar</strong> (é o próprio Assinador, no seu computador). Quando aparecer “O procedimento foi realizado com sucesso”, feche a aba e clique em Tentar de novo.
                 {diag && <span className="mt-1 block font-mono text-[11px] text-slate-500">Detalhe: {diag}</span>}
               </p>
               <button type="button" className="botao" onClick={iniciar}>Tentar de novo</button>
