@@ -12,7 +12,7 @@ import {
 import type { Estado } from "@/components/FormAcao";
 import { DOCUMENTOS, ehDoc } from "@/lib/modelos-docs";
 
-const campo = (f: FormData, nome: string) => String(f.get(nome) ?? "").slice(0, 2000);
+const campo = (f: FormData, nome: string) => String(f.get(nome) ?? "").slice(0, 4000);
 const msg = (e: unknown) => (e instanceof Error ? e.message : "Erro inesperado.");
 
 export async function acaoEmitirLaudo(_: Estado, f: FormData): Promise<Estado> {

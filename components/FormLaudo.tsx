@@ -5,6 +5,8 @@ import { FormAcao } from "./FormAcao";
 import { acaoEmitirLaudo } from "@/app/acoes/laudo";
 import type { DadosLaudo } from "@/lib/laudo";
 
+const LIMITE = 3000; // caracteres por observação (o texto continua na página seguinte do laudo se precisar)
+
 const VISUAL = ["Aprovado", "Aceitável", "Reprovado"];
 const LAB = ["Aprovado", "Aceitável", "Reprovado", "Não se aplica"];
 
@@ -27,8 +29,8 @@ function Contador({ nome, rotulo, inicial }: { nome: string; rotulo: string; ini
   const [n, setN] = useState(inicial.length);
   return (
     <label className="block">
-      <span className="rotulo flex justify-between">{rotulo}<span className={n > 300 ? "text-red-600" : "text-slate-400"}>{n}/300</span></span>
-      <textarea name={nome} defaultValue={inicial} maxLength={300} rows={3} className="campo" onChange={(e) => setN(e.target.value.length)} />
+      <span className="rotulo flex justify-between">{rotulo}<span className={n > LIMITE ? "text-red-600" : "text-slate-400"}>{n}/{LIMITE}</span></span>
+      <textarea name={nome} defaultValue={inicial} maxLength={LIMITE} rows={6} className="campo" onChange={(e) => setN(e.target.value.length)} />
     </label>
   );
 }

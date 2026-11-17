@@ -113,7 +113,7 @@ export function validarDados(d: DadosLaudo): string | null {
   if (!RESULTADOS_LAB.includes(d.resultado_laboratorial)) return "Escolha o resultado da perícia laboratorial.";
   if (d.medidas !== "Sim" && d.medidas !== "Não") return "Informe se as medidas estão de acordo.";
   if (d.medidas === "Não" && !d.medidas_explicacao.trim()) return "Explique por que as medidas não estão de acordo.";
-  if (d.obs_visual.length > 300 || d.obs_laboratorial.length > 300) return "As observações têm no máximo 300 caracteres (limite do espaço no laudo).";
+  if (d.obs_visual.length > 3000 || d.obs_laboratorial.length > 3000) return "As observações têm no máximo 3.000 caracteres.";
   return null;
 }
 
