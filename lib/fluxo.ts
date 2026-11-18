@@ -142,7 +142,8 @@ export async function executarAcao(u: Usuario, notaId: number, acao: Acao, op: O
       throw new Error(`NF ${nota.numero}: ação não permitida para o seu perfil ou a NF já foi movimentada por outro usuário.`);
     }
     const { anterior, proxima, atual } = vizinhos(etapas, nota.etapa_id);
-    const de = nota.status === "reprovada" ? "Reprovada" : atual!.nome;
+    // NF fora de uma etapa ativa (finalizada, importada da planilha antiga ou etapa removida): usa a situação
+    const de = nota.status === "reprovada" ? "Reprovada" : atual?.nome ?? NOME_STATUS_FINAL[nota.status] ?? "—";
     const base = { nota_id: nota.id, usuario: u, de_nome: de, texto: op.obs };
 
     if (acao === "avancar" && atual?.edita_id_pa && nota.exige_id_pa && !nota.id_pa)
@@ -181,7 +182,7 @@ export async function executarAcao(u: Usuario, notaId: number, acao: Acao, op: O
         break;
       case "reabrir":
         await tx`update notas set status = 'em_tramite', etapa_desde = now(), reprov_visual = null, reprov_laboratorial = null where id = ${nota.id}`;
-        await registrarEvento(tx, { ...base, tipo: "retorno", movimento: true, para_etapa_id: nota.etapa_id, para_status: "em_tramite", para_nome: atual!.nome });
+        await registrarEvento(tx, { ...base, tipo: "retorno", movimento: true, para_etapa_id: nota.etapa_id, para_status: "em_tramite", para_nome: atual?.nome ?? "—" });
         break;
       case "arrecadar":
         await tx`update notas set arrecadada_em = now() where id = ${nota.id}`;
