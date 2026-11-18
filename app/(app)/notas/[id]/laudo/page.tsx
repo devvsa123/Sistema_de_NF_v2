@@ -8,7 +8,7 @@ import { docsDaNota } from "@/lib/recebimento";
 import { cnpj, data, dataHora, destinoVolta, linkNota, moeda } from "@/lib/format";
 import { Cabecalho, Selo, Voltar } from "@/components/ui";
 import { FormLaudo } from "@/components/FormLaudo";
-import { BaixarAutomatico } from "@/components/BaixarAutomatico";
+import { BotaoDocumentos } from "@/components/DocumentosProcesso";
 
 export const metadata = { title: "Laudo pericial — Tramitação de NF" };
 
@@ -32,9 +32,11 @@ export default async function Laudo({ params, searchParams }: PageProps<"/notas/
 
       {emitido && laudos.some((l) => l.id === emitido) && (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4">
-          <p className="text-sm text-emerald-900"><strong>Laudo emitido.</strong> O download deve começar sozinho; se não começar, use o botão.</p>
-          <a href={`/api/laudos/${emitido}`} className="botao">Baixar laudo (.docx)</a>
-          <BaixarAutomatico href={`/api/laudos/${emitido}`} />
+          <p className="text-sm text-emerald-900"><strong>Laudo emitido.</strong> O <strong>Parecer da Divisão Técnica em PDF</strong> já foi anexado em Documentos da NF, com os campos de assinatura do Perito, do Encarregado da Divisão Técnica e do Diretor.</p>
+          <div className="flex flex-wrap gap-2">
+            <BotaoDocumentos notaId={id} numero={nota.numero} total={1} rotulo="Assinar o parecer" className="botao" />
+            <a href={`/api/laudos/${emitido}`} className="botao-sec">Versão editável (.docx)</a>
+          </div>
         </div>
       )}
 

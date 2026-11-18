@@ -6,6 +6,8 @@ import { arquivoDoDocumento, enviarDocumento } from "./documentos";
 import { registrarEvento } from "./fluxo";
 import { camposDeAssinatura, encaixarAssinatura, prepararCampo, prepararNovoCampo, type CampoAssinatura } from "./pdf-assinar";
 import { titularDaAssinatura } from "./assinatura";
+import { DECISOES, type DecisaoEscolhida } from "./parecer-campos";
+import { aplicarDecisao, podeDecidir, type DecisaoGravada } from "./parecer";
 
 type Certificado = { nome: string; cpf: string | null };
 
@@ -87,8 +89,9 @@ export async function concluirAssinatura(u: Usuario, id: number, assinaturaBase6
       if (ant) await registrarEvento(tx, { nota_id: s.nota_id, tipo: "documento", usuario: u, texto: `${r.tipo}: versão anterior substituída pela versão com mais assinaturas` });
     }
   });
+  const extra = s.decisao ? await aplicarDecisao(u, s.nota_id as number, s.decisao as DecisaoGravada) : "";
   const [n] = await sql`select numero from notas where id = ${s.nota_id}`;
-  return { refazer: false as const, mensagem: `${r.tipo} da NF ${n.numero} assinado por ${ultima.nome} (${ultima.tipo === "ICP-Brasil" ? "certificado ICP-Brasil" : ultima.tipo}).` };
+  return { refazer: false as const, mensagem: `${r.tipo} da NF ${n.numero} assinado por ${ultima.nome} (${ultima.tipo === "ICP-Brasil" ? "certificado ICP-Brasil" : ultima.tipo}).${extra}` };
 }
 
 // ------------------------------------------------------------------ qualquer documento anexado à NF
@@ -117,18 +120,25 @@ export async function documentosParaAssinar(notaId: number): Promise<DocParaAssi
 export type Alvo = { campo: string } | { pagina: number; x: number; y: number };
 
 /** Prepara a assinatura de um documento anexado: num campo existente ou numa posição escolhida na página. */
-export async function prepararDocumento(u: Usuario, documentoId: number, alvo: Alvo) {
+export async function prepararDocumento(u: Usuario, documentoId: number, alvo: Alvo, decisao?: DecisaoEscolhida) {
   const cert = await certificadoDoUsuario(u);
   if (!cert) return { identificar: true as const };
   const [d] = await sql`select id, nota_id, nome_arquivo from documentos where id = ${documentoId} and removido_em is null`;
   if (!d) throw new Error("Documento não encontrado (talvez já tenha sido substituído por uma versão mais nova). Atualize a página.");
   const a = await arquivoDoDocumento(d.id as number);
   if (!a) throw new Error("Arquivo não encontrado.");
+  let gravada: DecisaoGravada | null = null;
+  const def = "campo" in alvo ? DECISOES[alvo.campo] : undefined;
+  if (def && "campo" in alvo) {
+    if (!(await podeDecidir(u, alvo.campo))) throw new Error(`Só o ${def.setor} assina este campo.`);
+    if (!decisao || !def.opcoes[decisao.opcao]) throw new Error(`Escolha a decisão (${def.opcoes.join(" / ")}) antes de assinar.`);
+    gravada = { campo: alvo.campo, opcao: decisao.opcao, observacao: String(decisao.observacao ?? "").slice(0, 1500) };
+  }
   const p = "campo" in alvo
-    ? await prepararCampo(a.bytes, alvo.campo, cert)
+    ? await prepararCampo(a.bytes, alvo.campo, cert, new Date(), gravada ? { titulo: def!.titulo, opcoes: def!.opcoes, escolhida: gravada.opcao, observacao: gravada.observacao } : undefined)
     : await prepararNovoCampo(a.bytes, Math.max(0, Math.floor(alvo.pagina)), Number(alvo.x), Number(alvo.y), `Assinatura de ${cert.nome}`, cert);
-  const [s] = await sql`insert into assinaturas_token (usuario_id, nota_id, campo, nome_arquivo, pdf, posicao, resumo, base_documento_id, documento_origem_id)
+  const [s] = await sql`insert into assinaturas_token (usuario_id, nota_id, campo, nome_arquivo, pdf, posicao, resumo, base_documento_id, documento_origem_id, decisao)
                         values (${u.id}, ${d.nota_id}, ${"campo" in alvo ? alvo.campo : `página ${alvo.pagina + 1}`}, ${d.nome_arquivo}, ${Buffer.from(p.pdf)},
-                                ${p.posicao}, ${p.resumo}, ${d.id}, ${d.id}) returning id`;
+                                ${p.posicao}, ${p.resumo}, ${d.id}, ${d.id}, ${gravada ? sql.json(gravada as never) : null}) returning id`;
   return { id: s.id as number, resumo: p.resumo };
 }

@@ -6,6 +6,7 @@ import { acaoConcluirAssinatura, acaoDocumentosParaAssinar, acaoIdentificarCerti
 import type { DocParaAssinar } from "@/lib/assinador";
 import { dataHora } from "@/lib/format";
 import { assinarResumo, conectar, resumoAleatorio, TUTORIAL_AUTORIZAR } from "./serpro-cliente";
+import { DECISOES } from "@/lib/parecer-campos";
 
 /**
  * "Documentos do processo": todos os documentos da NF num só lugar, com visualização página a página e
@@ -18,10 +19,12 @@ const SELO = { w: 200, h: 52 }; // tamanho do selo em pontos (igual ao do servid
 const PALAVRAS: Record<string, string[]> = {
   estocagem: ["armazenagem"], controle: ["suprimentos"], "perícia": ["perito"], pericia: ["perito"],
   abastecimento: ["gestor"], recebimento: ["pre-recebimento", "pré-recebimento", "conferente"],
+  "enc. técnica": ["divisao tecnica"], "enc. tecnica": ["divisao tecnica"], diretor: ["diretor"],
 };
 
 type Alvo = { campo: string } | { pagina: number; x: number; y: number };
-type Estado = { alvo?: Alvo; status?: "ok" | "erro" | "assinando"; msg?: string };
+type Estado = { alvo?: Alvo; decisao?: { opcao: number; observacao: string }; status?: "ok" | "erro" | "assinando"; msg?: string };
+const campoDecisao = (a?: Alvo) => (a && "campo" in a ? DECISOES[a.campo] : undefined);
 type PdfDoc = { numPages: number; getPage: (n: number) => Promise<PdfPagina> };
 type PdfPagina = {
   getViewport: (o: { scale: number }) => { width: number; height: number; convertToPdfPoint: (x: number, y: number) => number[]; convertToViewportPoint: (x: number, y: number) => number[] };
@@ -55,7 +58,10 @@ function Painel({ notaId, numero, fechar }: { notaId: number; numero: string; fe
   const [marcados, setMarcados] = useState<Record<number, Estado>>({});
   const [assinando, setAssinando] = useState(false);
   const [aviso, setAviso] = useState("");
+  const [atualizar, setAtualizar] = useState(false);
   const router = useRouter();
+  // a fila só é atualizada ao fechar: a NF pode ter saído da fila e a janela sumiria antes de mostrar o resultado
+  const sair = useCallback(() => { if (atualizar) router.refresh(); fechar(); }, [atualizar, router, fechar]);
 
   const carregar = useCallback(async () => {
     const r = await acaoDocumentosParaAssinar(notaId);
@@ -66,10 +72,10 @@ function Painel({ notaId, numero, fechar }: { notaId: number; numero: string; fe
 
   useEffect(() => {
     const t = setTimeout(carregar, 0);
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && !assinando && fechar();
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && !assinando && sair();
     window.addEventListener("keydown", esc);
     return () => { clearTimeout(t); window.removeEventListener("keydown", esc); };
-  }, [carregar, fechar, assinando]);
+  }, [carregar, sair, assinando]);
 
   const doc = docs?.find((d) => d.id === atual) ?? null;
   const marcar = (d: DocParaAssinar, sim: boolean) => setMarcados((m) => {
@@ -77,8 +83,10 @@ function Painel({ notaId, numero, fechar }: { notaId: number; numero: string; fe
     if (sim) { const c = sugerido(d, setores); n[d.id] = { alvo: c ? { campo: c } : undefined }; } else delete n[d.id];
     return n;
   });
-  const escolhidos = Object.entries(marcados).filter(([, e]) => e.status !== "ok").map(([id]) => Number(id));
-  const prontos = escolhidos.every((id) => marcados[id]?.alvo);
+  // documentos com decisão (parecer) por último: a decisão pode movimentar a NF
+  const escolhidos = Object.entries(marcados).filter(([, e]) => e.status !== "ok").map(([id]) => Number(id))
+    .sort((a, b) => Number(!!campoDecisao(marcados[a]?.alvo)) - Number(!!campoDecisao(marcados[b]?.alvo)));
+  const prontos = escolhidos.every((id) => marcados[id]?.alvo && (!campoDecisao(marcados[id].alvo) || (marcados[id].decisao?.opcao ?? -1) >= 0));
 
   async function assinarTodos() {
     if (!docs || !escolhidos.length || !prontos) return;
@@ -95,14 +103,14 @@ function Painel({ notaId, numero, fechar }: { notaId: number; numero: string; fe
         try {
           let feito = false;
           for (let tentativa = 0; tentativa < 3 && !feito; tentativa++) {
-            let p = await acaoPrepararDocumento(id, e.alvo!);
+            let p = await acaoPrepararDocumento(id, e.alvo!, e.decisao);
             if ("identificar" in p) {
               setAviso("Primeira assinatura pelo sistema: o Assinador vai pedir o PIN uma vez para identificar o seu certificado.");
               const s0 = await assinarResumo(ws, await resumoAleatorio());
               if (!s0) throw new Error("Assinatura cancelada no Assinador.");
               const idt = await acaoIdentificarCertificado(s0);
               if ("erro" in idt && idt.erro) throw new Error(idt.erro);
-              p = await acaoPrepararDocumento(id, e.alvo!);
+              p = await acaoPrepararDocumento(id, e.alvo!, e.decisao);
             }
             if ("erro" in p && p.erro) throw new Error(p.erro);
             const { id: sessao, resumo } = p as { id: number; resumo: string };
@@ -123,19 +131,19 @@ function Painel({ notaId, numero, fechar }: { notaId: number; numero: string; fe
       ws.atual?.close();
       setAssinando(false);
       await carregar();
-      router.refresh();
+      setAtualizar(true);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-stretch justify-center bg-slate-900/50 sm:p-4" role="presentation" onClick={() => !assinando && fechar()}>
+    <div className="fixed inset-0 z-50 flex items-stretch justify-center bg-slate-900/50 sm:p-4" role="presentation" onClick={() => !assinando && sair()}>
       <div role="dialog" aria-modal="true" aria-labelledby="docs-titulo" onClick={(e) => e.stopPropagation()} className="flex h-full w-full max-w-7xl flex-col overflow-hidden bg-white shadow-2xl sm:rounded-2xl">
         <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-3">
           <div>
             <h2 id="docs-titulo" className="text-[15px] font-semibold text-slate-900">Documentos do processo — NF {numero}</h2>
             <p className="text-xs text-slate-500">Veja todos os documentos e assine com o token um ou vários de uma vez.</p>
           </div>
-          <button type="button" onClick={fechar} disabled={assinando} className="rounded-lg p-1 text-slate-500 hover:bg-slate-100" aria-label="Fechar">
+          <button type="button" onClick={sair} disabled={assinando} className="rounded-lg p-1 text-slate-500 hover:bg-slate-100" aria-label="Fechar">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" className="h-5 w-5" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
         </div>
@@ -168,12 +176,32 @@ function Painel({ notaId, numero, fechar }: { notaId: number; numero: string; fe
                           {e && e.status !== "ok" && (
                             <div className="ml-6 mt-1.5 text-xs">
                               {livres.length > 0 ? (
+                                <>
                                 <select className="campo h-8 py-0 text-xs" value={e.alvo && "campo" in e.alvo ? e.alvo.campo : ""} disabled={assinando}
                                   onChange={(ev) => setMarcados((m) => ({ ...m, [d.id]: { ...m[d.id], alvo: ev.target.value ? { campo: ev.target.value } : undefined } }))}>
                                   <option value="">Escolha o campo da sua assinatura…</option>
                                   {livres.map((c) => <option key={c.nome} value={c.nome}>{c.rotulo}</option>)}
                                   <option value="" disabled>──</option>
                                 </select>
+                                {(() => {
+                                  const def = campoDecisao(e.alvo);
+                                  if (!def) return null;
+                                  const dec = e.decisao ?? { opcao: -1, observacao: "" };
+                                  const muda = (n: Partial<typeof dec>) => setMarcados((m) => ({ ...m, [d.id]: { ...m[d.id], decisao: { ...dec, ...n } } }));
+                                  return (
+                                    <div className="mt-2 space-y-1.5 rounded-lg border border-slate-200 bg-white p-2">
+                                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">{def.titulo}</p>
+                                      {def.opcoes.map((o, k) => (
+                                        <label key={o} className={`flex items-center gap-2 ${k === 1 ? "text-red-700" : ""}`}>
+                                          <input type="radio" name={`dec-${d.id}`} checked={dec.opcao === k} disabled={assinando} onChange={() => muda({ opcao: k })} /> {o}
+                                        </label>
+                                      ))}
+                                      <textarea className="campo text-xs" rows={3} maxLength={1500} placeholder="Observações (opcional)" value={dec.observacao} disabled={assinando} onChange={(ev) => muda({ observacao: ev.target.value })} />
+                                      <p className="text-[11px] text-slate-500">A decisão fica gravada dentro da assinatura e movimenta a NF{def.setor === "Diretor" ? " (Não Arrecadar envia para Reprovadas)" : " para o Diretor"}.</p>
+                                    </div>
+                                  );
+                                })()}
+                                </>
                               ) : e.alvo && "pagina" in e.alvo ? (
                                 <span className="text-emerald-700">Posição escolhida na página {e.alvo.pagina + 1}. <button type="button" className="underline" onClick={() => setAtual(d.id)}>mudar</button></span>
                               ) : (

@@ -18,7 +18,7 @@ async function marcasDoPdf(bytes: Uint8Array): Promise<{ doc?: string; nota?: nu
     return {};
   }
 }
-const TIPO_GERADO: Record<string, string> = { tav: "TAV", checklist: "Check-list de Recebimento", "nf-certificado": "Nota fiscal (DANFE)" };
+const TIPO_GERADO: Record<string, string> = { tav: "TAV", checklist: "Check-list de Recebimento", "nf-certificado": "Nota fiscal (DANFE)", parecer: "Laudo pericial" };
 export const TIPO_NF = "Nota fiscal (DANFE)";
 
 /** O PDF já traz um Certificado de Recebimento de Bens (feito fora do sistema)? */
@@ -81,7 +81,7 @@ const resumoAssinaturas = (a: Assinatura[]) =>
   a.length ? ` — assinado por ${[...new Set(a.filter((x) => x.integra).map((x) => `${x.nome} (${x.tipo})`))].join(", ") || "assinatura inválida"}` : " — sem assinatura digital";
 
 /** Guarda o arquivo enviado para a NF e registra no histórico. */
-export async function enviarDocumento(u: Usuario, notaId: number, tipoId: number, arquivo: File) {
+export async function enviarDocumento(u: Usuario, notaId: number, tipoId: number, arquivo: File, opcoes: { semAssinatura?: boolean } = {}) {
   const ext = extensao(arquivo.name);
   const mime = TIPOS_ARQUIVO[ext];
   if (!mime) throw new Error("Envie um arquivo PDF (ou imagem JPG/PNG, ou XML).");
@@ -112,9 +112,9 @@ export async function enviarDocumento(u: Usuario, notaId: number, tipoId: number
   const [repetido] = await sql`select t.nome from documentos d join tipos_documento t on t.id = d.tipo_id where d.nota_id = ${notaId} and d.sha256 = ${hash} and d.removido_em is null`;
   if (repetido) throw new Error(`Este mesmo arquivo já está anexado nesta NF (${repetido.nome}).`);
   const assinaturas = ext === "pdf" ? await assinaturasDoPdf(bytes) : [];
-  if (tipo.exige_assinatura && !assinaturas.length)
+  if (tipo.exige_assinatura && !assinaturas.length && !opcoes.semAssinatura)
     throw new Error(`O documento “${tipo.nome}” precisa estar assinado digitalmente (gov.br ou token). Assine o PDF e envie de novo.`);
-  if (tipo.exige_assinatura && !assinaturas.some((a) => a.integra))
+  if (tipo.exige_assinatura && assinaturas.length && !assinaturas.some((a) => a.integra))
     throw new Error("A assinatura deste PDF não confere: o arquivo pode ter sido alterado depois de assinado. Assine de novo e envie.");
   const nome = arquivo.name.replace(/[^\w.\- ()À-ÿ]/g, "_").slice(-120);
   const local = await guardar(`notas/${notaId}/${hash.slice(0, 16)}-${nome}`, bytes, mime);

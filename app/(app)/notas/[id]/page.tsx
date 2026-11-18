@@ -77,6 +77,7 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-2xl font-bold text-slate-800">NF {nota.numero}{nota.serie ? <span className="text-base font-medium text-slate-400"> / série {nota.serie}</span> : null}</h1>
               <Selo nota={nota} paraEmpresa={!interno} />
+              {interno && nota.status === "em_tramite" && nota.indicacao_reprovacao && <span className="rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-bold uppercase text-white">{nota.indicacao_reprovacao === "tecnica" ? "Reprovação indicada pela Técnica" : "Reprovada na perícia — aguarda resolução do Diretor"}</span>}
               {nota.sob_medida && <span className="rounded-full bg-violet-50 px-2.5 py-0.5 text-xs font-semibold text-violet-700 ring-1 ring-inset ring-violet-200">Sob medida</span>}
             </div>
             <p className="mt-1 text-slate-700">{nota.emit_nome} <span className="text-sm text-slate-400">· {cnpj(nota.emit_cnpj)}</span></p>

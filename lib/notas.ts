@@ -10,7 +10,7 @@ export type NotaLista = {
   id: number; chave: string | null; numero: string; serie: string | null; emit_cnpj: string; emit_nome: string; valor: string;
   oc: string | null; status: string; etapa_id: number | null; etapa_nome: string | null; prazo_dias: number | null;
   recebida_em: Date; concluida_em: Date | null; etapa_desde: Date; arrecadada_em: Date | null; armazenada_em: Date | null;
-  tem_xml: boolean; fonte: string | null; sob_medida: boolean; dias_etapa: number; dias_arrecadada: number | null; dias_total: number; ultima_obs: string | null; obs_oc: string | null; n_comentarios?: number; n_docs?: number; docs_faltando?: string | null; id_pa: string | null; exige_id_pa: boolean;
+  tem_xml: boolean; fonte: string | null; sob_medida: boolean; dias_etapa: number; dias_arrecadada: number | null; dias_total: number; ultima_obs: string | null; obs_oc: string | null; n_comentarios?: number; n_docs?: number; docs_faltando?: string | null; id_pa: string | null; exige_id_pa: boolean; indicacao_reprovacao: "pericia" | "tecnica" | null;
 };
 
 export type Nota = NotaLista & {
@@ -25,7 +25,7 @@ export function visivel(u: Usuario) {
 
 const COLUNAS = sql`
   n.id, n.chave, n.numero, n.serie, n.emit_cnpj, n.emit_nome, n.valor, n.oc, n.status, n.etapa_id, e.nome as etapa_nome,
-  e.prazo_dias, n.recebida_em, n.concluida_em, n.etapa_desde, n.arrecadada_em, n.armazenada_em, n.tem_xml, n.fonte, n.sob_medida, n.obs_oc, n.id_pa, n.exige_id_pa,
+  e.prazo_dias, n.recebida_em, n.concluida_em, n.etapa_desde, n.arrecadada_em, n.armazenada_em, n.tem_xml, n.fonte, n.sob_medida, n.obs_oc, n.id_pa, n.exige_id_pa, n.indicacao_reprovacao,
   extract(epoch from (now() - n.etapa_desde)) / 86400 as dias_etapa,
   extract(epoch from (now() - n.arrecadada_em)) / 86400 as dias_arrecadada,
   extract(epoch from (coalesce(n.concluida_em, now()) - n.recebida_em)) / 86400 as dias_total`;

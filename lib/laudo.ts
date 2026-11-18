@@ -146,13 +146,34 @@ export async function emitirLaudo(u: Usuario, notaId: number, d: DadosLaudo) {
     obs_laboratorial: d.obs_laboratorial.trim(),
     ...Object.fromEntries(fixos.map((f) => [f.chave, f.valor])),
   };
-  return sql.begin(async (tx) => {
+  const laudoId = await sql.begin(async (tx) => {
     const [l] = await tx`insert into laudos (nota_id, protocolo, dados, criado_por, criado_por_nome) values (${notaId}, ${valores.protocolo},
                           ${tx.json({ formulario: d, valores } as never)}, ${u.id}, ${u.nome}) returning id`;
     await tx`insert into eventos (nota_id, tipo, usuario_id, usuario_nome, texto)
              values (${notaId}, 'laudo', ${u.id}, ${u.nome}, ${`Laudo pericial emitido · protocolo ${valores.protocolo} · visual: ${d.resultado_visual} · laboratorial: ${d.resultado_laboratorial}`})`;
     return l.id as number;
   });
+  await anexarParecer(u, notaId, laudoId, valores, d);
+  return laudoId;
+}
+
+/**
+ * Gera o Parecer da Divisão Técnica em PDF (com os campos de assinatura do Perito, do Enc. Técnica e do Diretor),
+ * anexa na NF (substituindo o parecer de um laudo anterior) e marca a NF como "reprovada na perícia" se for o caso.
+ */
+async function anexarParecer(u: Usuario, notaId: number, laudoId: number, valores: Record<string, string>, d: DadosLaudo) {
+  const { pdfParecer } = await import("./pdf-recebimento");
+  const { enviarDocumento } = await import("./documentos");
+  const reprovada = d.resultado_visual === "Reprovado" || d.resultado_laboratorial === "Reprovado";
+  await sql`update notas set indicacao_reprovacao = ${reprovada ? "pericia" : null} where id = ${notaId}`;
+  const anteriores = await sql`select documento_id from laudos where nota_id = ${notaId} and id <> ${laudoId} and documento_id is not null`;
+  const bytes = await pdfParecer(valores, { nota: notaId, laudo: laudoId });
+  const nome = `Parecer-${(valores.protocolo || String(laudoId)).replace(/[^\w-]/g, "_")}-NF${String(valores.numero_nf).replace(/\W/g, "")}.pdf`;
+  const r = await enviarDocumento(u, notaId, 0, new File([Buffer.from(bytes)], nome, { type: "application/pdf" }), { semAssinatura: true });
+  await sql`update laudos set documento_id = ${r.id} where id = ${laudoId}`;
+  for (const a of anteriores)
+    await sql`update documentos set removido_em = now(), removido_por_nome = ${u.nome}, motivo_remocao = 'Substituído pelo parecer de um novo laudo'
+              where id = ${a.documento_id} and removido_em is null`;
 }
 
 export async function laudosDaNota(notaId: number) {

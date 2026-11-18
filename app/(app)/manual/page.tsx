@@ -142,6 +142,21 @@ export default async function Manual() {
       </>,
     },
     {
+      id: "parecer", titulo: "Parecer da Divisão Técnica e reprovação", para: ["admin", "interno"], conteudo: <>
+        <p>Ao emitir o laudo, o sistema gera o <B>Parecer da Divisão Técnica em PDF</B> e o anexa na NF, com três campos de assinatura: <B>Perito Avaliador</B>, <B>Encarregado da Divisão Técnica</B> e <B>Diretor</B>.</p>
+        <Passos>
+          <li><B>Perito</B>: emite o laudo e assina o campo do perito (botão <B>Docs</B> → marque o parecer → campo Perito Avaliador). Se o resultado for <B>Reprovado</B>, a NF segue o trâmite com a etiqueta vermelha <B>REPROVADA NA PERÍCIA</B>.</li>
+          <li><B>Encarregado da Divisão Técnica</B>: marca o parecer (e, se quiser, o relatório de ensaio junto), escolhe Aprovado / Reprovado / Aprovado por Decisão Gerencial, escreve as observações e assina. A NF segue sozinha para o Diretor.</li>
+          <li><B>Diretor</B>: escolhe Arrecadar / Não Arrecadar / Arrecadar Parcialmente e assina. <B>Arrecadar</B> ou <B>Parcialmente</B>: a NF segue para a Contagem. <B>Não Arrecadar</B> (mantém a reprovação): a NF vai para Reprovadas.</li>
+        </Passos>
+        <Lista>
+          <li>Somente o Diretor reprova a NF. A Perícia e a Técnica indicam a reprovação no laudo e no parecer.</li>
+          <li>A decisão e as observações ficam gravadas dentro da assinatura digital (não podem ser alteradas depois) e no histórico da NF.</li>
+          <li>Se o laudo for emitido de novo, o parecer anterior é substituído (fica guardado).</li>
+        </Lista>
+      </>,
+    },
+    {
       id: "documentos-processo", titulo: "Documentos do processo: ver e assinar vários de uma vez", para: ["admin", "interno"], conteudo: <>
         <p>O botão <B>Docs</B> na fila (ou <B>Ver e assinar documentos</B> na página da NF) abre todos os documentos da NF num só lugar: a lista à esquerda e o documento, página a página, à direita.</p>
         <Passos>

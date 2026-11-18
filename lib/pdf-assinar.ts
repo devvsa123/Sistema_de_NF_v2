@@ -65,8 +65,8 @@ function fontes() {
   return metricas;
 }
 
-/** Conteúdo da aparência visível (selo) para um campo de w × h pontos. */
-async function aparencia(selo: Selo, w: number, h: number, quando: Date) {
+/** Comandos de desenho do selo (nome, CPF, data) numa área de w × h pontos, com as fontes /F1 e /F2. */
+async function comandosSelo(selo: Selo, w: number, h: number, quando: Date) {
   const { negrito } = await fontes();
   const quem = selo.nome;
   let tamNome = 8.5;
@@ -85,14 +85,62 @@ async function aparencia(selo: Selo, w: number, h: number, quando: Date) {
     c += `${l.cor} rg /${l.f} ${l.t} Tf 1 0 0 1 7 ${y.toFixed(2)} Tm ${literalWinAnsi(l.s)} Tj\n`;
     y -= l.t + 2.2;
   }
-  c += "ET";
-  const conteudo = Buffer.from(c, "latin1");
+  return c + "ET\n";
+}
+
+function xobjeto(w: number, h: number, comandos: string) {
+  const conteudo = Buffer.from(comandos, "latin1");
   const fonte = (base: string) => `<< /Type /Font /Subtype /Type1 /BaseFont /${base} /Encoding /WinAnsiEncoding >>`;
   return Buffer.concat([
     Buffer.from(`<< /Type /XObject /Subtype /Form /BBox [0 0 ${w.toFixed(2)} ${h.toFixed(2)}] /Resources << /Font << /F1 ${fonte("Helvetica")} /F2 ${fonte("Helvetica-Bold")} >> >> /Length ${conteudo.length} >>\nstream\n`, "latin1"),
     conteudo,
     Buffer.from("\nendstream", "latin1"),
   ]);
+}
+
+/** Aparência visível (selo) para um campo de w × h pontos. */
+async function aparencia(selo: Selo, w: number, h: number, quando: Date) {
+  return xobjeto(w, h, await comandosSelo(selo, w, h, quando));
+}
+
+export type DecisaoAparencia = { titulo: string; opcoes: string[]; escolhida: number; observacao: string };
+
+/** Aparência de um campo de decisão (parecer/resolução): opção marcada, observações e o selo da assinatura. */
+async function aparenciaDecisao(selo: Selo, w: number, h: number, quando: Date, d: DecisaoAparencia) {
+  const { normal, negrito } = await fontes();
+  const limpa = (t: string) => t.replace(/[^\x20-\xff\n]/g, "?");
+  let c = `q 1 1 1 rg 0 0 ${w.toFixed(2)} ${h.toFixed(2)} re f Q\n`; // cobre o texto de orientação do campo vazio
+  c += "BT\n";
+  let y = h - 12;
+  c += `0.12 0.22 0.39 rg /F2 8 Tf 1 0 0 1 4 ${y.toFixed(2)} Tm ${literalWinAnsi(d.titulo)} Tj\n`;
+  y -= 15;
+  let x = 4;
+  d.opcoes.forEach((o, i) => {
+    const t = `( ${i === d.escolhida ? "X" : "   "} ) ${o}`;
+    c += `0 0 0 rg /${i === d.escolhida ? "F2" : "F1"} 8.5 Tf 1 0 0 1 ${x.toFixed(2)} ${y.toFixed(2)} Tm ${literalWinAnsi(t)} Tj\n`;
+    x += (i === d.escolhida ? negrito : normal).widthOfTextAtSize(limpa(t), 8.5) + 22;
+  });
+  y -= 14;
+  c += `0.35 0.35 0.35 rg /F2 7 Tf 1 0 0 1 4 ${y.toFixed(2)} Tm ${literalWinAnsi("Observações:")} Tj\n`;
+  y -= 9.5;
+  const largura = w - 8;
+  const linhas: string[] = [];
+  for (const par of limpa(d.observacao.trim() || "-").split("\n")) {
+    let atual = "";
+    for (const p of par.split(/\s+/).filter(Boolean)) {
+      const tenta = atual ? `${atual} ${p}` : p;
+      if (normal.widthOfTextAtSize(tenta, 7.5) <= largura) atual = tenta; else { if (atual) linhas.push(atual); atual = p; }
+    }
+    linhas.push(atual);
+  }
+  const cabem = Math.max(1, Math.floor((y - 58) / 9.2) + 1);
+  const mostrar = linhas.length > cabem ? [...linhas.slice(0, cabem - 1), linhas[cabem - 1] + " (...)"] : linhas;
+  for (const l of mostrar) { c += `0 0 0 rg /F1 7.5 Tf 1 0 0 1 4 ${y.toFixed(2)} Tm ${literalWinAnsi(l)} Tj\n`; y -= 9.2; }
+  c += "ET\n";
+  // selo no canto inferior direito
+  const sw = 200, sh = 52;
+  c += `q 1 0 0 1 ${(w - sw - 2).toFixed(2)} 2 cm\n${await comandosSelo(selo, sw, sh, quando)}Q\n`;
+  return xobjeto(w, h, c);
 }
 
 const RESERVA_BR = "/ByteRange [0 0000000000 0000000000 0000000000]";
@@ -182,7 +230,7 @@ function atualizarFormulario(doc: PDFDocument, objs: Objeto[], novoCampo: PDFRef
 }
 
 /** Prepara o PDF com a assinatura vazia num campo existente e devolve o resumo (base64) que o Assinador vai assinar. */
-export async function prepararCampo(pdf: Uint8Array, campo: string, selo: Selo, quando = new Date()) {
+export async function prepararCampo(pdf: Uint8Array, campo: string, selo: Selo, quando = new Date(), decisao?: DecisaoAparencia) {
   const fonte = Buffer.from(pdf);
   const doc = await PDFDocument.load(pdf, { updateMetadata: false });
   const campos = doc.catalog.lookupMaybe(PDFName.of("AcroForm"), PDFDict)?.lookupMaybe(PDFName.of("Fields"), PDFArray);
@@ -203,7 +251,7 @@ export async function prepararCampo(pdf: Uint8Array, campo: string, selo: Selo, 
   widget.set(PDFName.of("AP"), doc.context.obj({ N: PDFRef.of(nAp) }));
   const objs: Objeto[] = [
     { n: nSig, corpo: dicionarioAssinatura(selo.nome, quando) },
-    { n: nAp, corpo: await aparencia(selo, w, h, quando) },
+    { n: nAp, corpo: decisao ? await aparenciaDecisao(selo, w, h, quando, decisao) : await aparencia(selo, w, h, quando) },
     { n: ref.objectNumber, corpo: Buffer.from(widget.toString(), "latin1") },
   ];
   atualizarFormulario(doc, objs, null);

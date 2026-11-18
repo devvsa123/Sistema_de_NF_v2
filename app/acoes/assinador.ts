@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { exigirUsuario } from "@/lib/auth";
+import type { DecisaoEscolhida } from "@/lib/parecer-campos";
 import { camposParaAssinar, concluirAssinatura, documentosParaAssinar, identificarCertificado, prepararAssinatura, prepararDocumento, type Alvo } from "@/lib/assinador";
 import { obterNota } from "@/lib/notas";
 import { etapasAtivas, etapasDoUsuario } from "@/lib/fluxo";
@@ -62,9 +63,9 @@ export async function acaoDocumentosParaAssinar(notaId: number) {
   }
 }
 
-export async function acaoPrepararDocumento(documentoId: number, alvo: Alvo) {
+export async function acaoPrepararDocumento(documentoId: number, alvo: Alvo, decisao?: DecisaoEscolhida) {
   try {
-    return await prepararDocumento(await interno(), Number(documentoId), alvo);
+    return await prepararDocumento(await interno(), Number(documentoId), alvo, decisao);
   } catch (e) {
     return { erro: msg(e) };
   }

@@ -393,3 +393,55 @@ export async function nfComCertificado(nf: Uint8Array, v: { numero_nf: string; a
   doc.setTitle(`NF ${v.numero_nf} e Certificado de Recebimento de Bens`);
   return doc.save({ useObjectStreams: false });
 }
+
+// ------------------------------------------------------------------ Parecer da Divisão Técnica
+
+/** Quadro de decisão: fica em branco (com as opções em cinza) até quem decide assinar no sistema. */
+function quadroDecisao(c: Ctx, campo: string, rotulo: string, opcoes: string[], quem: string[], h = 150) {
+  garantir(c, h + 40);
+  const topo = c.y;
+  c.pag.drawRectangle({ x: M, y: topo - h, width: L, height: h, borderColor: BORDA, borderWidth: 0.6 });
+  texto(c, opcoes.map((o) => `(   ) ${o}`).join("        "), M + 6, topo - 26, { tam: 8.5, cor: CINZA });
+  texto(c, "Preenchido na assinatura pelo sistema (decisão, observações e assinatura digital).", M + 6, topo - 42, { tam: 7, cor: CINZA });
+  campoEm(c, campo, rotulo, M + 1, topo - h + 1, L - 2, h - 2);
+  c.y = topo - h - 12;
+  quem.filter(Boolean).forEach((linha, i) => { texto(c, linha, M, c.y, { tam: i === 0 ? 8.5 : 7.5, negrito: i === 0, alinhar: "centro", largura: L, cor: i === 0 ? undefined : CINZA }); c.y -= 11; });
+}
+
+/** Parecer da Divisão Técnica em PDF, com campos para o Perito, o Encarregado da Divisão Técnica e o Diretor. */
+export async function pdfParecer(v: Valores, ids: { nota: number; laudo: number }) {
+  const { CAMPO_PERITO, DECISOES } = await import("./parecer-campos");
+  const prot = v.protocolo || String(ids.laudo);
+  const c = await iniciar(`Parecer ${prot} — NF ${v.numero_nf}`, `Parecer da Divisão Técnica, protocolo ${prot}, NF ${v.numero_nf}`,
+    ["nf-sistema", "nf-doc:parecer", `nf-nota:${ids.nota}`, `nf-laudo:${ids.laudo}`], `Parecer da Divisão Técnica · Protocolo ${prot} · NF ${v.numero_nf}`);
+  cabecalho(c, "PARECER DA DIVISÃO TÉCNICA", `Protocolo nº ${prot}`, "DIVISÃO TÉCNICA");
+
+  secao(c, "Identificação");
+  grade(c, [
+    [{ rotulo: "Protocolo", valor: prot, cm: 4.5, negrito: true }, { rotulo: "Número da NF", valor: v.numero_nf, cm: 4.5, negrito: true }, { rotulo: "Número da OC", valor: v.numero_oc, cm: 4.5 }, { rotulo: "Entrada na perícia", valor: v.data_pericia, cm: 4.5 }],
+    [{ rotulo: "Empresa", valor: v.nome_empresa, cm: 13, negrito: true }, { rotulo: "CNPJ", valor: v.cnpj, cm: 5 }],
+    [{ rotulo: "Lote", valor: v.lote, cm: 6 }, { rotulo: "Fabricação", valor: v.fabricacao, cm: 6 }, { rotulo: "Valor da NF", valor: v.valor_nf, cm: 6 }],
+  ]);
+
+  secao(c, `Análise visual: ${v.resultado_visual}`, 120);
+  grade(c, [[{ rotulo: "Foram aferidas todas as medidas comuns e básicas?", valor: v.medidas, cm: 18 }]]);
+  texto(c, "OBSERVAÇÕES", M, c.y - 9, { tam: 6.5, negrito: true, cor: CINZA }); c.y -= 12;
+  quadro(c, v.obs_visual || "", 40);
+
+  secao(c, `Análise laboratorial: ${v.resultado_laboratorial}`, 110);
+  grade(c, [[{ rotulo: "Ofício encaminhado ao SENAI", valor: v.numero_oficio, cm: 6 }, { rotulo: "Enviado para o laboratório em", valor: v.data_envio, cm: 6 }, { rotulo: "Recebido do laboratório em", valor: v.data_recebimento, cm: 6 }]]);
+  texto(c, "OBSERVAÇÕES", M, c.y - 9, { tam: 6.5, negrito: true, cor: CINZA }); c.y -= 12;
+  quadro(c, v.obs_laboratorial || "", 34);
+
+  garantir(c, 100);
+  c.y -= 10;
+  campoAssinatura(c, CAMPO_PERITO, M + L / 2, L / 2, v.perito ?? "", "Perito Avaliador");
+  c.y -= 88;
+
+  const tec = DECISOES["Encarregado da Divisao Tecnica"], dir = DECISOES["Resolucao do Diretor"];
+  secao(c, "Parecer do Encarregado da Divisão Técnica", 210);
+  quadroDecisao(c, "Encarregado da Divisao Tecnica", "Encarregado da Divisão Técnica", tec.opcoes, [v.encarregado_nome ?? "", "Encarregado da Divisão Técnica"]);
+  secao(c, "Resolução do Sr. Diretor", 210);
+  quadroDecisao(c, "Resolucao do Diretor", "Diretor", dir.opcoes, [v.diretor_nome ?? "", v.diretor_posto ?? "", v.diretor_cargo || "Diretor"]);
+  return finalizar(c);
+}
