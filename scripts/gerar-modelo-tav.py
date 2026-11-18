@@ -182,8 +182,7 @@ ident = p("Secao", "Identificação") + tabela("TId", T_ID, [
     row(cel("CB", campo("Fornecedor", "{{nome_empresa}}", "ValorB"), 3) + cel("CB", campo("CNPJ", "{{cnpj}}"))),
     row(cel("CB", campo("Nota fiscal", "{{numero_nf}}", "ValorB")) + cel("CB", campo("Ordem de compra", "{{numero_oc}}"))
         + cel("CB", campo("ID do PA", "{{id_pa}}")) + cel("CB", campo("Data do recebimento", "{{data_recebimento}}"))),
-    row(cel("CB", campo("Lote", "{{lote}}")) + cel("CB", campo("Fabricação", "{{fabricacao}}"))
-        + cel("CB", campo("Volumes", "{{volumes}}"), 2)),
+    row(cel("CB", campo("Volumes", "{{volumes}}"), 4)),
 ])
 
 # Conferência

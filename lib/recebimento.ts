@@ -43,8 +43,6 @@ export const MARCADORES_TAV: Marcador[] = [
     { chave: `q${i + 1}_sim`, descricao: `X se SIM — ${p}`, origem: "Recebimento" as const },
     { chave: `q${i + 1}_nao`, descricao: `X se NÃO — ${p}`, origem: "Recebimento" as const },
   ]),
-  { chave: "lote", descricao: "Lote", origem: "Recebimento" },
-  { chave: "fabricacao", descricao: "Fabricação", origem: "Recebimento" },
   { chave: "volumes", descricao: "Volumes", origem: "Recebimento" },
   { chave: "observacao", descricao: "Observação do TAV", origem: "Recebimento" },
   { chave: "tabela_itens", descricao: "Tabela de itens para a contagem (item da NF × estoque, CXP e caixas). Sozinho num parágrafo; sem ele, a tabela vai para o fim do TAV", origem: "Recebimento" },

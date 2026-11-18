@@ -58,7 +58,7 @@ export default async function Caminho() {
               </div>
               <div className="grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
                 <label className="flex items-center gap-2"><input type="checkbox" name="emite_docs_recebimento" defaultChecked={e.emite_docs_recebimento} /> Usuários desta etapa emitem TAV e Check-list</label>
-                <label className="flex items-center gap-2"><input type="checkbox" name="emite_laudo" defaultChecked={e.emite_laudo} /> Usuários desta etapa emitem o laudo pericial</label>
+                <label className="flex items-center gap-2"><input type="checkbox" name="emite_laudo" defaultChecked={e.emite_laudo} /> Usuários desta etapa emitem o Parecer da Divisão Técnica</label>
                 <label className="flex items-center gap-2"><input type="checkbox" name="permite_reprovar" defaultChecked={e.permite_reprovar} /> Pode reprovar a NF nesta etapa</label>
                 <label className="flex items-center gap-2"><input type="checkbox" name="exige_arrecadacao" defaultChecked={e.exige_arrecadacao} /> Exige marcar “arrecadada” antes de avançar</label>
                 <label className="flex items-center gap-2"><input type="checkbox" name="faz_armazenagem" defaultChecked={e.faz_armazenagem} /> Usuários desta etapa marcam “armazenada”</label>

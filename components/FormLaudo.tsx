@@ -40,16 +40,8 @@ export function FormLaudo({ id, inicial }: { id: number; inicial: Partial<DadosL
   const [lab, setLab] = useState(inicial.resultado_laboratorial ?? "");
   const semLab = lab === "Não se aplica";
   return (
-    <FormAcao acao={acaoEmitirLaudo} botao="Emitir laudo e baixar" className="space-y-5">
+    <FormAcao acao={acaoEmitirLaudo} botao="Emitir Parecer da Divisão Técnica" className="space-y-5">
       <input type="hidden" name="id" value={id} />
-      <section className="cartao space-y-4 p-5">
-        <h2 className="text-[15px] font-semibold text-slate-900">Identificação</h2>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <label><span className="rotulo">Número do protocolo *</span><input name="protocolo" defaultValue={inicial.protocolo} className="campo" required maxLength={60} /></label>
-          <label><span className="rotulo">Lote</span><input name="lote" defaultValue={inicial.lote} className="campo" maxLength={60} /></label>
-          <label><span className="rotulo">Fabricação</span><input name="fabricacao" defaultValue={inicial.fabricacao} className="campo" maxLength={60} placeholder="mês/ano" /></label>
-        </div>
-      </section>
 
       <section className="cartao space-y-4 p-5">
         <h2 className="text-[15px] font-semibold text-slate-900">Perícia visual</h2>

@@ -18,9 +18,7 @@ export const MARCADORES: { chave: string; descricao: string; origem: "NF" | "Per
   { chave: "data_pericia", descricao: "Data de entrada na perícia", origem: "NF" },
   { chave: "data_emissao_laudo", descricao: "Data em que o laudo foi emitido", origem: "NF" },
   { chave: "perito", descricao: "Nome de quem emitiu o laudo", origem: "NF" },
-  { chave: "protocolo", descricao: "Número do protocolo", origem: "Perito" },
-  { chave: "lote", descricao: "Lote", origem: "Perito" },
-  { chave: "fabricacao", descricao: "Fabricação", origem: "Perito" },
+  { chave: "protocolo", descricao: "Número do parecer (automático, ex.: 0001/2026)", origem: "Perito" },
   { chave: "resultado_visual", descricao: "Resultado da perícia visual", origem: "Perito" },
   { chave: "medidas", descricao: "Medidas conforme a especificação (Sim / Não – explicação)", origem: "Perito" },
   { chave: "obs_visual", descricao: "Observações da perícia visual", origem: "Perito" },
@@ -100,7 +98,7 @@ export function podeEmitirLaudo(u: Usuario, etapas: Etapa[]) {
 }
 
 export type DadosLaudo = {
-  protocolo: string; lote: string; fabricacao: string; resultado_visual: string; medidas: string; medidas_explicacao: string;
+  protocolo?: string; lote?: string; fabricacao?: string; resultado_visual: string; medidas: string; medidas_explicacao: string;
   obs_visual: string; resultado_laboratorial: string; numero_oficio: string; data_envio: string; data_recebimento: string; obs_laboratorial: string;
 };
 
@@ -108,7 +106,6 @@ export const RESULTADOS_VISUAL = ["Aprovado", "Aceitável", "Reprovado"];
 export const RESULTADOS_LAB = ["Aprovado", "Aceitável", "Reprovado", "Não se aplica"];
 
 export function validarDados(d: DadosLaudo): string | null {
-  if (!d.protocolo.trim()) return "Informe o número do protocolo.";
   if (!RESULTADOS_VISUAL.includes(d.resultado_visual)) return "Escolha o resultado da perícia visual.";
   if (!RESULTADOS_LAB.includes(d.resultado_laboratorial)) return "Escolha o resultado da perícia laboratorial.";
   if (d.medidas !== "Sim" && d.medidas !== "Não") return "Informe se as medidas estão de acordo.";
@@ -135,11 +132,21 @@ export async function emitirLaudo(u: Usuario, notaId: number, d: DadosLaudo) {
   const nf = await nfDoLaudo(notaId);
   if (!nf) throw new Error("NF não encontrada.");
   const fixos = await camposFixos();
+  // número do parecer: sequencial por ano; o parecer refeito na mesma NF mantém o número
+  const ano = Number(new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", year: "numeric" }));
+  const numero = await sql.begin(async (tx) => {
+    await tx`select pg_advisory_xact_lock(7301, ${ano})`;
+    const [ja] = await tx`select numero from laudos where nota_id = ${notaId} and ano = ${ano} and numero is not null order by criado_em desc limit 1`;
+    if (ja) return ja.numero as number;
+    const [r] = await tx`select coalesce(max(numero), 0) + 1 as n from laudos where ano = ${ano}`;
+    return r.n as number;
+  });
+  const numeroParecer = `${String(numero).padStart(4, "0")}/${ano}`;
   const naoSeAplica = (v: string) => v.trim() || "Não se aplica";
   const valores: Record<string, string> = {
     numero_nf: nf.numero, numero_oc: nf.oc ?? "", cnpj: cnpj(nf.emit_cnpj), nome_empresa: nf.emit_nome, valor_nf: moedaBR(nf.valor),
     chave_acesso: nf.chave ?? "", data_pericia: nf.entrada_pericia ? data(nf.entrada_pericia) : "", data_emissao_laudo: data(new Date()), perito: u.nome,
-    protocolo: d.protocolo.trim(), lote: d.lote.trim(), fabricacao: d.fabricacao.trim(), resultado_visual: d.resultado_visual,
+    protocolo: numeroParecer, numero_parecer: numeroParecer, lote: "", fabricacao: "", resultado_visual: d.resultado_visual,
     medidas: d.medidas === "Sim" ? "Sim" : `Não – ${d.medidas_explicacao.trim()}`, obs_visual: d.obs_visual.trim(),
     resultado_laboratorial: d.resultado_laboratorial,
     numero_oficio: naoSeAplica(d.numero_oficio), data_envio: naoSeAplica(dataBR(d.data_envio)), data_recebimento: naoSeAplica(dataBR(d.data_recebimento)),
@@ -147,10 +154,10 @@ export async function emitirLaudo(u: Usuario, notaId: number, d: DadosLaudo) {
     ...Object.fromEntries(fixos.map((f) => [f.chave, f.valor])),
   };
   const laudoId = await sql.begin(async (tx) => {
-    const [l] = await tx`insert into laudos (nota_id, protocolo, dados, criado_por, criado_por_nome) values (${notaId}, ${valores.protocolo},
+    const [l] = await tx`insert into laudos (nota_id, numero, ano, protocolo, dados, criado_por, criado_por_nome) values (${notaId}, ${numero}, ${ano}, ${valores.protocolo},
                           ${tx.json({ formulario: d, valores } as never)}, ${u.id}, ${u.nome}) returning id`;
     await tx`insert into eventos (nota_id, tipo, usuario_id, usuario_nome, texto)
-             values (${notaId}, 'laudo', ${u.id}, ${u.nome}, ${`Laudo pericial emitido · protocolo ${valores.protocolo} · visual: ${d.resultado_visual} · laboratorial: ${d.resultado_laboratorial}`})`;
+             values (${notaId}, 'laudo', ${u.id}, ${u.nome}, ${`Parecer da Divisão Técnica nº ${numeroParecer} emitido · visual: ${d.resultado_visual} · laboratorial: ${d.resultado_laboratorial}`})`;
     return l.id as number;
   });
   await anexarParecer(u, notaId, laudoId, valores, d);
@@ -166,13 +173,15 @@ async function anexarParecer(u: Usuario, notaId: number, laudoId: number, valore
   const { enviarDocumento } = await import("./documentos");
   const reprovada = d.resultado_visual === "Reprovado" || d.resultado_laboratorial === "Reprovado";
   await sql`update notas set indicacao_reprovacao = ${reprovada ? "pericia" : null} where id = ${notaId}`;
-  const anteriores = await sql`select documento_id from laudos where nota_id = ${notaId} and id <> ${laudoId} and documento_id is not null`;
+  // pareceres anteriores desta NF (inclusive versões já assinadas) saem da lista; ficam guardados
+  const anteriores = await sql`select d.id as documento_id from documentos d join tipos_documento t on t.id = d.tipo_id
+                               where d.nota_id = ${notaId} and d.removido_em is null and t.nome = 'Parecer da Divisão Técnica'`;
   const bytes = await pdfParecer(valores, { nota: notaId, laudo: laudoId });
-  const nome = `Parecer-${(valores.protocolo || String(laudoId)).replace(/[^\w-]/g, "_")}-NF${String(valores.numero_nf).replace(/\W/g, "")}.pdf`;
+  const nome = `Parecer-${(valores.protocolo || String(laudoId)).replace(/[^\w]/g, "-")}-NF${String(valores.numero_nf).replace(/\W/g, "")}.pdf`;
   const r = await enviarDocumento(u, notaId, 0, new File([Buffer.from(bytes)], nome, { type: "application/pdf" }), { semAssinatura: true });
   await sql`update laudos set documento_id = ${r.id} where id = ${laudoId}`;
   for (const a of anteriores)
-    await sql`update documentos set removido_em = now(), removido_por_nome = ${u.nome}, motivo_remocao = 'Substituído pelo parecer de um novo laudo'
+    await sql`update documentos set removido_em = now(), removido_por_nome = ${u.nome}, motivo_remocao = 'Substituído pelo parecer refeito'
               where id = ${a.documento_id} and removido_em is null`;
 }
 

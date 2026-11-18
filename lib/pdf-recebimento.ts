@@ -221,7 +221,7 @@ export async function pdfTav(v: Valores, itens: Tabela | null, ids: { registro: 
   grade(c, [
     [{ rotulo: "Fornecedor", valor: v.nome_empresa, cm: 14, negrito: true }, { rotulo: "CNPJ", valor: v.cnpj, cm: 4 }],
     [{ rotulo: "Nota fiscal", valor: v.numero_nf, cm: 7, negrito: true }, { rotulo: "Ordem de compra", valor: v.numero_oc, cm: 3.6 }, { rotulo: "ID do PA", valor: v.id_pa, cm: 3.4 }, { rotulo: "Data do recebimento", valor: v.data_recebimento, cm: 4 }],
-    [{ rotulo: "Lote", valor: v.lote, cm: 7 }, { rotulo: "Fabricação", valor: v.fabricacao, cm: 3.6 }, { rotulo: "Volumes", valor: v.volumes, cm: 7.4 }],
+    [{ rotulo: "Volumes", valor: v.volumes, cm: 18 }],
   ]);
 
   secao(c, "Conferência", 200);
@@ -412,15 +412,14 @@ function quadroDecisao(c: Ctx, campo: string, rotulo: string, opcoes: string[], 
 export async function pdfParecer(v: Valores, ids: { nota: number; laudo: number }) {
   const { CAMPO_PERITO, DECISOES } = await import("./parecer-campos");
   const prot = v.protocolo || String(ids.laudo);
-  const c = await iniciar(`Parecer ${prot} — NF ${v.numero_nf}`, `Parecer da Divisão Técnica, protocolo ${prot}, NF ${v.numero_nf}`,
-    ["nf-sistema", "nf-doc:parecer", `nf-nota:${ids.nota}`, `nf-laudo:${ids.laudo}`], `Parecer da Divisão Técnica · Protocolo ${prot} · NF ${v.numero_nf}`);
-  cabecalho(c, "PARECER DA DIVISÃO TÉCNICA", `Protocolo nº ${prot}`, "DIVISÃO TÉCNICA");
+  const c = await iniciar(`Parecer ${prot} — NF ${v.numero_nf}`, `Parecer da Divisão Técnica nº ${prot}, NF ${v.numero_nf}`,
+    ["nf-sistema", "nf-doc:parecer", `nf-nota:${ids.nota}`, `nf-laudo:${ids.laudo}`], `Parecer da Divisão Técnica nº ${prot} · NF ${v.numero_nf}`);
+  cabecalho(c, "PARECER DA DIVISÃO TÉCNICA", `Nº ${prot}`, "DIVISÃO TÉCNICA");
 
   secao(c, "Identificação");
   grade(c, [
-    [{ rotulo: "Protocolo", valor: prot, cm: 4.5, negrito: true }, { rotulo: "Número da NF", valor: v.numero_nf, cm: 4.5, negrito: true }, { rotulo: "Número da OC", valor: v.numero_oc, cm: 4.5 }, { rotulo: "Entrada na perícia", valor: v.data_pericia, cm: 4.5 }],
-    [{ rotulo: "Empresa", valor: v.nome_empresa, cm: 13, negrito: true }, { rotulo: "CNPJ", valor: v.cnpj, cm: 5 }],
-    [{ rotulo: "Lote", valor: v.lote, cm: 6 }, { rotulo: "Fabricação", valor: v.fabricacao, cm: 6 }, { rotulo: "Valor da NF", valor: v.valor_nf, cm: 6 }],
+    [{ rotulo: "Nº do parecer", valor: prot, cm: 4.5, negrito: true }, { rotulo: "Número da NF", valor: v.numero_nf, cm: 4.5, negrito: true }, { rotulo: "Número da OC", valor: v.numero_oc, cm: 4.5 }, { rotulo: "Entrada na perícia", valor: v.data_pericia, cm: 4.5 }],
+    [{ rotulo: "Empresa", valor: v.nome_empresa, cm: 10, negrito: true }, { rotulo: "CNPJ", valor: v.cnpj, cm: 4 }, { rotulo: "Valor da NF", valor: v.valor_nf, cm: 4 }],
   ]);
 
   secao(c, `Análise visual: ${v.resultado_visual}`, 120);

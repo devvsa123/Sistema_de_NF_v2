@@ -4,7 +4,7 @@ const TZ = "America/Sao_Paulo";
 /** Nome de cada tipo de registro do histórico da NF. */
 export const TIPO_EVENTO: Record<string, string> = {
   cadastro: "Cadastro", avanco: "Avanço", retorno: "Devolução", reprovacao: "Reprovação", retirada: "Retirada", finalizacao: "Finalização",
-  ajuste: "Ajuste do administrador", observacao: "Observação", laudo: "Laudo pericial", docs_recebimento: "Documentos do Recebimento", arrecadacao: "Arrecadação", armazenagem: "Armazenagem", xml: "Dados da NF-e",
+  ajuste: "Ajuste do administrador", observacao: "Observação", laudo: "Parecer da Divisão Técnica", docs_recebimento: "Documentos do Recebimento", arrecadacao: "Arrecadação", armazenagem: "Armazenagem", xml: "Dados da NF-e",
   id_pa: "ID de PA", ciente: "Ciente", documento: "Documentos", parecer: "Parecer", edicao: "Dados da NF alterados", estoque: "Itens × estoque",
 };
 

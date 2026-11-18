@@ -90,7 +90,7 @@ export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, 
                     <ItensRapidos id={l.id} numero={l.numero} volta={volta} />
                     <BotaoDocumentos notaId={l.id} numero={l.numero} total={l.docs} faltando={l.docsFaltando} />
                     {docsRecebimento && <Link href={`/notas/${l.id}/recebimento${volta ? `?volta=${encodeURIComponent(volta)}` : ""}`} className="ml-2 rounded border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 hover:border-marinha hover:text-marinha">TAV / Check-list</Link>}
-                    {laudo && <Link href={`/notas/${l.id}/laudo${volta ? `?volta=${encodeURIComponent(volta)}` : ""}`} className="ml-2 rounded border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 hover:border-marinha hover:text-marinha">Laudo</Link>}
+                    {laudo && <Link href={`/notas/${l.id}/laudo${volta ? `?volta=${encodeURIComponent(volta)}` : ""}`} className="ml-2 rounded border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 hover:border-marinha hover:text-marinha">Parecer</Link>}
                     {l.situacao && <span className="block text-xs text-slate-500">{l.situacao}</span>}
                     {mostrarArrecadacao && (
                       <span className={`block text-xs ${l.arrecadada ? "text-emerald-700" : "text-amber-700"}`}>{l.arrecadada ? "Arrecadada" : "Não arrecadada"}</span>

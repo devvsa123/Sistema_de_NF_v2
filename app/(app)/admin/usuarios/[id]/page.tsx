@@ -35,7 +35,7 @@ export default async function EditarUsuario({ params }: PageProps<"/admin/usuari
             ["interno", "Interno", "Tramita NF nas etapas marcadas abaixo e consulta todas as NF."],
             ["consulta", "Consulta", "Vê todas as NF e relatórios, sem tramitar (ex.: COMRJ)."],
             ["empresa", "Fornecedor", "Vê somente as NF emitidas pelo próprio CNPJ, sem observações internas."],
-            ...(geral ? [["admin", "Administrador geral", "Acesso total: configurações, caminho, modelo do laudo, importação, usuários e ajustes."]] : []),
+            ...(geral ? [["admin", "Administrador geral", "Acesso total: configurações, caminho, modelos de documentos, importação, usuários e ajustes."]] : []),
           ].map(([valor, nome, desc]) => (
             <label key={valor} className="flex items-start gap-2 text-sm">
               <input type="radio" name="papel" value={valor} defaultChecked={(u?.papel ?? "interno") === valor} className="mt-1" required />

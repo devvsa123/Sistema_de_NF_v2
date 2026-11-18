@@ -56,7 +56,7 @@ export default async function Manual() {
           <li><B>Usuário interno</B>: tramita as NF nas etapas em que foi habilitado e consulta todas as notas. Alguns também cadastram NF ou tratam as reprovadas.</li>
           <li><B>Consulta</B>: vê todas as notas, a área Gerencial e os relatórios, sem tramitar.</li>
           <li><B>Fornecedor</B>: vê somente as NF emitidas pelo próprio CNPJ, sem observações internas.</li>
-          <li><B>Administrador geral</B>: acesso total, inclusive caminho da tramitação, modelo do laudo, importação, usuários e ajustes.</li>
+          <li><B>Administrador geral</B>: acesso total, inclusive caminho da tramitação, modelos de documentos, importação, usuários e ajustes.</li>
           <li><B>Administrador de usuários</B>: além do próprio perfil (interno ou consulta), cadastra e edita usuários e empresas. Não altera administradores nem as configurações do sistema.</li>
         </Lista>
       </>,
@@ -110,14 +110,14 @@ export default async function Manual() {
     },
     {
       id: "documentos", titulo: "Documentos da NF e assinaturas", para: ["admin", "interno"], conteudo: <>
-        <p>Na página de cada NF, o quadro <B>Documentos da NF</B> guarda a NF, a OC, os laudos do fornecedor e os documentos assinados de cada etapa (TAV, Check-list, relatório de ensaio, laudo pericial…), no lugar da pasta da rede.</p>
+        <p>Na página de cada NF, o quadro <B>Documentos da NF</B> guarda a NF, a OC, os laudos do fornecedor e os documentos assinados de cada etapa (TAV, Check-list, relatório de ensaio, Parecer da Divisão Técnica…), no lugar da pasta da rede.</p>
         <Passos>
           <li>Gere e assine o documento como de costume (gov.br ou token A3).</li>
           <li>Na NF, escolha o <B>tipo do documento</B>, selecione o arquivo e clique em <B>Anexar à NF</B>. Dá para enviar vários arquivos do mesmo tipo de uma vez (até 4 MB cada).</li>
         </Passos>
         <Lista>
           <li>O sistema confere a assinatura digital do PDF e mostra quem assinou, quando e se foi pelo <B>gov.br</B> ou por <B>certificado ICP-Brasil (token)</B>. Se o arquivo foi alterado depois de assinado, a assinatura aparece como inválida.</li>
-          <li>Documentos marcados como “assinados” (TAV, Check-list, relatório de ensaio, laudo pericial) só são aceitos com assinatura digital íntegra.</li>
+          <li>Documentos marcados como “assinados” (TAV, Check-list, relatório de ensaio, Parecer da Divisão Técnica) só são aceitos com assinatura digital íntegra.</li>
           <li>Se a etapa exige um documento, ele aparece em <B>Para sair de…</B> e a NF só avança depois de anexado. Na fila, o botão <B>Docs</B> fica vermelho com “!” enquanto falta algo.</li>
           <li>Cada envio e cada remoção (com o motivo) ficam no histórico, com nome, data e hora. Só quem enviou ou o administrador pode remover.</li>
           <li>O administrador define os tipos e os documentos obrigatórios por etapa em <B>Administração → Documentos da NF</B>.</li>
@@ -143,16 +143,16 @@ export default async function Manual() {
     },
     {
       id: "parecer", titulo: "Parecer da Divisão Técnica e reprovação", para: ["admin", "interno"], conteudo: <>
-        <p>Ao emitir o laudo, o sistema gera o <B>Parecer da Divisão Técnica em PDF</B> e o anexa na NF, com três campos de assinatura: <B>Perito Avaliador</B>, <B>Encarregado da Divisão Técnica</B> e <B>Diretor</B>.</p>
+        <p>A Perícia preenche o resultado no sistema e ele gera o <B>Parecer da Divisão Técnica em PDF</B>, com <B>número automático</B> (0001/2026, 0002/2026…), e o anexa na NF, com três campos de assinatura: <B>Perito Avaliador</B>, <B>Encarregado da Divisão Técnica</B> e <B>Diretor</B>.</p>
         <Passos>
-          <li><B>Perito</B>: emite o laudo e assina o campo do perito (botão <B>Docs</B> → marque o parecer → campo Perito Avaliador). Se o resultado for <B>Reprovado</B>, a NF segue o trâmite com a etiqueta vermelha <B>REPROVADA NA PERÍCIA</B>.</li>
+          <li><B>Perito</B>: emite o parecer e assina o campo do perito (botão <B>Docs</B> → marque o parecer → campo Perito Avaliador). Se o resultado for <B>Reprovado</B>, a NF segue o trâmite com a etiqueta vermelha <B>REPROVADA NA PERÍCIA</B>.</li>
           <li><B>Encarregado da Divisão Técnica</B>: marca o parecer (e, se quiser, o relatório de ensaio junto), escolhe Aprovado / Reprovado / Aprovado por Decisão Gerencial, escreve as observações e assina. A NF segue sozinha para o Diretor.</li>
           <li><B>Diretor</B>: escolhe Arrecadar / Não Arrecadar / Arrecadar Parcialmente e assina. <B>Arrecadar</B> ou <B>Parcialmente</B>: a NF segue para a Contagem. <B>Não Arrecadar</B> (mantém a reprovação): a NF vai para Reprovadas.</li>
         </Passos>
         <Lista>
-          <li>Somente o Diretor reprova a NF. A Perícia e a Técnica indicam a reprovação no laudo e no parecer.</li>
+          <li>Somente o Diretor reprova a NF. A Perícia e a Técnica indicam a reprovação no parecer.</li>
           <li>A decisão e as observações ficam gravadas dentro da assinatura digital (não podem ser alteradas depois) e no histórico da NF.</li>
-          <li>Se o laudo for emitido de novo, o parecer anterior é substituído (fica guardado).</li>
+          <li>Se o parecer for refeito, ele mantém o mesmo número e a versão anterior é substituída (fica guardada).</li>
         </Lista>
       </>,
     },
@@ -200,7 +200,6 @@ export default async function Manual() {
         <Lista>
           <li>Os documentos ficam registrados no histórico da NF e podem ser baixados de novo na página da nota.</li>
           <li>Para corrigir, emita novamente: o formulário já vem preenchido com o registro anterior.</li>
-          <li>Lote e fabricação informados no TAV já aparecem preenchidos no laudo pericial.</li>
           <li>O TAV e o Check-list saem <B>direto em PDF</B>, prontos para assinar: abra no Adobe, clique no <B>campo de assinatura</B> (cada responsável tem o seu, no lugar certo) e assine com o token. Depois anexe o PDF assinado em <B>Documentos da NF</B>: o sistema reconhece sozinho que é o TAV ou o Check-list desta NF e recusa o arquivo se ele for de outra NF. A versão editável (.odt) continua disponível.</li>
           <li>O TAV sai com a <B>Relação de itens para contagem</B>: cada item da NF (ou cada tamanho da grade) com o PI e a descrição do estoque, a quantidade, o CXP e o plano de caixas (cheias, fracionada e total), além das colunas em branco <B>Qtd. contada</B> e <B>Cx. contadas</B>. Basta imprimir o TAV para fazer a contagem.</li>
           <li>A relação é montada no momento do download, com a correlação atual: se um item for corrigido no quadro <B>Itens × estoque</B>, baixe o TAV de novo. Linhas sem correlação ou sem CXP vêm marcadas para conferência.</li>
@@ -227,18 +226,16 @@ export default async function Manual() {
       </>,
     },
     {
-      id: "laudo", titulo: "Laudo pericial", para: ["admin", "interno"], conteudo: <>
-        <p>Somente os usuários da <B>Perícia</B> (e o administrador geral) emitem o laudo, pelo botão <B>Laudo</B> ao lado da NF na fila da Perícia, ou por <B>Emitir laudo pericial</B> na página da NF.</p>
+      id: "laudo", titulo: "Emitir o Parecer da Divisão Técnica", para: ["admin", "interno"], conteudo: <>
+        <p>Somente os usuários da <B>Perícia</B> (e o administrador geral) emitem o parecer, pelo botão <B>Parecer</B> ao lado da NF na fila da Perícia, ou por <B>Emitir Parecer da Divisão Técnica</B> na página da NF.</p>
         <Passos>
-          <li>Informe o protocolo, o lote e a fabricação.</li>
-          <li>Marque o resultado da perícia visual, se as medidas estão de acordo (com explicação quando não estão) e as observações.</li>
-          <li>Marque o resultado da perícia laboratorial e, quando houver, o ofício ao SENAI e as datas de envio e recebimento.</li>
-          <li>Clique em <B>Emitir laudo e baixar</B>. O arquivo do Word é baixado já preenchido com os dados da NF e o nome do Diretor.</li>
+          <li>Marque o resultado da perícia visual, se as medidas comuns e básicas foram aferidas e as observações.</li>
+          <li>Marque o resultado da perícia laboratorial (ou “Não se aplica”) e, se for o caso, o ofício e as datas de envio e recebimento.</li>
+          <li>Clique em <B>Emitir Parecer da Divisão Técnica</B>. O número do parecer é gerado automaticamente e o PDF é anexado na NF, pronto para assinar.</li>
         </Passos>
         <Lista>
-          <li>O laudo fica registrado no histórico da NF e pode ser baixado de novo na página da nota.</li>
-          <li>Para corrigir, emita um novo laudo: o formulário já vem preenchido com o anterior.</li>
-          <li>Emitir o laudo não movimenta a NF; a tramitação (avançar ou reprovar) continua sendo feita na fila.</li>
+          <li>Para corrigir, refaça o parecer: o formulário já vem preenchido com o anterior e o número é mantido.</li>
+          <li>A versão Word (.docx) continua disponível para consulta.</li>
         </Lista>
       </>,
     },
@@ -340,7 +337,7 @@ export default async function Manual() {
         <p className="font-semibold text-slate-900">Caminho da tramitação</p>
         <Lista>
           <li>Renomeie etapas, ajuste prazos, defina o <B>setor</B> de cada etapa (etapas com o mesmo setor são atribuídas juntas aos usuários) e use ▲ ▼ para mudar a ordem. As mudanças valem na hora.</li>
-          <li>Marque em cada etapa se ela informa o ID de PA (obrigatório para a NF sair dela) ou se os usuários dela podem alterar o ID de PA a qualquer momento (Controle). Marque também se ela pode reprovar, se os usuários dela emitem o laudo pericial ou o TAV e Check-list, se exige arrecadação, se marca armazenagem e se é a entrada do material sob medida.</li>
+          <li>Marque em cada etapa se ela informa o ID de PA (obrigatório para a NF sair dela) ou se os usuários dela podem alterar o ID de PA a qualquer momento (Controle). Marque também se ela pode reprovar, se os usuários dela emitem o Parecer da Divisão Técnica ou o TAV e Check-list, se exige arrecadação, se marca armazenagem e se é a entrada do material sob medida.</li>
           <li>Uma etapa só pode ser removida quando não houver NF nela.</li>
         </Lista>
         <p className="mt-3 font-semibold text-slate-900">Usuários</p>
@@ -353,9 +350,9 @@ export default async function Manual() {
         </Lista>
         <p className="mt-3 font-semibold text-slate-900">Modelos de documentos</p>
         <Lista>
-          <li>Em <Ir href="/admin/laudo">Modelos de documentos</Ir>, altere os <B>campos fixos</B> (nome, posto e cargo do Diretor e o tratamento na resolução) e salve. Os próximos laudos saem com os novos valores; os já emitidos mantêm os da época.</li>
+          <li>Em <Ir href="/admin/laudo">Modelos de documentos</Ir>, altere os <B>campos fixos</B> (nome, posto e cargo do Diretor e o tratamento na resolução) e salve. Os próximos pareceres saem com os novos valores; os já emitidos mantêm os da época.</li>
           <li>Você pode criar campos fixos novos (ex.: nome do Encarregado da Divisão Técnica) e usá-los no Word com o marcador entre chaves duplas, como {"{{encarregado_nome}}"}.</li>
-          <li>Para mudar o texto ou o layout do laudo, do TAV ou do Check-list, escolha o documento, baixe o modelo atual, edite no Word ou no LibreOffice, salve como .docx ou .odt e envie. Use <B>Baixar exemplo preenchido</B> para conferir e <B>Restaurar modelo padrão</B> se algo der errado.</li>
+          <li>Para mudar o texto ou o layout da versão Word do parecer, do TAV ou do Check-list, escolha o documento, baixe o modelo atual, edite no Word ou no LibreOffice, salve como .docx ou .odt e envie. Use <B>Baixar exemplo preenchido</B> para conferir e <B>Restaurar modelo padrão</B> se algo der errado.</li>
         </Lista>
         <p className="mt-3 font-semibold text-slate-900">Estoque (WMS)</p>
         <Lista>

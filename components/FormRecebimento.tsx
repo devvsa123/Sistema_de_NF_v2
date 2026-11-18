@@ -35,8 +35,6 @@ export function FormTav({ id, inicial, perguntas, numeroTav, reemissao }: { id: 
             <span className="mt-1 block text-xs text-slate-500">{reemissao ? "Reemissão: mantém o número desta NF." : "Gerado automaticamente ao emitir."}</span></div>
           <label><span className="rotulo">Data do recebimento *</span><input type="date" name="data_recebimento" defaultValue={inicial.data_recebimento} className="campo" required /><span className="mt-1 block text-xs text-slate-500">Sugerida: data em que a SECOM cadastrou a NF. Altere se o recebimento foi em outro dia.</span></label>
           <label><span className="rotulo">ID do PA</span><input name="id_pa" defaultValue={inicial.id_pa} className="campo" maxLength={30} /></label>
-          <label><span className="rotulo">Lote</span><input name="lote" defaultValue={inicial.lote} className="campo" maxLength={60} /></label>
-          <label><span className="rotulo">Fabricação</span><input name="fabricacao" defaultValue={inicial.fabricacao} className="campo" maxLength={30} placeholder="mês/ano" /></label>
           <label><span className="rotulo">Volumes</span><input name="volumes" defaultValue={inicial.volumes} className="campo" maxLength={60} placeholder="ex.: 40 caixas" /></label>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-y border-slate-100 py-3">
