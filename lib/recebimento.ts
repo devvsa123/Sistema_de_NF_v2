@@ -58,10 +58,19 @@ export const MARCADORES_CHECKLIST: Marcador[] = [
   { chave: "obs_contagem", descricao: "Observação da contagem (item 4)", origem: "Recebimento" },
 ];
 
+/** Uma linha do Check-list da Contagem (item da NF, ou tamanho da grade), com o que a Contagem encontrou. */
+export type ItemContagem = {
+  ref: string; n: number; pi: string | null; item: string; qtd: number; un: string;
+  peso: string; discrepancia: "Sim" | "Não"; diferenca: string;
+};
+/** O que vem do formulário do Check-list para cada linha. */
+export type ContagemInformada = { ref: string; peso: string; discrepancia: string; diferenca: string };
+
 export type DadosRecebimento = {
   numero_tav: string; data_recebimento: string; id_pa: string; lote: string; fabricacao: string; volumes: string;
   conferencia: string; respostas: string[]; observacao: string;
   peso_kg: string; itens_caixa: string; data_envio_amostra: string; obs_recebimento: string; discrepancia: string; obs_contagem: string;
+  contagem?: ItemContagem[];
 };
 
 /** Usuários das etapas marcadas (Pré Recebimento e Contagem), somente enquanto a NF está numa delas. */
@@ -83,12 +92,46 @@ export function validarTav(d: DadosRecebimento): string | null {
 }
 
 export function validarChecklist(d: DadosRecebimento): string | null {
-  if (d.discrepancia !== "Sim" && d.discrepancia !== "Não") return "Informe se houve discrepância na contagem.";
-  if (d.obs_recebimento.length > 300 || d.obs_contagem.length > 900) return "Observação longa demais para o espaço do documento.";
+  if (d.obs_contagem.length > 1500) return "A observação geral tem no máximo 1.500 caracteres.";
   return null;
 }
 
-export const CAMPOS_CHECKLIST = ["peso_kg", "itens_caixa", "data_envio_amostra", "obs_recebimento", "discrepancia", "obs_contagem"] as const;
+/** "2,5" → 2.5; "1.250,5" → 1250.5; "2.5" → 2.5; "1.250" → 1250. */
+const numeroBR = (s: string) => {
+  const t = String(s ?? "").trim().replace(/\s/g, "");
+  if (t.includes(",")) return Number(t.replace(/\./g, "").replace(",", "."));
+  return Number(/^-?\d{1,3}(\.\d{3})+$/.test(t) ? t.replace(/\./g, "") : t);
+};
+
+/**
+ * Monta as linhas do Check-list da Contagem a partir dos itens da NF ligados ao estoque.
+ * Todos os PIs precisam estar confirmados (PI na nota, confirmado ou automático) antes de emitir.
+ */
+async function montarContagem(nota: { emit_cnpj: string; itens: ItemNF[] | null }, informada: ContagemInformada[]): Promise<ItemContagem[]> {
+  const { linhas, catalogoVazio } = await correlacionarNota(nota);
+  if (catalogoVazio) throw new Error("O catálogo do estoque não está disponível agora: tente de novo em instantes.");
+  if (!linhas.length) throw new Error("Esta NF não tem itens lidos do XML para a contagem.");
+  const pendentes = linhas.filter((l) => l.confianca === "media" || l.confianca === "nenhuma" || !l.item);
+  if (pendentes.length)
+    throw new Error(`Confirme o PI antes de emitir o Check-list: ${pendentes.map((l) => `item ${l.n}${l.tamanho ? ` (tam. ${l.tamanho})` : ""}`).join(", ")}.`);
+  const porRef = new Map(informada.map((c) => [c.ref, c]));
+  return linhas.map((l) => {
+    const c = porRef.get(l.ref);
+    const rot = `item ${l.n}${l.tamanho ? ` (tam. ${l.tamanho})` : ""}`;
+    const peso = numeroBR(c?.peso ?? "");
+    if (!c?.peso?.trim() || !(peso > 0)) throw new Error(`Informe o peso dos volumes do ${rot} (em kg, sem a tara da caixa).`);
+    if (c.discrepancia !== "Sim" && c.discrepancia !== "Não") throw new Error(`Informe se houve discrepância na contagem do ${rot}.`);
+    let diferenca = "";
+    if (c.discrepancia === "Sim") {
+      const dif = numeroBR(c.diferenca);
+      if (!c.diferenca.trim() || !Number.isFinite(dif) || dif === 0)
+        throw new Error(`Informe a quantidade a maior (ex.: 5) ou a menor (ex.: -3) do ${rot}.`);
+      diferenca = String(dif);
+    }
+    return { ref: l.ref, n: l.n, pi: l.item?.pi ?? null, item: l.item?.descricao ?? l.descricao, qtd: Number(l.qtd) || 0, un: l.un,
+      peso: String(peso), discrepancia: c.discrepancia, diferenca };
+  });
+}
 
 const dataBR = (iso: string) => (/^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso.split("-").reverse().join("/") : "");
 
@@ -125,13 +168,13 @@ export async function ultimoTav(notaId: number) {
 
 /** Emite o TAV (Pré Recebimento) ou o Check-list (Contagem), cada um no seu momento. */
 export async function emitirDocRecebimento(u: Usuario, notaId: number, doc: DocRecebimento, d: DadosRecebimento) {
-  const [n] = await sql`select id, numero, oc, emit_cnpj, emit_nome from notas where id = ${notaId}`;
+  const [n] = await sql`select id, numero, oc, emit_cnpj, emit_nome, itens from notas where id = ${notaId}`;
   if (!n) throw new Error("NF não encontrada.");
   if (doc === "checklist") {
     const tav = await ultimoTav(notaId);
     if (!tav) throw new Error("Emita primeiro o TAV desta NF: o Check-list usa o número e a data do TAV.");
-    const base = tav.dados.formulario;
-    d = { ...base, ...Object.fromEntries(CAMPOS_CHECKLIST.map((c) => [c, d[c]])) } as DadosRecebimento;
+    const contagem = await montarContagem({ emit_cnpj: n.emit_cnpj as string, itens: n.itens as ItemNF[] | null }, (d.contagem ?? []) as unknown as ContagemInformada[]);
+    d = { ...tav.dados.formulario, contagem, obs_contagem: d.obs_contagem };
   }
   const ano = Number(d.data_recebimento.slice(0, 4));
   return sql.begin(async (tx) => {
@@ -145,7 +188,7 @@ export async function emitirDocRecebimento(u: Usuario, notaId: number, doc: DocR
       d = { ...d, numero_tav: String(numero) };
     }
     const valores = await valoresDoc(u, n as never, d);
-    const texto = doc === "tav" ? `TAV nº ${numeroTav(numero, ano)} emitido` : `Check-list de Recebimento emitido (TAV nº ${numeroTav(numero, ano)})`;
+    const texto = doc === "tav" ? `TAV nº ${numeroTav(numero, ano)} emitido` : `Check-list da Contagem emitido (TAV nº ${numeroTav(numero, ano)})${(d.contagem ?? []).some((c) => c.discrepancia === "Sim") ? " · com discrepância" : ""}`;
     const [r] = await tx`insert into docs_recebimento (nota_id, numero_tav, ano, doc, dados, criado_por, criado_por_nome)
                          values (${notaId}, ${numero}, ${ano}, ${doc}, ${tx.json({ formulario: d, valores } as never)}, ${u.id}, ${u.nome}) returning id`;
     if (doc === "tav" && d.id_pa.trim()) await definirIdPa(tx, u, notaId, d.id_pa, `TAV nº ${numeroTav(numero, ano)}`);
@@ -218,7 +261,8 @@ export async function documentoRecebimento(id: number, doc: "tav" | "checklist",
   }
   if (formato === "pdf") {
     const ids = { registro: id, nota: r.nota_id as number };
-    const bytes = doc === "tav" ? await pdfTav(valores, tabela, ids) : await pdfChecklist(valores, ids);
+    const contagem = (r.dados as { formulario: DadosRecebimento }).formulario.contagem ?? [];
+    const bytes = doc === "tav" ? await pdfTav(valores, tabela, ids) : await pdfChecklist(valores, ids, contagem);
     return { bytes, nome: `${base}.pdf`, mime: "application/pdf" };
   }
   const { arquivo, nome } = await modeloAtual(doc);

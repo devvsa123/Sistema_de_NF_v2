@@ -25,6 +25,12 @@ export async function acaoEmitirRecebimento(_: Estado, f: FormData): Promise<Est
     obs_recebimento: campo(f, "obs_recebimento"), discrepancia: campo(f, "discrepancia"), obs_contagem: campo(f, "obs_contagem"),
   };
   const doc = campo(f, "doc") === "checklist" ? "checklist" : "tav";
+  if (doc === "checklist")
+    d.contagem = f.getAll("ref").map(String).map((ref) => {
+      const discrepancia = campo(f, `disc_${ref}`);
+      const q = campo(f, `dif_${ref}`).replace(/^[-+]/, "");
+      return { ref, peso: campo(f, `peso_${ref}`), discrepancia, diferenca: discrepancia === "Sim" && q ? (campo(f, `sentido_${ref}`) === "menor" ? `-${q}` : q) : "" };
+    }) as unknown as DadosRecebimento["contagem"];
   const erro = doc === "tav" ? validarTav(d) : validarChecklist(d);
   if (erro) return { erro };
   let reg: number;

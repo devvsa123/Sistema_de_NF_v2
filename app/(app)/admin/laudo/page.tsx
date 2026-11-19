@@ -24,7 +24,7 @@ export default async function ModeloLaudo({ searchParams }: PageProps<"/admin/la
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <Cabecalho titulo="Modelos de documentos" descricao="Altere os nomes e textos fixos (como o do Diretor) e os arquivos usados como modelo do Parecer da Divisão Técnica (versão Word), do TAV e do Check-list de Recebimento." />
+      <Cabecalho titulo="Modelos de documentos" descricao="Altere os nomes e textos fixos (como o do Diretor) e os arquivos usados como modelo do Parecer da Divisão Técnica (versão Word), do TAV e do Check-list da Contagem (modelo antigo)." />
 
       <section className="cartao p-5">
         <h2 className="text-[15px] font-semibold text-slate-900">Campos fixos</h2>

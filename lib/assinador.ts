@@ -25,7 +25,7 @@ export async function identificarCertificado(u: Usuario, assinaturaBase64: strin
 
 /** Assinatura com o token pelo Assinador SERPRO (o navegador fala com o Assinador; o sistema prepara e confere o PDF). */
 
-const NOME_TIPO = { tav: "TAV", checklist: "Check-list de Recebimento" } as const;
+const NOME_TIPO = { tav: "TAV", checklist: "Check-list da Contagem" } as const;
 const VALIDADE_MIN = 15;
 
 /** Versão a assinar: a última já anexada (com assinaturas) desta emissão, ou o PDF gerado agora. */

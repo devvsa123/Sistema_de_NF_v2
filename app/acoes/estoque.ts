@@ -34,7 +34,7 @@ export async function acaoConfirmarCorrelacao(_: Estado, f: FormData): Promise<E
     if (!pi) return { erro: "Escolha um item do estoque ou digite o PI." };
     await confirmarCorrelacao(u, nota, campo(f, "ref"), pi);
     await registrarEvento(sql, { nota_id: nota.id, tipo: "estoque", usuario: u, texto: `${rotuloItem(campo(f, "ref")).replace(/^i/, "I")} ligado ao PI ${pi.trim().toUpperCase()} do estoque` });
-    revalidatePath(`/notas/${nota.id}`);
+    revalidatePath(`/notas/${nota.id}`, "layout");
     return { ok: "Correlação confirmada. Vale também para as próximas NF deste fornecedor." };
   } catch (e) {
     return { erro: msg(e) };

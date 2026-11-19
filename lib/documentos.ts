@@ -18,7 +18,7 @@ async function marcasDoPdf(bytes: Uint8Array): Promise<{ doc?: string; nota?: nu
     return {};
   }
 }
-const TIPO_GERADO: Record<string, string> = { tav: "TAV", checklist: "Check-list de Recebimento", "nf-certificado": "Nota fiscal (DANFE)", parecer: "Parecer da Divisão Técnica" };
+const TIPO_GERADO: Record<string, string> = { tav: "TAV", checklist: "Check-list da Contagem", "nf-certificado": "Nota fiscal (DANFE)", parecer: "Parecer da Divisão Técnica" };
 export const TIPO_NF = "Nota fiscal (DANFE)";
 
 /** O PDF já traz um Certificado de Recebimento de Bens (feito fora do sistema)? */

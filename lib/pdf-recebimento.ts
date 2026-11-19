@@ -253,12 +253,15 @@ export async function pdfTav(v: Valores, itens: Tabela | null, ids: { registro: 
   return finalizar(c);
 }
 
-/** Check-list de Recebimento em PDF. */
-export async function pdfChecklist(v: Valores, ids: { registro: number; nota: number }) {
+type LinhaContagem = { n: number; pi: string | null; item: string; qtd: number; un: string; peso: string; discrepancia: string; diferenca: string };
+const num = (v: number, casas = 0) => v.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas === 0 ? 3 : casas });
+
+/** Check-list da Contagem em PDF: itens com PI, peso dos volumes (sem tara), discrepância e diferença por item. */
+export async function pdfChecklist(v: Valores, ids: { registro: number; nota: number }, contagem: LinhaContagem[] = []) {
   const numero = `${v.numero_tav}/${v.ano}`;
-  const c = await iniciar(`Check-list de Recebimento — NF ${v.numero_nf}`, `Check-list de Recebimento da NF ${v.numero_nf} (TAV nº ${numero})`,
-    ["nf-sistema", "nf-doc:checklist", `nf-nota:${ids.nota}`, `nf-registro:${ids.registro}`], `Check-list · TAV nº ${numero} · NF ${v.numero_nf}`);
-  cabecalho(c, "CHECK-LIST DE RECEBIMENTO DE ITENS DE FORNECEDORES", `TAV nº ${numero}`, "SEÇÃO DE RECEBIMENTO");
+  const c = await iniciar(`Check-list da Contagem — NF ${v.numero_nf}`, `Check-list da Contagem da NF ${v.numero_nf} (TAV nº ${numero})`,
+    ["nf-sistema", "nf-doc:checklist", `nf-nota:${ids.nota}`, `nf-registro:${ids.registro}`], `Check-list da Contagem · TAV nº ${numero} · NF ${v.numero_nf}`);
+  cabecalho(c, "CHECK-LIST DA CONTAGEM", `TAV nº ${numero}`, "SEÇÃO DE RECEBIMENTO");
 
   secao(c, "Identificação");
   grade(c, [
@@ -266,38 +269,38 @@ export async function pdfChecklist(v: Valores, ids: { registro: number; nota: nu
     [{ rotulo: "Número da nota fiscal", valor: v.numero_nf, cm: 5, negrito: true }, { rotulo: "Ordem de compra", valor: v.numero_oc, cm: 4 }, { rotulo: "TAV", valor: numero, cm: 4.5 }, { rotulo: "Data do recebimento", valor: v.data_recebimento, cm: 4.5 }],
   ]);
 
-  secao(c, "Recebimento", 220);
-  const linha = (n: string, s: string) => {
-    const ls = quebrar(c.f, s, 9.5, L - 18);
-    garantir(c, ls.length * 13 + 4);
-    texto(c, n, M, c.y - 11, { tam: 9.5, negrito: true });
-    ls.forEach((t, i) => texto(c, t, M + 16, c.y - 11 - i * 13, { tam: 9.5 }));
-    c.y -= ls.length * 13 + 5;
-  };
-  linha("1.", `Pesagem de um volume do item: ${sem(v.peso_kg) || "______"} kg, caixa com ${sem(v.itens_caixa) || "______"} UN.`);
-  linha("2.", `Enviar amostra para a Divisão Técnica. Data de envio: ${sem(v.data_envio_amostra) || "____/____/______"}.`);
-  texto(c, "OBSERVAÇÃO", M, c.y - 8, { tam: 6.5, negrito: true, cor: CINZA }); c.y -= 11;
-  quadro(c, sem(v.obs_recebimento), 44);
-  c.y -= 8;
-  garantir(c, 100);
-  c.y -= 4;
-  campoAssinatura(c, "Conferente do Recebimento", M + L / 2, L / 2, "", "Conferente do Recebimento");
-  c.y -= 84;
+  secao(c, "Itens contados", 90);
+  const qtdTotal = contagem.reduce((t, l) => t + l.qtd, 0);
+  const pesoTotal = contagem.reduce((t, l) => t + (Number(l.peso) || 0), 0);
+  const difTotal = contagem.reduce((t, l) => t + (l.discrepancia === "Sim" ? Number(l.diferenca) || 0 : 0), 0);
+  const sinal = (d: number) => (d > 0 ? `+${num(d)}` : num(d));
+  tabela(c, {
+    titulo: "",
+    colunas: [
+      { titulo: "#", cm: 0.7, alinhar: "centro" }, { titulo: "PI", cm: 1.8, alinhar: "centro" }, { titulo: "ITEM", cm: 6.0 },
+      { titulo: "QTD. NF", cm: 1.6, alinhar: "dir" }, { titulo: "PESO LÍQ. (KG)", cm: 1.9, alinhar: "dir" },
+      { titulo: "DISCREP.", cm: 1.8, alinhar: "centro" }, { titulo: "DIFERENÇA", cm: 1.6, alinhar: "dir" }, { titulo: "QTD. CONTADA", cm: 1.6, alinhar: "dir" },
+    ],
+    linhas: contagem.map((l) => {
+      const dif = l.discrepancia === "Sim" ? Number(l.diferenca) || 0 : 0;
+      return [String(l.n), l.pi ?? "—", l.item, `${num(l.qtd)} ${l.un}`.trim(), num(Number(l.peso) || 0, 3), l.discrepancia === "Sim" ? "SIM" : "NÃO",
+        l.discrepancia === "Sim" ? sinal(dif) : "—", num(l.qtd + dif)];
+    }),
+    rodape: contagem.length ? ["", "", "TOTAL", num(qtdTotal), num(pesoTotal, 3), "", difTotal ? sinal(difTotal) : "—", num(qtdTotal + difTotal)] : undefined,
+    nota: contagem.length
+      ? "Peso líquido: peso dos volumes descontada a tara da caixa. Diferença: quantidade recebida a maior (+) ou a menor (-) que a da NF."
+      : "Esta NF não tem itens cadastrados (sem XML/PDF da NF-e).",
+  });
 
-  secao(c, "Contagem", 200);
-  linha("3.", "Aguardar resultado da Divisão Técnica.");
-  linha("4.", "Discrepâncias na contagem:");
-  c.y -= 4;
-  caixa(c, M + 16, c.y - 6, !!v.discrepancia_sim); texto(c, "Sim", M + 33, c.y - 6, { tam: 9.5 });
-  caixa(c, M + 96, c.y - 6, !!v.discrepancia_nao); texto(c, "Não", M + 113, c.y - 6, { tam: 9.5 });
-  c.y -= 20;
-  texto(c, "OBSERVAÇÃO", M, c.y - 8, { tam: 6.5, negrito: true, cor: CINZA }); c.y -= 11;
-  quadro(c, sem(v.obs_contagem), 84);
-  c.y -= 8;
-  garantir(c, 100);
-  c.y -= 4;
-  campoAssinatura(c, "Encarregado da Contagem", M + L / 4, L / 2, "", "Encarregado da Contagem");
-  c.y -= 84;
+  secao(c, "Observações gerais", 70);
+  quadro(c, (v.obs_contagem ?? "").replace(/_{3,}/g, "").trim(), 60);
+
+  garantir(c, 110);
+  secao(c, "Assinaturas", 100);
+  c.y -= 6;
+  campoAssinatura(c, "Conferente do Recebimento", M, L / 2, "", "Conferente do Recebimento");
+  campoAssinatura(c, "Encarregado da Contagem", M + L / 2, L / 2, "", "Encarregado da Contagem");
+  c.y -= 90;
   return finalizar(c);
 }
 

@@ -6,7 +6,7 @@ import { MARCADORES_CHECKLIST, MARCADORES_TAV } from "./recebimento";
 export const DOCUMENTOS = {
   laudo_pericial: { nome: "Parecer da Divisão Técnica (Word)", quem: "Perícia", marcadores: MARCADORES },
   tav: { nome: "TAV — Termo de Abertura de Volumes", quem: "Recebimento", marcadores: MARCADORES_TAV },
-  checklist: { nome: "Check-list de Recebimento", quem: "Recebimento", marcadores: MARCADORES_CHECKLIST },
+  checklist: { nome: "Check-list da Contagem (modelo antigo)", quem: "Recebimento", marcadores: MARCADORES_CHECKLIST },
 } as const;
 
 export type ChaveDoc = keyof typeof DOCUMENTOS;

@@ -5,7 +5,8 @@ import { obterNota } from "@/lib/notas";
 import { docsDaNota, numeroTav, PERGUNTAS_TAV, podeEmitirRecebimento, proximoTav, type DadosRecebimento } from "@/lib/recebimento";
 import { cnpj, dataHora, destinoVolta, linkNota, moeda } from "@/lib/format";
 import { Cabecalho, Selo, Voltar } from "@/components/ui";
-import { FormChecklist, FormTav } from "@/components/FormRecebimento";
+import { FormChecklist, FormTav, type ContagemAnterior, type LinhaChecklist } from "@/components/FormRecebimento";
+import { correlacionarNota } from "@/lib/estoque";
 import { AssinarToken } from "@/components/AssinarToken";
 
 export const metadata = { title: "Documentos do Recebimento — Tramitação de NF" };
@@ -34,8 +35,16 @@ export default async function DocsRecebimento({ params, searchParams }: PageProp
   const reemissao = !!regTav && regTav.ano === anoAtual;
   const proximoNumero = reemissao ? numeroTav(regTav.numero_tav, regTav.ano) : numeroTav(await proximoTav(anoAtual), anoAtual);
   const inicialChecklist = regChecklist?.dados.formulario ?? vazio;
+  // itens para a contagem, com o PI do estoque (os que estão "a verificar" ou sem correlação precisam ser confirmados antes)
+  const correl = regTav ? await correlacionarNota(nota) : { linhas: [], catalogoVazio: false };
+  const linhasChecklist: LinhaChecklist[] = correl.linhas.map((l) => ({
+    ref: l.ref, n: l.n, descricao: l.descricao, tamanho: l.tamanho, qtd: Number(l.qtd) || 0, un: l.un,
+    pi: l.item?.pi ?? null, itemEstoque: l.item?.descricao ?? null, pendente: l.confianca === "media" || l.confianca === "nenhuma" || !l.item,
+    candidatos: l.candidatos.map(({ pi, descricao, cxp }) => ({ pi, descricao, cxp })), confirmada: l.confianca === "confirmada",
+  }));
+  const contagemAnterior: ContagemAnterior = Object.fromEntries((regChecklist?.dados.formulario.contagem ?? []).map((c) => [c.ref, { peso: c.peso, discrepancia: c.discrepancia, diferenca: c.diferenca }]));
   const docEmitido = sp.doc === "checklist" ? "checklist" : "tav";
-  const NOME = { tav: "TAV", checklist: "Check-list" } as const;
+  const NOME = { tav: "TAV", checklist: "Check-list da Contagem" } as const;
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -48,7 +57,7 @@ export default async function DocsRecebimento({ params, searchParams }: PageProp
           <div className="flex flex-wrap items-center gap-3">
             <AssinarToken registroId={emitido} doc={docEmitido} />
             <a href={`/api/recebimento/${emitido}?doc=${docEmitido}`} className="botao-sec">Baixar PDF</a>
-            <a href={`/api/recebimento/${emitido}?doc=${docEmitido}&formato=modelo`} className="text-xs font-medium text-emerald-900 underline">versão editável</a>
+            {docEmitido === "tav" && <a href={`/api/recebimento/${emitido}?doc=tav&formato=modelo`} className="text-xs font-medium text-emerald-900 underline">versão editável</a>}
             <a href={`/notas/${id}#documentos`} className="text-xs font-medium text-emerald-900 underline">anexar o PDF assinado na NF</a>
           </div>
         </div>
@@ -63,7 +72,7 @@ export default async function DocsRecebimento({ params, searchParams }: PageProp
 
       <div className="space-y-6">
         <div id="tav" className="scroll-mt-20"><FormTav id={id} inicial={inicialTav} perguntas={PERGUNTAS_TAV} numeroTav={proximoNumero} reemissao={reemissao} /></div>
-        <div id="checklist" className="scroll-mt-20"><FormChecklist id={id} inicial={inicialChecklist} tav={regTav ? numeroTav(regTav.numero_tav, regTav.ano) : null} /></div>
+        <div id="checklist" className="scroll-mt-20"><FormChecklist id={id} inicial={inicialChecklist} tav={regTav ? numeroTav(regTav.numero_tav, regTav.ano) : null} linhas={linhasChecklist} anterior={contagemAnterior} catalogoVazio={correl.catalogoVazio} /></div>
       </div>
 
       {registros.length > 0 && (
@@ -72,7 +81,7 @@ export default async function DocsRecebimento({ params, searchParams }: PageProp
           <ul className="divide-y divide-slate-100 text-sm">
             {registros.map((r) => (
               <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                <span>{r.doc === "checklist" ? "Check-list" : r.doc === "tav" ? "TAV" : "TAV e Check-list"} · TAV nº <strong>{numeroTav(r.numero_tav, r.ano)}</strong> · {dataHora(r.criado_em)}{r.por ? ` · ${r.por}` : ""}</span>
+                <span>{r.doc === "checklist" ? "Check-list da Contagem" : r.doc === "tav" ? "TAV" : "TAV e Check-list"} · TAV nº <strong>{numeroTav(r.numero_tav, r.ano)}</strong> · {dataHora(r.criado_em)}{r.por ? ` · ${r.por}` : ""}</span>
                 <span className="flex gap-3">
                   {r.doc !== "checklist" && <AssinarToken registroId={r.id} doc="tav" rotulo="Assinar TAV com token" compacto />}
                   {r.doc !== "checklist" && <a href={`/api/recebimento/${r.id}?doc=tav`} className="font-medium text-marinha hover:underline">TAV em PDF</a>}
