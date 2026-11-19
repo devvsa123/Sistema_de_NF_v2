@@ -16,7 +16,7 @@ export default async function Usuarios({ searchParams }: PageProps<"/admin/usuar
   const excluido = (await searchParams).excluido;
   const [usuarios, etapas] = await Promise.all([
     sql`
-      select u.id, u.login, u.nome, u.papel, u.ativo, u.pode_cadastrar, u.gerencia_usuarios, u.deve_trocar_senha,
+      select u.id, u.login, u.nome, u.papel, u.ativo, u.pode_cadastrar, u.vice_diretor, u.gerencia_usuarios, u.deve_trocar_senha,
              coalesce((select array_agg(setor order by ordem) from (select e.setor, min(e.ordem) as ordem from usuario_etapas ue
                         join etapas e on e.id = ue.etapa_id and e.ativo where ue.usuario_id = u.id group by e.setor) s), '{}') as setores
       from usuarios u order by u.ativo desc, u.papel = 'empresa', u.nome`,
@@ -25,7 +25,7 @@ export default async function Usuarios({ searchParams }: PageProps<"/admin/usuar
   const linhas: LinhaUsuario[] = usuarios.map((u) => ({
     id: u.id, nome: u.nome, login: u.login, loginFmt: login(u.login), papel: u.papel, papelNome: PAPEL[u.papel], setores: u.setores,
     gestor: u.gerencia_usuarios && u.papel !== "admin",
-    permissoes: u.papel === "interno" ? [u.setores.join(", "), u.pode_cadastrar && "Cadastra NF"].filter(Boolean).join(" · ")
+    permissoes: u.papel === "interno" ? [u.vice_diretor && "Vice-Diretor", u.setores.join(", "), u.pode_cadastrar && "Cadastra NF"].filter(Boolean).join(" · ")
       : u.papel === "empresa" ? "Somente as NF do próprio CNPJ" : u.papel === "admin" ? "Acesso total" : "Consulta todas as NF e relatórios",
     ativo: u.ativo, situacao: u.ativo ? (u.deve_trocar_senha ? "Ativo · troca de senha pendente" : "Ativo") : "Inativo",
     editavel: geral || (u.papel !== "admin" && !u.gerencia_usuarios),

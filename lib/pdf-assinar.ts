@@ -56,7 +56,8 @@ function dataBR(d: Date) {
   return d.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" }).replace(",", "") + "-0300";
 }
 
-export type Selo = { nome: string; cpf?: string | null };
+/** qualidade: em nome de quem assina, quando substitui alguém (ex.: "Vice-Diretor, no impedimento do Diretor"). */
+export type Selo = { nome: string; cpf?: string | null; qualidade?: string | null };
 const cpfFormatado = (c: string) => c.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4");
 
 let metricas: Promise<{ normal: PDFFont; negrito: PDFFont }> | null = null;
@@ -69,21 +70,26 @@ function fontes() {
 async function comandosSelo(selo: Selo, w: number, h: number, quando: Date) {
   const { negrito } = await fontes();
   const quem = selo.nome;
-  let tamNome = 8.5;
+  const q = selo.qualidade?.trim();
+  const pequeno = q ? 5.6 : 6.3, entre = q ? 1.5 : 2.2; // com a linha da substituição, o texto fica um pouco menor para caber
+  let tamNome = q ? 7.5 : 8.5;
   while (tamNome > 5.5 && negrito.widthOfTextAtSize(quem.toUpperCase().replace(/[^\x20-\xff]/g, "?"), tamNome) > w - 12) tamNome -= 0.25;
+  let tamQ = pequeno;
+  while (q && tamQ > 4.5 && negrito.widthOfTextAtSize(q.replace(/[^\x20-\xff]/g, "?"), tamQ) > w - 12) tamQ -= 0.2;
   const linhas = [
-    { f: "F1", t: 6.3, s: "Documento assinado digitalmente", cor: "0.35 0.35 0.35" },
+    { f: "F1", t: pequeno, s: "Documento assinado digitalmente", cor: "0.35 0.35 0.35" },
     { f: "F2", t: tamNome, s: quem.toUpperCase(), cor: "0 0 0" },
-    ...(selo.cpf ? [{ f: "F1", t: 6.3, s: `CPF: ${cpfFormatado(selo.cpf)}`, cor: "0 0 0" }] : []),
-    { f: "F1", t: 6.3, s: `Data: ${dataBR(quando)}`, cor: "0 0 0" },
-    { f: "F1", t: 6.3, s: "Verifique em https://validar.iti.gov.br", cor: "0.35 0.35 0.35" },
+    ...(q ? [{ f: "F2", t: tamQ, s: q, cor: "0.55 0.1 0.1" }] : []),
+    ...(selo.cpf ? [{ f: "F1", t: pequeno, s: `CPF: ${cpfFormatado(selo.cpf)}`, cor: "0 0 0" }] : []),
+    { f: "F1", t: pequeno, s: `Data: ${dataBR(quando)}`, cor: "0 0 0" },
+    { f: "F1", t: pequeno, s: "Verifique em https://validar.iti.gov.br", cor: "0.35 0.35 0.35" },
   ];
-  const alturaTexto = linhas.reduce((t, l) => t + l.t + 2.2, 0);
+  const alturaTexto = linhas.reduce((t, l) => t + l.t + entre, 0);
   let y = h - Math.max(2, (h - alturaTexto) / 2) - linhas[0].t;
   let c = `q 0.12 0.22 0.39 rg 0 ${(y - alturaTexto + linhas[0].t + 4).toFixed(2)} 2 ${(alturaTexto + 1).toFixed(2)} re f Q\nBT\n`;
   for (const l of linhas) {
     c += `${l.cor} rg /${l.f} ${l.t} Tf 1 0 0 1 7 ${y.toFixed(2)} Tm ${literalWinAnsi(l.s)} Tj\n`;
-    y -= l.t + 2.2;
+    y -= l.t + entre;
   }
   return c + "ET\n";
 }
@@ -103,13 +109,30 @@ async function aparencia(selo: Selo, w: number, h: number, quando: Date) {
   return xobjeto(w, h, await comandosSelo(selo, w, h, quando));
 }
 
-export type DecisaoAparencia = { titulo: string; opcoes: string[]; escolhida: number; observacao: string };
+/** rodape: identificação impressa no lugar da do titular (quando alguém assina no impedimento dele). */
+export type DecisaoAparencia = { titulo: string; opcoes: string[]; escolhida: number; observacao: string; rodape?: string[] | null };
+
+/** Altura, abaixo do quadro de decisão, em que o parecer imprime o nome de quem decide (dentro do campo de assinatura). */
+export const RODAPE_DECISAO = 40;
 
 /** Aparência de um campo de decisão (parecer/resolução): opção marcada, observações e o selo da assinatura. */
 async function aparenciaDecisao(selo: Selo, w: number, h: number, quando: Date, d: DecisaoAparencia) {
   const { normal, negrito } = await fontes();
   const limpa = (t: string) => t.replace(/[^\x20-\xff\n]/g, "?");
-  let c = `q 1 1 1 rg 0 0 ${w.toFixed(2)} ${h.toFixed(2)} re f Q\n`; // cobre o texto de orientação do campo vazio
+  // pareceres novos: o campo do Diretor inclui a faixa do nome impresso abaixo do quadro
+  const base = h > 175 ? RODAPE_DECISAO : 0;
+  const trocaNome = base > 0 && !!d.rodape?.length;
+  let c = `q 1 1 1 rg 0 ${trocaNome ? 0 : base} ${w.toFixed(2)} ${(h - (trocaNome ? 0 : base)).toFixed(2)} re f Q\n`; // cobre o texto de orientação do campo vazio
+  if (trocaNome) {
+    c += `q 0.55 0.55 0.55 RG 0.6 w 0 ${base} m ${w.toFixed(2)} ${base} l S Q\n`; // refaz a borda inferior do quadro
+    c += "BT\n";
+    d.rodape!.filter(Boolean).slice(0, 3).forEach((l, i) => {
+      const t = i === 0 ? 8.5 : 7.5, f = i === 0 ? negrito : normal;
+      const lx = Math.max(2, (w - f.widthOfTextAtSize(limpa(l), t)) / 2);
+      c += `${i === 0 ? "0 0 0" : i === 2 ? "0.55 0.1 0.1" : "0.35 0.35 0.35"} rg /${i === 0 ? "F2" : "F1"} ${t} Tf 1 0 0 1 ${lx.toFixed(2)} ${(base - 12 - i * 11 + 1).toFixed(2)} Tm ${literalWinAnsi(l)} Tj\n`;
+    });
+    c += "ET\n";
+  }
   c += "BT\n";
   let y = h - 12;
   c += `0.12 0.22 0.39 rg /F2 8 Tf 1 0 0 1 4 ${y.toFixed(2)} Tm ${literalWinAnsi(d.titulo)} Tj\n`;
@@ -133,20 +156,21 @@ async function aparenciaDecisao(selo: Selo, w: number, h: number, quando: Date, 
     }
     linhas.push(atual);
   }
-  const cabem = Math.max(1, Math.floor((y - 58) / 9.2) + 1);
+  const cabem = Math.max(1, Math.floor((y - 58 - base) / 9.2) + 1);
   const mostrar = linhas.length > cabem ? [...linhas.slice(0, cabem - 1), linhas[cabem - 1] + " (...)"] : linhas;
   for (const l of mostrar) { c += `0 0 0 rg /F1 7.5 Tf 1 0 0 1 4 ${y.toFixed(2)} Tm ${literalWinAnsi(l)} Tj\n`; y -= 9.2; }
   c += "ET\n";
   // selo no canto inferior direito
   const sw = 200, sh = 52;
-  c += `q 1 0 0 1 ${(w - sw - 2).toFixed(2)} 2 cm\n${await comandosSelo(selo, sw, sh, quando)}Q\n`;
+  c += `q 1 0 0 1 ${(w - sw - 2).toFixed(2)} ${base + 2} cm\n${await comandosSelo(selo, sw, sh, quando)}Q\n`;
   return xobjeto(w, h, c);
 }
 
 const RESERVA_BR = "/ByteRange [0 0000000000 0000000000 0000000000]";
 
-function dicionarioAssinatura(quem: string, quando: Date) {
-  return Buffer.from(`<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached ${RESERVA_BR} /Contents <${"0".repeat(ESPACO * 2)}> /M (${dataPdf(quando)}) /Name ${hexUtf16(quem)} /Reason ${hexUtf16("Assinatura pelo Sistema de Tramitação de NF")} >>`, "latin1");
+function dicionarioAssinatura(quem: string, quando: Date, qualidade?: string | null) {
+  const motivo = qualidade ? `${qualidade} (Sistema de Tramitação de NF)` : "Assinatura pelo Sistema de Tramitação de NF";
+  return Buffer.from(`<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached ${RESERVA_BR} /Contents <${"0".repeat(ESPACO * 2)}> /M (${dataPdf(quando)}) /Name ${hexUtf16(quem)} /Reason ${hexUtf16(motivo)} >>`, "latin1");
 }
 
 type Objeto = { n: number; corpo: Buffer };
@@ -250,7 +274,7 @@ export async function prepararCampo(pdf: Uint8Array, campo: string, selo: Selo, 
   widget.set(PDFName.of("V"), PDFRef.of(nSig));
   widget.set(PDFName.of("AP"), doc.context.obj({ N: PDFRef.of(nAp) }));
   const objs: Objeto[] = [
-    { n: nSig, corpo: dicionarioAssinatura(selo.nome, quando) },
+    { n: nSig, corpo: dicionarioAssinatura(selo.nome, quando, selo.qualidade) },
     { n: nAp, corpo: decisao ? await aparenciaDecisao(selo, w, h, quando, decisao) : await aparencia(selo, w, h, quando) },
     { n: ref.objectNumber, corpo: Buffer.from(widget.toString(), "latin1") },
   ];
@@ -288,7 +312,7 @@ export async function prepararNovoCampo(pdf: Uint8Array, pagina: number, x: numb
     T: PDFString.of(nomeCampo), TU: PDFHexString.fromText(rotulo), V: PDFRef.of(nSig), AP: { N: PDFRef.of(nAp) },
   });
   const objs: Objeto[] = [
-    { n: nSig, corpo: dicionarioAssinatura(selo.nome, quando) },
+    { n: nSig, corpo: dicionarioAssinatura(selo.nome, quando, selo.qualidade) },
     { n: nAp, corpo: await aparencia(selo, w, h, quando) },
     { n: nCampo, corpo: Buffer.from(widget.toString(), "latin1") },
   ];

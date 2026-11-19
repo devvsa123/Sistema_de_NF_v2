@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { PDFDocument, PDFName, PDFString, StandardFonts, rgb, type PDFFont, type PDFPage, type PDFRef } from "pdf-lib";
 import type { Tabela } from "./tabela-doc";
+import { RODAPE_DECISAO } from "./pdf-assinar";
 
 /**
  * TAV e Check-list gerados direto em PDF, prontos para assinar.
@@ -400,13 +401,15 @@ export async function nfComCertificado(nf: Uint8Array, v: { numero_nf: string; a
 // ------------------------------------------------------------------ Parecer da Divisão Técnica
 
 /** Quadro de decisão: fica em branco (com as opções em cinza) até quem decide assinar no sistema. */
-function quadroDecisao(c: Ctx, campo: string, rotulo: string, opcoes: string[], quem: string[], h = 150) {
+/** Quadro de decisão. Com `incluirNome`, o campo cobre também o nome impresso abaixo (substituído quando assina o substituto). */
+function quadroDecisao(c: Ctx, campo: string, rotulo: string, opcoes: string[], quem: string[], h = 150, incluirNome = false) {
   garantir(c, h + 40);
   const topo = c.y;
   c.pag.drawRectangle({ x: M, y: topo - h, width: L, height: h, borderColor: BORDA, borderWidth: 0.6 });
   texto(c, opcoes.map((o) => `(   ) ${o}`).join("        "), M + 6, topo - 26, { tam: 8.5, cor: CINZA });
   texto(c, "Preenchido na assinatura pelo sistema (decisão, observações e assinatura digital).", M + 6, topo - 42, { tam: 7, cor: CINZA });
-  campoEm(c, campo, rotulo, M + 1, topo - h + 1, L - 2, h - 2);
+  if (incluirNome) campoEm(c, campo, rotulo, M + 1, topo - h - RODAPE_DECISAO, L - 2, h - 1 + RODAPE_DECISAO);
+  else campoEm(c, campo, rotulo, M + 1, topo - h + 1, L - 2, h - 2);
   c.y = topo - h - 12;
   quem.filter(Boolean).forEach((linha, i) => { texto(c, linha, M, c.y, { tam: i === 0 ? 8.5 : 7.5, negrito: i === 0, alinhar: "centro", largura: L, cor: i === 0 ? undefined : CINZA }); c.y -= 11; });
 }
@@ -444,6 +447,6 @@ export async function pdfParecer(v: Valores, ids: { nota: number; laudo: number 
   secao(c, "Parecer do Encarregado da Divisão Técnica", 210);
   quadroDecisao(c, "Encarregado da Divisao Tecnica", "Encarregado da Divisão Técnica", tec.opcoes, [v.encarregado_nome ?? "", "Encarregado da Divisão Técnica"]);
   secao(c, "Resolução do Sr. Diretor", 210);
-  quadroDecisao(c, "Resolucao do Diretor", "Diretor", dir.opcoes, [v.diretor_nome ?? "", v.diretor_posto ?? "", v.diretor_cargo || "Diretor"]);
+  quadroDecisao(c, "Resolucao do Diretor", "Diretor", dir.opcoes, [v.diretor_nome ?? "", v.diretor_posto ?? "", v.diretor_cargo || "Diretor"], 150, true);
   return finalizar(c);
 }

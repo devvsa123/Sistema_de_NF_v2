@@ -53,6 +53,7 @@ function sugerido(d: DocParaAssinar, setores: string[]) {
 function Painel({ notaId, numero, fechar }: { notaId: number; numero: string; fechar: () => void }) {
   const [docs, setDocs] = useState<DocParaAssinar[] | null>(null);
   const [setores, setSetores] = useState<string[]>([]);
+  const [vice, setVice] = useState(false);
   const [erro, setErro] = useState("");
   const [atual, setAtual] = useState<number | null>(null);
   const [marcados, setMarcados] = useState<Record<number, Estado>>({});
@@ -66,7 +67,7 @@ function Painel({ notaId, numero, fechar }: { notaId: number; numero: string; fe
   const carregar = useCallback(async () => {
     const r = await acaoDocumentosParaAssinar(notaId);
     if (r.erro) { setErro(r.erro); return; }
-    setDocs(r.docs); setSetores(r.setores ?? []);
+    setDocs(r.docs); setSetores(r.setores ?? []); setVice(!!("vice" in r && r.vice));
     setAtual((a) => (a && r.docs.some((d) => d.id === a) ? a : r.docs[0]?.id ?? null));
   }, [notaId]);
 
@@ -219,6 +220,7 @@ function Painel({ notaId, numero, fechar }: { notaId: number; numero: string; fe
                 )}
             </div>
             <div className="space-y-2 border-t border-slate-200 bg-slate-50 p-3">
+              {vice && <p className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-900"><strong>Vice-Diretor:</strong> nos campos do Diretor (e nas posições escolhidas na página), a assinatura sai como <strong>“Vice-Diretor, no impedimento do Diretor”</strong>, no selo e no histórico.</p>}
               {aviso && <p className="text-xs text-amber-800">{aviso} <a href={TUTORIAL_AUTORIZAR} target="_blank" rel="noopener" className="underline">ajuda</a></p>}
               <button type="button" className="botao w-full" disabled={assinando || !escolhidos.length || !prontos} onClick={assinarTodos}>
                 {assinando ? "Assinando…" : escolhidos.length ? `Assinar ${escolhidos.length} documento(s) com o token` : "Marque os documentos para assinar"}

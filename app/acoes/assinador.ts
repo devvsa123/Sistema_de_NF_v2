@@ -57,7 +57,7 @@ export async function acaoDocumentosParaAssinar(notaId: number) {
     const u = await interno();
     if (!(await obterNota(u, Number(notaId)))) return { erro: "NF não encontrada.", docs: [] };
     const setores = u.papel === "admin" ? [] : [...new Set(etapasDoUsuario(u, await etapasAtivas()).map((e) => e.setor))];
-    return { docs: await documentosParaAssinar(Number(notaId)), setores };
+    return { docs: await documentosParaAssinar(Number(notaId)), setores, vice: u.vice_diretor };
   } catch (e) {
     return { erro: msg(e), docs: [] };
   }

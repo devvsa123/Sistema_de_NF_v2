@@ -69,6 +69,10 @@ export default async function EditarUsuario({ params }: PageProps<"/admin/usuari
           <div className="grid gap-1.5 border-t border-slate-200 pt-2 text-sm sm:grid-cols-2">
             <label className="flex items-center gap-2"><input type="checkbox" name="pode_cadastrar" defaultChecked={u?.pode_cadastrar} /> Cadastra NF (envio de XML)</label>
           </div>
+          <label className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/70 p-2.5 text-sm">
+            <input type="checkbox" name="vice_diretor" defaultChecked={u?.vice_diretor} className="mt-1" />
+            <span><strong>Vice-Diretor</strong> — <span className="text-slate-600">responde pelo Diretor na ausência dele. Recebe o setor do Diretor e, quando assina no lugar do Diretor, o selo, o parecer e o histórico registram “no impedimento do Diretor”.</span></span>
+          </label>
         </fieldset>
 
         <label className="block">

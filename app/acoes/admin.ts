@@ -133,8 +133,15 @@ export async function acaoSalvarUsuario(_: Estado, f: FormData): Promise<Estado>
   }
   const cnpjEmpresa = papel === "empresa" ? soDigitos(campo(f, "empresa_cnpj")) || login : null;
   if (papel === "empresa" && cnpjEmpresa!.length !== 14) return { erro: "Para fornecedores, informe o CNPJ com 14 dígitos." };
-  const setores = papel === "interno" ? f.getAll("setores").map(String) : [];
+  const vice = papel === "interno" && marcado(f, "vice_diretor");
   const todasEtapas = await etapasAtivas();
+  const setores = papel === "interno" ? f.getAll("setores").map(String) : [];
+  if (vice) {
+    // o Vice-Diretor tramita e assina na etapa do Diretor
+    const dir = todasEtapas.find((e) => /diretor/i.test(`${e.setor} ${e.nome}`));
+    if (!dir) return { erro: "Não há etapa do Diretor ativa no caminho da NF." };
+    if (!setores.includes(dir.setor)) setores.push(dir.setor);
+  }
   const etapas = todasEtapas.filter((e) => setores.includes(e.setor)).map((e) => e.id);
   const reprovadas = setores.includes(await setorReprovadas());
   const hash = senha ? await hashSenha(senha) : null;
@@ -146,6 +153,7 @@ export async function acaoSalvarUsuario(_: Estado, f: FormData): Promise<Estado>
         login, nome, papel, empresa_cnpj: cnpjEmpresa, ativo, gerencia_usuarios: gerencia,
         pode_cadastrar: papel === "interno" && marcado(f, "pode_cadastrar"),
         trata_reprovadas: papel === "interno" && reprovadas,
+        vice_diretor: vice,
       };
       let uid = id;
       if (id) {

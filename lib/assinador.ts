@@ -8,6 +8,7 @@ import { camposDeAssinatura, encaixarAssinatura, prepararCampo, prepararNovoCamp
 import { titularDaAssinatura } from "./assinatura";
 import { DECISOES, type DecisaoEscolhida } from "./parecer-campos";
 import { aplicarDecisao, podeDecidir, type DecisaoGravada } from "./parecer";
+import { camposFixos } from "./laudo";
 
 type Certificado = { nome: string; cpf: string | null };
 
@@ -88,10 +89,12 @@ export async function concluirAssinatura(u: Usuario, id: number, assinaturaBase6
                              where id = ${s.base_documento_id} and removido_em is null returning nome_arquivo`;
       if (ant) await registrarEvento(tx, { nota_id: s.nota_id, tipo: "documento", usuario: u, texto: `${r.tipo}: versão anterior substituída pela versão com mais assinaturas` });
     }
+    if (s.substituicao)
+      await registrarEvento(tx, { nota_id: s.nota_id, tipo: "documento", usuario: u, texto: `${r.tipo} assinado por ${ultima.nome} como ${s.substituicao}` });
   });
-  const extra = s.decisao ? await aplicarDecisao(u, s.nota_id as number, s.decisao as DecisaoGravada) : "";
+  const extra = s.decisao ? await aplicarDecisao(u, s.nota_id as number, s.decisao as DecisaoGravada, s.substituicao as string | null) : "";
   const [n] = await sql`select numero from notas where id = ${s.nota_id}`;
-  return { refazer: false as const, mensagem: `${r.tipo} da NF ${n.numero} assinado por ${ultima.nome} (${ultima.tipo === "ICP-Brasil" ? "certificado ICP-Brasil" : ultima.tipo}).${extra}` };
+  return { refazer: false as const, mensagem: `${r.tipo} da NF ${n.numero} assinado por ${ultima.nome}${s.substituicao ? `, ${s.substituicao}` : ""} (${ultima.tipo === "ICP-Brasil" ? "certificado ICP-Brasil" : ultima.tipo}).${extra}` };
 }
 
 // ------------------------------------------------------------------ qualquer documento anexado à NF
@@ -119,10 +122,26 @@ export async function documentosParaAssinar(notaId: number): Promise<DocParaAssi
 
 export type Alvo = { campo: string } | { pagina: number; x: number; y: number };
 
+/**
+ * Vice-Diretor assinando no lugar do Diretor (campo do Diretor ou posição escolhida na página):
+ * devolve a qualidade ("Vice-Diretor, no impedimento do Diretor") e as linhas de identificação dele.
+ */
+export async function substituicaoDiretor(u: Usuario, alvo: Alvo, nomeCertificado: string) {
+  if (!u.vice_diretor) return null;
+  if ("campo" in alvo && !/diretor/i.test(alvo.campo)) return null;
+  const fixos = Object.fromEntries((await camposFixos()).map((c) => [c.chave, c.valor?.trim() ?? ""]));
+  const titular = /diretora/i.test(fixos.diretor_cargo ?? "") ? "da Diretora" : "do Diretor";
+  const cargo = fixos.vice_cargo || "Vice-Diretor";
+  const qualidade = `${cargo}, no impedimento ${titular}`;
+  return { qualidade, rodape: [(fixos.vice_nome || nomeCertificado).toUpperCase(), fixos.vice_posto ?? "", qualidade].filter(Boolean) };
+}
+
 /** Prepara a assinatura de um documento anexado: num campo existente ou numa posição escolhida na página. */
 export async function prepararDocumento(u: Usuario, documentoId: number, alvo: Alvo, decisao?: DecisaoEscolhida) {
-  const cert = await certificadoDoUsuario(u);
-  if (!cert) return { identificar: true as const };
+  const certificado = await certificadoDoUsuario(u);
+  if (!certificado) return { identificar: true as const };
+  const sub = await substituicaoDiretor(u, alvo, certificado.nome);
+  const cert = { ...certificado, qualidade: sub?.qualidade ?? null };
   const [d] = await sql`select id, nota_id, nome_arquivo from documentos where id = ${documentoId} and removido_em is null`;
   if (!d) throw new Error("Documento não encontrado (talvez já tenha sido substituído por uma versão mais nova). Atualize a página.");
   const a = await arquivoDoDocumento(d.id as number);
@@ -135,10 +154,10 @@ export async function prepararDocumento(u: Usuario, documentoId: number, alvo: A
     gravada = { campo: alvo.campo, opcao: decisao.opcao, observacao: String(decisao.observacao ?? "").slice(0, 1500) };
   }
   const p = "campo" in alvo
-    ? await prepararCampo(a.bytes, alvo.campo, cert, new Date(), gravada ? { titulo: def!.titulo, opcoes: def!.opcoes, escolhida: gravada.opcao, observacao: gravada.observacao } : undefined)
+    ? await prepararCampo(a.bytes, alvo.campo, cert, new Date(), gravada ? { titulo: def!.titulo, opcoes: def!.opcoes, escolhida: gravada.opcao, observacao: gravada.observacao, rodape: sub?.rodape } : undefined)
     : await prepararNovoCampo(a.bytes, Math.max(0, Math.floor(alvo.pagina)), Number(alvo.x), Number(alvo.y), `Assinatura de ${cert.nome}`, cert);
-  const [s] = await sql`insert into assinaturas_token (usuario_id, nota_id, campo, nome_arquivo, pdf, posicao, resumo, base_documento_id, documento_origem_id, decisao)
+  const [s] = await sql`insert into assinaturas_token (usuario_id, nota_id, campo, nome_arquivo, pdf, posicao, resumo, base_documento_id, documento_origem_id, decisao, substituicao)
                         values (${u.id}, ${d.nota_id}, ${"campo" in alvo ? alvo.campo : `página ${alvo.pagina + 1}`}, ${d.nome_arquivo}, ${Buffer.from(p.pdf)},
-                                ${p.posicao}, ${p.resumo}, ${d.id}, ${d.id}, ${gravada ? sql.json(gravada as never) : null}) returning id`;
+                                ${p.posicao}, ${p.resumo}, ${d.id}, ${d.id}, ${gravada ? sql.json(gravada as never) : null}, ${sub?.qualidade ?? null}) returning id`;
   return { id: s.id as number, resumo: p.resumo };
 }

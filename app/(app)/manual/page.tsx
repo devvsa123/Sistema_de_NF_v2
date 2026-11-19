@@ -57,6 +57,7 @@ export default async function Manual() {
           <li><B>Consulta</B>: vê todas as notas, a área Gerencial e os relatórios, sem tramitar.</li>
           <li><B>Fornecedor</B>: vê somente as NF emitidas pelo próprio CNPJ, sem observações internas.</li>
           <li><B>Administrador geral</B>: acesso total, inclusive caminho da tramitação, modelos de documentos, importação, usuários e ajustes.</li>
+          <li><B>Vice-Diretor</B>: perfil Interno com a opção <B>Vice-Diretor</B> marcada no cadastro. Recebe o setor do Diretor automaticamente e, quando assina no lugar do Diretor, o documento registra que foi no impedimento dele.</li>
           <li><B>Administrador de usuários</B>: além do próprio perfil (interno ou consulta), cadastra e edita usuários e empresas. Não altera administradores nem as configurações do sistema.</li>
         </Lista>
       </>,
@@ -151,6 +152,7 @@ export default async function Manual() {
         </Passos>
         <Lista>
           <li>Somente o Diretor reprova a NF. A Perícia e a Técnica indicam a reprovação no parecer.</li>
+          <li><B>Vice-Diretor</B>: na ausência do Diretor, o Vice-Diretor assina o campo do Diretor e decide da mesma forma. O selo da assinatura, o nome impresso abaixo do quadro e o histórico da NF saem como <B>“Vice-Diretor, no impedimento do Diretor”</B>. O nome e o posto dele ficam em Administração → Modelos de documentos (campos do Vice-Diretor); sem nome cadastrado, vale o nome do certificado.</li>
           <li>A decisão e as observações ficam gravadas dentro da assinatura digital (não podem ser alteradas depois) e no histórico da NF.</li>
           <li>Se o parecer for refeito, ele mantém o mesmo número e a versão anterior é substituída (fica guardada).</li>
         </Lista>

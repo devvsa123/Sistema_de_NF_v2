@@ -20,12 +20,12 @@ export async function podeDecidir(u: Usuario, campo: string) {
 export type DecisaoGravada = DecisaoEscolhida & { campo: string };
 
 /** Depois da assinatura: histórico, destaque de reprovação e movimentação da NF. Devolve um texto para quem assinou. */
-export async function aplicarDecisao(u: Usuario, notaId: number, d: DecisaoGravada) {
+export async function aplicarDecisao(u: Usuario, notaId: number, d: DecisaoGravada, substituicao?: string | null) {
   const def = DECISOES[d.campo];
   if (!def) return "";
   const opcao = def.opcoes[d.opcao] ?? "";
   const tecnica = d.campo === "Encarregado da Divisao Tecnica";
-  const rotulo = tecnica ? "Parecer do Encarregado da Divisão Técnica" : "Resolução do Sr. Diretor";
+  const rotulo = tecnica ? "Parecer do Encarregado da Divisão Técnica" : `Resolução do Sr. Diretor${substituicao ? ` (assinada pelo ${substituicao})` : ""}`;
   const texto = `${rotulo}: ${opcao}${d.observacao.trim() ? ` — ${d.observacao.trim()}` : ""}`;
   await registrarEvento(sql, { nota_id: notaId, tipo: "parecer", usuario: u, texto });
 
