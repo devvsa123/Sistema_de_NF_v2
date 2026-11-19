@@ -87,6 +87,35 @@ export async function aderenciaFifo(dias: number) {
     from s group by 1`;
 }
 
+export type FuraFila = {
+  id: number; numero: string; emit_cnpj: string; emit_nome: string; sob_medida: boolean; etapa_id: number; etapa: string;
+  entrada: Date; saida: Date; passou: number; por: string | null; para: string | null; tipo: string | null;
+};
+
+/**
+ * NF que furaram a fila: saíram de uma etapa (na janela de dias) enquanto outras, que tinham chegado antes,
+ * continuavam esperando. Mesma regra e tolerância de 1 hora da aderência à fila.
+ * `passou` = quantas NF mais antigas ficaram para trás naquela saída.
+ */
+export async function furaramFila(dias: number) {
+  return sql<FuraFila[]>`
+    with p as (${PASS}), s as (select * from p where saida >= ${desdeDias(dias)})
+    select n.id, n.numero, n.emit_cnpj, n.emit_nome, n.sob_medida, s.etapa_id, e.nome as etapa, s.entrada, s.saida, x.passou,
+           ev.usuario_nome as por, ev.para_nome as para, ev.tipo
+    from s
+    join lateral (
+      select count(*)::int as passou from p q
+      where q.etapa_id = s.etapa_id and q.nota_id <> s.nota_id
+        and q.entrada < s.entrada - interval '1 hour' and (q.saida is null or q.saida > s.saida + interval '1 hour')
+    ) x on x.passou > 0
+    join notas n on n.id = s.nota_id
+    join etapas e on e.id = s.etapa_id
+    left join lateral (
+      select usuario_nome, para_nome, tipo from eventos where nota_id = s.nota_id and movimento and criado_em = s.saida order by id limit 1
+    ) ev on true
+    order by s.saida desc`;
+}
+
 export type Ultrapassada = { id: number; numero: string; emit_nome: string; etapa_id: number; etapa: string; entrada: Date; dias: number; vezes: number };
 
 /** NF que estão hoje numa etapa e já viram NF que chegaram depois saírem na frente. */

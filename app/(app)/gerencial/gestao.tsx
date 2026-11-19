@@ -3,9 +3,10 @@ import type { ReactNode } from "react";
 import { etapasAtivas, prazoReprovada, type Etapa } from "@/lib/fluxo";
 import { hojeSP, somarDias } from "@/lib/gerencial";
 import {
-  aderenciaFifo, alertas, balanco, envelhecimento, estoqueDiario, FAIXAS_IDADE, fluxoSemanal, previsoes, retrabalho, ultrapassadas,
+  aderenciaFifo, alertas, balanco, envelhecimento, estoqueDiario, FAIXAS_IDADE, fluxoSemanal, furaramFila, previsoes, retrabalho, ultrapassadas,
+  type FuraFila,
 } from "@/lib/gestao";
-import { data, dias, moeda } from "@/lib/format";
+import { cnpj, data, dataHora, dias, linkNota, moeda } from "@/lib/format";
 import { Indicador, Vazio } from "@/components/ui";
 import { AreasEmpilhadas, CATEGORICAS, COR, COR_OUTROS, Legenda, Linhas } from "@/components/graficos";
 
@@ -200,7 +201,9 @@ export async function AbaFluxo({ janela: jP }: { janela?: string }) {
 
 export async function AbaFila({ janela: jP }: { janela?: string }) {
   const janela = janelaValida(jP, [30, 60, 90, 180], 60);
-  const [etapas, prazoReprov, fifo, ultra, idade] = await Promise.all([etapasAtivas(), prazoReprovada(), aderenciaFifo(janela), ultrapassadas(), envelhecimento()]);
+  const [etapas, prazoReprov, fifo, ultra, idade, furas] = await Promise.all([
+    etapasAtivas(), prazoReprovada(), aderenciaFifo(janela), ultrapassadas(), envelhecimento(), furaramFila(janela),
+  ]);
   const tot = fifo.reduce((a, f) => ({ s: a.s + f.saidas, f: a.f + f.fora }), { s: 0, f: 0 });
   const linhasIdade = [...etapas.map((e) => ({ chave: e.id, nome: e.nome, prazo: e.prazo_dias })), { chave: 0, nome: "Reprovadas", prazo: prazoReprov }];
   const maxCel = Math.max(1, ...idade.map((x) => x.n));
@@ -239,6 +242,11 @@ export async function AbaFila({ janela: jP }: { janela?: string }) {
           })}
         </div>
         <div className="mt-3"><Legenda itens={[{ cor: COR.bom, nome: "Saiu na ordem de chegada" }, { cor: COR.atencao, nome: "Saiu na frente de NF mais antiga" }]} /></div>
+      </Cartao>
+
+      <Cartao titulo="NF que furaram a fila, por empresa"
+        descricao={<>Saídas dos últimos {janela} dias em que a NF foi despachada (ou devolvida) na frente de outras que tinham chegado antes ao mesmo setor e continuavam esperando. Clique na empresa para ver as NF. Sob medida, perícia laboratorial e pendências do fornecedor podem justificar a exceção: confira o histórico da NF.</>}>
+        <FuraramFila furas={furas} volta={`/gerencial?aba=fila&janela=${janela}`} />
       </Cartao>
 
       <Cartao titulo="NF ultrapassadas na fila"
@@ -420,6 +428,67 @@ export async function AbaRetrabalho({ janela: jP }: { janela?: string }) {
           </div>
         )}
       </Cartao>
+    </div>
+  );
+}
+
+const TIPO_SAIDA: Record<string, string> = { avanco: "Despachada", retorno: "Devolvida", reprovacao: "Reprovada", finalizacao: "Finalizada", retirada: "Retirada", ajuste: "Ajuste do admin" };
+
+/** Compilado por empresa das saídas fora de ordem; cada empresa abre a lista das NF. */
+function FuraramFila({ furas, volta }: { furas: FuraFila[]; volta: string }) {
+  if (!furas.length) return <p className="text-sm text-slate-500">Nenhuma NF furou a fila no período. Todas as saídas respeitaram a ordem de chegada.</p>;
+  const porEmpresa = new Map<string, { nome: string; cnpj: string; linhas: FuraFila[] }>();
+  for (const f of furas) {
+    const g = porEmpresa.get(f.emit_cnpj) ?? { nome: f.emit_nome, cnpj: f.emit_cnpj, linhas: [] };
+    g.linhas.push(f);
+    porEmpresa.set(f.emit_cnpj, g);
+  }
+  const grupos = [...porEmpresa.values()]
+    .map((g) => ({ ...g, nfs: new Set(g.linhas.map((l) => l.id)).size, passou: g.linhas.reduce((a, l) => a + l.passou, 0), setores: [...new Set(g.linhas.map((l) => l.etapa))] }))
+    .sort((a, b) => b.linhas.length - a.linhas.length || b.passou - a.passou);
+  const totalNfs = new Set(furas.map((f) => f.id)).size;
+  return (
+    <div>
+      <p className="mb-3 text-sm text-slate-600"><strong className="text-slate-900">{totalNfs} NF</strong> de <strong className="text-slate-900">{grupos.length} empresa(s)</strong> · {furas.length} saída(s) fora de ordem.</p>
+      <div className="overflow-hidden rounded-lg border border-slate-200">
+        <div className="hidden grid-cols-[1fr_7rem_7rem_9rem_1.2fr] gap-3 bg-slate-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 md:grid">
+          <span>Empresa</span><span className="text-right">NF</span><span className="text-right">Saídas fora</span><span className="text-right">NF deixadas p/ trás</span><span>Setores</span>
+        </div>
+        {grupos.map((g) => (
+          <details key={g.cnpj} className="group border-t border-slate-200 first:border-t-0">
+            <summary className="grid cursor-pointer list-none grid-cols-2 gap-x-3 gap-y-1 px-3 py-2.5 text-sm hover:bg-blue-50/50 md:grid-cols-[1fr_7rem_7rem_9rem_1.2fr] md:items-center [&::-webkit-details-marker]:hidden">
+              <span className="col-span-2 flex items-center gap-2 md:col-span-1">
+                <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 shrink-0 text-slate-400 transition group-open:rotate-90" fill="currentColor" aria-hidden><path d="M7 5l6 5-6 5V5z" /></svg>
+                <span><span className="font-semibold text-slate-900">{g.nome}</span> <span className="block text-xs text-slate-500">{cnpj(g.cnpj)}</span></span>
+              </span>
+              <span className="text-xs text-slate-500 md:text-right md:text-sm md:text-slate-900"><span className="md:hidden">NF: </span><strong>{g.nfs}</strong></span>
+              <span className="text-xs text-slate-500 md:text-right md:text-sm md:text-slate-900"><span className="md:hidden">Saídas fora: </span><strong className="text-amber-700">{g.linhas.length}</strong></span>
+              <span className="text-xs text-slate-500 md:text-right md:text-sm md:text-slate-900"><span className="md:hidden">Deixadas p/ trás: </span><strong>{g.passou}</strong></span>
+              <span className="text-xs text-slate-600">{g.setores.join(", ")}</span>
+            </summary>
+            <div className="overflow-x-auto border-t border-slate-100 bg-slate-50/60 px-3 py-2">
+              <table className="tabela">
+                <thead><tr><th>NF</th><th>Setor</th><th>Chegou → saiu</th><th>Saída</th><th>Por</th><th className="text-right">Na frente de</th></tr></thead>
+                <tbody>
+                  {g.linhas.map((l, i) => (
+                    <tr key={`${l.id}-${l.etapa_id}-${i}`}>
+                      <td className="whitespace-nowrap">
+                        <Link href={linkNota(l.id, volta)} className="font-semibold text-marinha hover:underline">{l.numero}</Link>
+                        {l.sob_medida && <span className="ml-1.5 rounded bg-violet-600 px-1 py-0.5 text-[9px] font-bold uppercase text-white">Sob medida</span>}
+                      </td>
+                      <td className="whitespace-nowrap">{l.etapa}</td>
+                      <td className="whitespace-nowrap text-xs">{dataHora(l.entrada)}<span className="block text-slate-500">→ {dataHora(l.saida)}</span></td>
+                      <td className="whitespace-nowrap">{TIPO_SAIDA[l.tipo ?? ""] ?? l.tipo ?? "—"}{l.para ? <span className="text-slate-500"> → {l.para}</span> : null}</td>
+                      <td className="max-w-40 truncate text-xs" title={l.por ?? undefined}>{l.por ?? "—"}</td>
+                      <td className={`text-right font-semibold ${l.passou >= 3 ? "text-red-600" : "text-amber-700"}`}>{l.passou} NF</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        ))}
+      </div>
     </div>
   );
 }
