@@ -213,3 +213,26 @@ export async function acaoImportarNotas(linhas: Linha[]) {
   revalidatePath("/", "layout");
   return r;
 }
+
+/** Tolerância da fila (FIFO), em dias: padrão e por etapa (vazio = usa o padrão). Somente o administrador geral. */
+export async function acaoSalvarToleranciaFila(_: Estado, f: FormData): Promise<Estado> {
+  await exigirAdmin();
+  const ler = (v: string) => {
+    const t = v.replace(",", ".").trim();
+    if (!t) return null;
+    const n = Number(t);
+    if (!Number.isFinite(n) || n < 0 || n > 365) throw new Error("Informe dias entre 0 e 365 (ex.: 2 ou 1,5).");
+    return Math.round(n * 10) / 10;
+  };
+  try {
+    const padrao = ler(campo(f, "padrao")) ?? 0;
+    const porEtapa: Record<number, number | null> = {};
+    for (const e of await etapasAtivas()) porEtapa[e.id] = ler(campo(f, `etapa_${e.id}`));
+    const { salvarToleranciaFila } = await import("@/lib/gestao");
+    await salvarToleranciaFila(padrao, porEtapa);
+  } catch (e) {
+    return { erro: e instanceof Error ? e.message : "Erro ao salvar." };
+  }
+  revalidatePath("/gerencial");
+  return { ok: "Tolerância da fila salva. Os indicadores já foram recalculados." };
+}

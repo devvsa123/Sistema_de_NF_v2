@@ -77,7 +77,7 @@ export default async function Gerencial({ searchParams }: PageProps<"/gerencial"
       {aba === "fornecedores" && <AbaFornecedores de={p("de")} ate={p("ate")} />}
       {aba === "alertas" && <AbaAlertas />}
       {aba === "fluxo" && <AbaFluxo janela={p("janela")} />}
-      {aba === "fila" && <AbaFila janela={p("janela")} />}
+      {aba === "fila" && <AbaFila janela={p("janela")} admin={u.papel === "admin"} />}
       {aba === "previsao" && <AbaPrevisao />}
       {aba === "retrabalho" && <AbaRetrabalho janela={p("janela")} />}
     </div>

@@ -17,6 +17,32 @@ const MOV = sql`
   from eventos ev where ev.movimento
   window w as (partition by ev.nota_id order by ev.criado_em, ev.id)`;
 
+/**
+ * Tolerância da fila por etapa: NF que chegaram com diferença menor que isso podem sair em qualquer ordem
+ * (filas paralelas, NF maiores que outras). Nunca menos de 1 hora (NF tramitadas juntas, no mesmo lote).
+ */
+const TOL = sql`
+  select e.id as etapa_id,
+         greatest(coalesce(e.tolerancia_fila_dias,
+                           (select coalesce(nullif(valor, '')::numeric, 0) from config where chave = 'fifo_tolerancia_dias'), 0) * interval '1 day',
+                  interval '1 hour') as t
+  from etapas e`;
+
+export async function toleranciaFila() {
+  const [[c], etapas] = await Promise.all([
+    sql`select valor from config where chave = 'fifo_tolerancia_dias'`,
+    sql<{ id: number; tolerancia: string | null }[]>`select id, tolerancia_fila_dias::text as tolerancia from etapas where ativo`,
+  ]);
+  return { padrao: Number(c?.valor ?? 0) || 0, porEtapa: Object.fromEntries(etapas.map((e) => [e.id, e.tolerancia === null ? null : Number(e.tolerancia)])) as Record<number, number | null> };
+}
+
+export async function salvarToleranciaFila(padrao: number, porEtapa: Record<number, number | null>) {
+  await sql.begin(async (tx) => {
+    await tx`insert into config (chave, valor) values ('fifo_tolerancia_dias', ${String(padrao)}) on conflict (chave) do update set valor = excluded.valor`;
+    for (const [id, v] of Object.entries(porEtapa)) await tx`update etapas set tolerancia_fila_dias = ${v} where id = ${Number(id)}`;
+  });
+}
+
 /** Passagens pelas etapas em trâmite (sem os períodos como reprovada). */
 const PASS = sql`select nota_id, etapa_id, entrada, saida from permanencias where status = 'em_tramite' and etapa_id is not null`;
 
@@ -79,11 +105,12 @@ export async function fluxoSemanal(semanas: number) {
  */
 export async function aderenciaFifo(dias: number) {
   return sql<{ etapa_id: number; saidas: number; fora: number }[]>`
-    with p as (${PASS}), s as (select p.*, n.sob_medida from p join notas n on n.id = p.nota_id where p.saida >= ${desdeDias(dias)})
+    with p as (${PASS}), tol as (${TOL}),
+    s as (select p.*, n.sob_medida, tol.t from p join notas n on n.id = p.nota_id join tol on tol.etapa_id = p.etapa_id where p.saida >= ${desdeDias(dias)})
     select s.etapa_id, count(*)::int as saidas,
            count(*) filter (where not s.sob_medida and exists (
              select 1 from p q where q.etapa_id = s.etapa_id and q.nota_id <> s.nota_id
-               and q.entrada < s.entrada - interval '1 hour' and (q.saida is null or q.saida > s.saida + interval '1 hour')))::int as fora
+               and q.entrada < s.entrada - s.t and (q.saida is null or q.saida > s.saida + interval '1 hour')))::int as fora
     from s group by 1`;
 }
 
@@ -100,14 +127,15 @@ export type FuraFila = {
  */
 export async function furaramFila(dias: number) {
   return sql<FuraFila[]>`
-    with p as (${PASS}), s as (select * from p where saida >= ${desdeDias(dias)})
+    with p as (${PASS}), tol as (${TOL}),
+    s as (select p.*, tol.t from p join tol on tol.etapa_id = p.etapa_id where p.saida >= ${desdeDias(dias)})
     select n.id, n.numero, n.emit_cnpj, n.emit_nome, n.sob_medida, s.etapa_id, e.nome as etapa, s.entrada, s.saida, x.passou,
            ev.usuario_nome as por, ev.para_nome as para, ev.tipo
     from s
     join lateral (
       select count(*)::int as passou from p q
       where q.etapa_id = s.etapa_id and q.nota_id <> s.nota_id
-        and q.entrada < s.entrada - interval '1 hour' and (q.saida is null or q.saida > s.saida + interval '1 hour')
+        and q.entrada < s.entrada - s.t and (q.saida is null or q.saida > s.saida + interval '1 hour')
     ) x on x.passou > 0
     join notas n on n.id = s.nota_id and not n.sob_medida
     join etapas e on e.id = s.etapa_id
@@ -122,14 +150,15 @@ export type Ultrapassada = { id: number; numero: string; emit_nome: string; etap
 /** NF que estão hoje numa etapa e já viram NF que chegaram depois saírem na frente. */
 export async function ultrapassadas() {
   return sql<Ultrapassada[]>`
-    with p as (${PASS}),
-    atual as (select p.* from p join notas n on n.id = p.nota_id and n.status = 'em_tramite' and n.etapa_id = p.etapa_id where p.saida is null)
+    with p as (${PASS}), tol as (${TOL}),
+    atual as (select p.*, tol.t from p join notas n on n.id = p.nota_id and n.status = 'em_tramite' and n.etapa_id = p.etapa_id
+              join tol on tol.etapa_id = p.etapa_id where p.saida is null)
     select n.id, n.numero, n.emit_nome, a.etapa_id, e.nome as etapa, a.entrada,
            extract(epoch from now() - a.entrada) / 86400 as dias, count(o.nota_id)::int as vezes
     from atual a
     join notas n on n.id = a.nota_id
     join etapas e on e.id = a.etapa_id
-    join p o on o.etapa_id = a.etapa_id and o.nota_id <> a.nota_id and o.entrada > a.entrada + interval '1 hour' and o.saida is not null
+    join p o on o.etapa_id = a.etapa_id and o.nota_id <> a.nota_id and o.entrada > a.entrada + a.t and o.saida is not null
       and not exists (select 1 from notas sm where sm.id = o.nota_id and sm.sob_medida)
     group by n.id, a.etapa_id, e.nome, e.ordem, a.entrada
     order by vezes desc, a.entrada`;

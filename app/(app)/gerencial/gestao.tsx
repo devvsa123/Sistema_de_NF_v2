@@ -4,8 +4,10 @@ import { etapasAtivas, prazoReprovada, type Etapa } from "@/lib/fluxo";
 import { hojeSP, somarDias } from "@/lib/gerencial";
 import {
   aderenciaFifo, alertas, balanco, envelhecimento, estoqueDiario, FAIXAS_IDADE, fluxoSemanal, furaramFila, previsoes, retrabalho, ultrapassadas,
-  type FuraFila,
+  toleranciaFila, type FuraFila,
 } from "@/lib/gestao";
+import { FormAcao } from "@/components/FormAcao";
+import { acaoSalvarToleranciaFila } from "@/app/acoes/admin";
 import { cnpj, data, dataHora, dias, linkNota, moeda } from "@/lib/format";
 import { Indicador, Vazio } from "@/components/ui";
 import { AreasEmpilhadas, CATEGORICAS, COR, COR_OUTROS, Legenda, Linhas } from "@/components/graficos";
@@ -199,10 +201,10 @@ export async function AbaFluxo({ janela: jP }: { janela?: string }) {
 
 // ================================================================ Fila (FIFO) e envelhecimento
 
-export async function AbaFila({ janela: jP }: { janela?: string }) {
+export async function AbaFila({ janela: jP, admin = false }: { janela?: string; admin?: boolean }) {
   const janela = janelaValida(jP, [30, 60, 90, 180], 60);
-  const [etapas, prazoReprov, fifo, ultra, idade, furas] = await Promise.all([
-    etapasAtivas(), prazoReprovada(), aderenciaFifo(janela), ultrapassadas(), envelhecimento(), furaramFila(janela),
+  const [etapas, prazoReprov, fifo, ultra, idade, furas, tol] = await Promise.all([
+    etapasAtivas(), prazoReprovada(), aderenciaFifo(janela), ultrapassadas(), envelhecimento(), furaramFila(janela), toleranciaFila(),
   ]);
   const tot = fifo.reduce((a, f) => ({ s: a.s + f.saidas, f: a.f + f.fora }), { s: 0, f: 0 });
   const linhasIdade = [...etapas.map((e) => ({ chave: e.id, nome: e.nome, prazo: e.prazo_dias })), { chave: 0, nome: "Reprovadas", prazo: prazoReprov }];
@@ -220,6 +222,8 @@ export async function AbaFila({ janela: jP }: { janela?: string }) {
         <Indicador titulo="NF ultrapassadas agora" valor={ultra.length} detalhe="mais antigas, ainda paradas, com outras já despachadas na frente" cor={ultra.length ? "text-amber-700" : "text-slate-900"} />
         <Indicador titulo="Ultrapassadas 3+ vezes" valor={ultra.filter((u) => u.vezes >= 3).length} cor={ultra.some((u) => u.vezes >= 3) ? "text-red-600" : "text-slate-900"} />
       </div>
+
+      <ToleranciaFila etapas={etapas} tol={tol} admin={admin} />
 
       <Cartao titulo="Aderência à fila única por setor"
         descricao="Uma saída é “fora de ordem” quando o setor despachou ou devolveu uma NF enquanto outra, que tinha chegado antes, continuava esperando. Saídas de NF sob medida não contam como fora de ordem. Há motivos legítimos (perícia laboratorial, pendência do fornecedor), mas o normal é a fila andar na ordem de chegada.">
@@ -489,5 +493,52 @@ function FuraramFila({ furas, volta }: { furas: FuraFila[]; volta: string }) {
         ))}
       </div>
     </div>
+  );
+}
+
+const fmtDias = (n: number) => `${n.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} dia${n === 1 ? "" : "s"}`;
+
+/** Intervalo de dias em que NF podem sair em qualquer ordem sem contar como furar a fila. */
+function ToleranciaFila({ etapas, tol, admin }: { etapas: Etapa[]; tol: { padrao: number; porEtapa: Record<number, number | null> }; admin: boolean }) {
+  const resumo = etapas.filter((e) => tol.porEtapa[e.id] !== null && tol.porEtapa[e.id] !== undefined);
+  return (
+    <details className="cartao group p-5" open={false}>
+      <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
+        <span>
+          <span className="text-[15px] font-semibold text-slate-900">Tolerância de ordem da fila</span>
+          <span className="mt-0.5 block text-xs text-slate-500">
+            Padrão: <strong className="text-slate-700">{tol.padrao ? fmtDias(tol.padrao) : "sem tolerância"}</strong>
+            {resumo.length > 0 && <> · {resumo.map((e) => `${e.nome}: ${fmtDias(tol.porEtapa[e.id]!)}`).join(" · ")}</>}
+          </span>
+        </span>
+        <span className="text-xs font-medium text-marinha group-open:hidden">{admin ? "Alterar" : "Ver detalhes"}</span>
+      </summary>
+      <p className="mt-3 max-w-3xl text-xs leading-relaxed text-slate-500">
+        NF que chegaram ao setor com até esta diferença de dias, para mais ou para menos, podem sair em qualquer ordem: é tramitação dentro da ordem
+        (ex.: filas de contagem paralelas, NF maiores que outras). Só conta como furar a fila quando a NF que ficou para trás chegou <strong>mais de X dias antes</strong>.
+        Com 0, vale a ordem exata de chegada (com 1 hora de folga para NF tramitadas juntas). Vale para os indicadores, a lista por empresa e as NF ultrapassadas.
+      </p>
+      {admin ? (
+        <FormAcao acao={acaoSalvarToleranciaFila} botao="Salvar tolerância" className="mt-4 space-y-4">
+          <label className="block max-w-xs"><span className="rotulo">Padrão para todos os setores (dias)</span>
+            <input name="padrao" defaultValue={String(tol.padrao).replace(".", ",")} className="campo" inputMode="decimal" maxLength={5} /></label>
+          <div>
+            <p className="rotulo">Por setor (vazio = usa o padrão)</p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {etapas.map((e) => (
+                <label key={e.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm">
+                  <span className="truncate text-slate-700">{e.nome}</span>
+                  <span className="flex items-center gap-1.5">
+                    <input name={`etapa_${e.id}`} defaultValue={tol.porEtapa[e.id] === null || tol.porEtapa[e.id] === undefined ? "" : String(tol.porEtapa[e.id]).replace(".", ",")}
+                      placeholder={String(tol.padrao).replace(".", ",")} className="campo h-8 w-16 text-right tabular-nums" inputMode="decimal" maxLength={5} aria-label={`Tolerância de ${e.nome} em dias`} />
+                    <span className="text-xs text-slate-500">dias</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </FormAcao>
+      ) : <p className="mt-3 text-xs text-slate-500">Somente o administrador geral altera a tolerância.</p>}
+    </details>
   );
 }
