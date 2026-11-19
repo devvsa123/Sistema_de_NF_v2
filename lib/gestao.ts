@@ -79,9 +79,9 @@ export async function fluxoSemanal(semanas: number) {
  */
 export async function aderenciaFifo(dias: number) {
   return sql<{ etapa_id: number; saidas: number; fora: number }[]>`
-    with p as (${PASS}), s as (select * from p where saida >= ${desdeDias(dias)})
+    with p as (${PASS}), s as (select p.*, n.sob_medida from p join notas n on n.id = p.nota_id where p.saida >= ${desdeDias(dias)})
     select s.etapa_id, count(*)::int as saidas,
-           count(*) filter (where exists (
+           count(*) filter (where not s.sob_medida and exists (
              select 1 from p q where q.etapa_id = s.etapa_id and q.nota_id <> s.nota_id
                and q.entrada < s.entrada - interval '1 hour' and (q.saida is null or q.saida > s.saida + interval '1 hour')))::int as fora
     from s group by 1`;
@@ -95,6 +95,7 @@ export type FuraFila = {
 /**
  * NF que furaram a fila: saíram de uma etapa (na janela de dias) enquanto outras, que tinham chegado antes,
  * continuavam esperando. Mesma regra e tolerância de 1 hora da aderência à fila.
+ * NF sob medida não contam como furadoras (têm prioridade própria).
  * `passou` = quantas NF mais antigas ficaram para trás naquela saída.
  */
 export async function furaramFila(dias: number) {
@@ -108,7 +109,7 @@ export async function furaramFila(dias: number) {
       where q.etapa_id = s.etapa_id and q.nota_id <> s.nota_id
         and q.entrada < s.entrada - interval '1 hour' and (q.saida is null or q.saida > s.saida + interval '1 hour')
     ) x on x.passou > 0
-    join notas n on n.id = s.nota_id
+    join notas n on n.id = s.nota_id and not n.sob_medida
     join etapas e on e.id = s.etapa_id
     left join lateral (
       select usuario_nome, para_nome, tipo from eventos where nota_id = s.nota_id and movimento and criado_em = s.saida order by id limit 1
@@ -129,6 +130,7 @@ export async function ultrapassadas() {
     join notas n on n.id = a.nota_id
     join etapas e on e.id = a.etapa_id
     join p o on o.etapa_id = a.etapa_id and o.nota_id <> a.nota_id and o.entrada > a.entrada + interval '1 hour' and o.saida is not null
+      and not exists (select 1 from notas sm where sm.id = o.nota_id and sm.sob_medida)
     group by n.id, a.etapa_id, e.nome, e.ordem, a.entrada
     order by vezes desc, a.entrada`;
 }

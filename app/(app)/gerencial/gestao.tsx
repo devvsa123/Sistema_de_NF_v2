@@ -222,7 +222,7 @@ export async function AbaFila({ janela: jP }: { janela?: string }) {
       </div>
 
       <Cartao titulo="Aderência à fila única por setor"
-        descricao="Uma saída é “fora de ordem” quando o setor despachou ou devolveu uma NF enquanto outra, que tinha chegado antes, continuava esperando. Há motivos legítimos (perícia laboratorial, pendência do fornecedor), mas o normal é a fila andar na ordem de chegada.">
+        descricao="Uma saída é “fora de ordem” quando o setor despachou ou devolveu uma NF enquanto outra, que tinha chegado antes, continuava esperando. Saídas de NF sob medida não contam como fora de ordem. Há motivos legítimos (perícia laboratorial, pendência do fornecedor), mas o normal é a fila andar na ordem de chegada.">
         <div className="space-y-2.5">
           {etapas.map((e) => {
             const f = fifo.find((x) => x.etapa_id === e.id) ?? { saidas: 0, fora: 0 };
@@ -245,7 +245,7 @@ export async function AbaFila({ janela: jP }: { janela?: string }) {
       </Cartao>
 
       <Cartao titulo="NF que furaram a fila, por empresa"
-        descricao={<>Saídas dos últimos {janela} dias em que a NF foi despachada (ou devolvida) na frente de outras que tinham chegado antes ao mesmo setor e continuavam esperando. Clique na empresa para ver as NF. Sob medida, perícia laboratorial e pendências do fornecedor podem justificar a exceção: confira o histórico da NF.</>}>
+        descricao={<>Saídas dos últimos {janela} dias em que a NF foi despachada (ou devolvida) na frente de outras que tinham chegado antes ao mesmo setor e continuavam esperando. Clique na empresa para ver as NF. NF sob medida não entram (têm prioridade própria). Perícia laboratorial e pendências do fornecedor podem justificar a exceção: confira o histórico da NF.</>}>
         <FuraramFila furas={furas} volta={`/gerencial?aba=fila&janela=${janela}`} />
       </Cartao>
 
@@ -474,7 +474,6 @@ function FuraramFila({ furas, volta }: { furas: FuraFila[]; volta: string }) {
                     <tr key={`${l.id}-${l.etapa_id}-${i}`}>
                       <td className="whitespace-nowrap">
                         <Link href={linkNota(l.id, volta)} className="font-semibold text-marinha hover:underline">{l.numero}</Link>
-                        {l.sob_medida && <span className="ml-1.5 rounded bg-violet-600 px-1 py-0.5 text-[9px] font-bold uppercase text-white">Sob medida</span>}
                       </td>
                       <td className="whitespace-nowrap">{l.etapa}</td>
                       <td className="whitespace-nowrap text-xs">{dataHora(l.entrada)}<span className="block text-slate-500">→ {dataHora(l.saida)}</span></td>
