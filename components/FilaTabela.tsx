@@ -12,7 +12,7 @@ import { BotaoDocumentos } from "./DocumentosProcesso";
 
 export type LinhaFila = {
   id: number; numero: string; empresa: string; valor: string; oc: string; dias: string; farol: "verde" | "amarelo" | "vermelho" | null;
-  obs: string; comentarios: number; docs: number; docsFaltando: string; sobMedida: boolean; reprovacao: string; idPa: string; editaIdPa: boolean; exigeIdPa: boolean; obsOc: string; arrecadada: boolean; recebida: string; total: string; situacao?: string;
+  obs: string; comentarios: number; docs: number; docsFaltando: string; sobMedida: boolean; servico: boolean; reprovacao: string; idPa: string; editaIdPa: boolean; exigeIdPa: boolean; obsOc: string; arrecadada: boolean; recebida: string; total: string; situacao?: string;
 };
 export type BotaoFila = { acao: Acao; rotulo: string; estilo?: "principal" | "sec" | "perigo" };
 
@@ -87,6 +87,7 @@ export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, 
                     <Link href={linkNota(l.id, volta)} className="font-semibold text-marinha hover:underline">{l.numero}</Link>
                     {l.reprovacao && <span title="A perícia indicou reprovação; aguarda a resolução do Diretor" className="ml-2 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">{l.reprovacao === "tecnica" ? "Reprovação indicada" : "Reprovada na perícia"}</span>}
                     {l.sobMedida && <span title="Material sob medida" className="ml-2 rounded bg-violet-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Sob medida</span>}
+                    {l.servico && <span title="NF de serviço: Certificado de Prestação de Serviços, assinado só pela Estocagem" className="ml-2 rounded bg-teal-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Serviço</span>}
                     <ItensRapidos id={l.id} numero={l.numero} volta={volta} />
                     <BotaoDocumentos notaId={l.id} numero={l.numero} total={l.docs} faltando={l.docsFaltando} />
                     {docsRecebimento && <Link href={`/notas/${l.id}/recebimento${volta ? `?volta=${encodeURIComponent(volta)}` : ""}`} className="ml-2 rounded border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 hover:border-marinha hover:text-marinha">TAV / Check-list</Link>}

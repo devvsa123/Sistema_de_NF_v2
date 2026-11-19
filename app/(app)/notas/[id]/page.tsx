@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { descreverMotivo } from "@/lib/tipo-nf";
 import { notFound } from "next/navigation";
 import { ehInterno, exigirUsuario, podeCadastrar } from "@/lib/auth";
 import { acoesPermitidas, etapasAtivas, prazoReprovada, vizinhos, type Acao, podeEditarIdPa } from "@/lib/fluxo";
@@ -79,6 +80,7 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
               <Selo nota={nota} paraEmpresa={!interno} />
               {interno && nota.status === "em_tramite" && nota.indicacao_reprovacao && <span className="rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-bold uppercase text-white">{nota.indicacao_reprovacao === "tecnica" ? "Reprovação indicada pela Técnica" : "Reprovada na perícia — aguarda resolução do Diretor"}</span>}
               {nota.sob_medida && <span className="rounded-full bg-violet-50 px-2.5 py-0.5 text-xs font-semibold text-violet-700 ring-1 ring-inset ring-violet-200">Sob medida</span>}
+              {interno && <span title={descreverMotivo(nota.tipo_nf_motivo) || undefined} className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${nota.tipo_nf === "servico" ? "bg-teal-50 text-teal-800 ring-teal-200" : "bg-slate-50 text-slate-600 ring-slate-200"}`}>NF de {nota.tipo_nf === "servico" ? "serviço" : "material"}</span>}
             </div>
             <p className="mt-1 text-slate-700">{nota.emit_nome} <span className="text-sm text-slate-400">· {cnpj(nota.emit_cnpj)}</span></p>
           </div>
@@ -317,12 +319,18 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
 
             {podeCadastrar(u) && (
               <details className="cartao p-5">
-                <summary className="cursor-pointer text-[15px] font-semibold text-slate-900">Editar OC e observações</summary>
+                <summary className="cursor-pointer text-[15px] font-semibold text-slate-900">Editar OC, tipo da NF e observações</summary>
                 <FormAcao acao={acaoEditarNota} botao="Salvar" className="mt-3 space-y-3">
                   <input type="hidden" name="id" value={nota.id} />
                   <label className="block"><span className="rotulo">OC *</span><input name="oc" defaultValue={nota.oc ?? ""} className="campo" maxLength={60} required /></label>
                   <label className="block"><span className="rotulo">Observações da OC</span><textarea name="obs_oc" defaultValue={nota.obs_oc ?? ""} className="campo" rows={3} /></label>
                   <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="sob_medida" defaultChecked={nota.sob_medida} /> Material sob medida</label>
+                  <label className="block"><span className="rotulo">Tipo da NF</span>
+                    <select name="tipo_nf" defaultValue={nota.tipo_nf} className="campo">
+                      <option value="material">Material — Certificado de Recebimento de Bens</option>
+                      <option value="servico">Serviço — Certificado de Prestação de Serviços (assina só a Estocagem)</option>
+                    </select>
+                    <span className="mt-1 block text-xs text-slate-500">{nota.tipo_nf_motivo ? `${descreverMotivo(nota.tipo_nf_motivo)}. ` : ""}Vale para o PDF da NF anexado depois da troca.</span></label>
                 </FormAcao>
               </details>
             )}

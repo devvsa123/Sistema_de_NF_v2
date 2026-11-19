@@ -1,4 +1,5 @@
 import "server-only";
+import { classificarNF, type TipoNF } from "./tipo-nf";
 import { sql } from "./db";
 import { ehInterno, podeCadastrar, type Usuario } from "./auth";
 import { etapasAtivas, registrarEvento } from "./fluxo";
@@ -10,7 +11,7 @@ export type NotaLista = {
   id: number; chave: string | null; numero: string; serie: string | null; emit_cnpj: string; emit_nome: string; valor: string;
   oc: string | null; status: string; etapa_id: number | null; etapa_nome: string | null; prazo_dias: number | null;
   recebida_em: Date; concluida_em: Date | null; etapa_desde: Date; arrecadada_em: Date | null; armazenada_em: Date | null;
-  tem_xml: boolean; fonte: string | null; sob_medida: boolean; dias_etapa: number; dias_arrecadada: number | null; dias_total: number; ultima_obs: string | null; obs_oc: string | null; n_comentarios?: number; n_docs?: number; docs_faltando?: string | null; id_pa: string | null; exige_id_pa: boolean; indicacao_reprovacao: "pericia" | "tecnica" | null;
+  tem_xml: boolean; fonte: string | null; sob_medida: boolean; dias_etapa: number; dias_arrecadada: number | null; dias_total: number; ultima_obs: string | null; obs_oc: string | null; n_comentarios?: number; n_docs?: number; docs_faltando?: string | null; id_pa: string | null; exige_id_pa: boolean; indicacao_reprovacao: "pericia" | "tecnica" | null; tipo_nf: TipoNF; tipo_nf_motivo: string | null;
 };
 
 export type Nota = NotaLista & {
@@ -25,7 +26,7 @@ export function visivel(u: Usuario) {
 
 const COLUNAS = sql`
   n.id, n.chave, n.numero, n.serie, n.emit_cnpj, n.emit_nome, n.valor, n.oc, n.status, n.etapa_id, e.nome as etapa_nome,
-  e.prazo_dias, n.recebida_em, n.concluida_em, n.etapa_desde, n.arrecadada_em, n.armazenada_em, n.tem_xml, n.fonte, n.sob_medida, n.obs_oc, n.id_pa, n.exige_id_pa, n.indicacao_reprovacao,
+  e.prazo_dias, n.recebida_em, n.concluida_em, n.etapa_desde, n.arrecadada_em, n.armazenada_em, n.tem_xml, n.fonte, n.sob_medida, n.obs_oc, n.id_pa, n.exige_id_pa, n.indicacao_reprovacao, n.tipo_nf, n.tipo_nf_motivo,
   extract(epoch from (now() - n.etapa_desde)) / 86400 as dias_etapa,
   extract(epoch from (now() - n.arrecadada_em)) / 86400 as dias_arrecadada,
   extract(epoch from (coalesce(n.concluida_em, now()) - n.recebida_em)) / 86400 as dias_total`;
@@ -142,7 +143,7 @@ async function etapaInicial(sobMedida: boolean) {
 }
 
 export type Documento = { tipo: "xml" | "pdf"; conteudo: string }; // PDF vem em base64
-export type PreviaXml = { nf: NFLida; existente: { id: number; tem_xml: boolean; fonte: string | null; oc: string | null } | null; bloqueio: string | null };
+export type PreviaXml = { nf: NFLida; existente: { id: number; tem_xml: boolean; fonte: string | null; oc: string | null } | null; bloqueio: string | null; tipo: TipoNF; motivo: string };
 
 /** Lê o XML da NF-e ou o PDF da consulta do Portal da NF-e e verifica se a nota já existe. */
 export async function analisarDocumento(doc: Documento): Promise<PreviaXml> {
@@ -154,13 +155,16 @@ export async function analisarDocumento(doc: Documento): Promise<PreviaXml> {
     : e.tem_xml ? `NF ${nf.numero} já está cadastrada com XML.`
     : doc.tipo === "pdf" && e.fonte ? `NF ${nf.numero} já está cadastrada com os dados da consulta.`
     : null;
-  return { nf, existente: e, bloqueio };
+  return { nf, existente: e, bloqueio, ...classificarNF(nf) };
 }
 
 /** Cadastra a NF a partir do XML ou do PDF; se a chave já existir sem esses dados, apenas os anexa à NF existente. */
-export async function cadastrarPorDocumento(u: Usuario, doc: Documento, op: { oc?: string; sobMedida?: boolean; obs?: string }) {
+export async function cadastrarPorDocumento(u: Usuario, doc: Documento, op: { oc?: string; sobMedida?: boolean; obs?: string; tipoNf?: TipoNF }) {
   if (!podeCadastrar(u)) throw new Error("Seu perfil não permite cadastrar NF.");
-  const { nf, existente, bloqueio } = await analisarDocumento(doc);
+  const { nf, existente, bloqueio, tipo: tipoLido, motivo: motivoLido } = await analisarDocumento(doc);
+  // o tipo identificado pelo CFOP pode ser corrigido por quem cadastra
+  const tipoNf: TipoNF = op.tipoNf === "servico" || op.tipoNf === "material" ? op.tipoNf : tipoLido;
+  const motivo = tipoNf === tipoLido ? motivoLido : `definido no cadastro por ${u.nome}`;
   if (bloqueio) throw new Error(bloqueio);
   const xml = doc.tipo === "xml" ? doc.conteudo : null;
   const oc = op.oc?.trim() || nf.oc || existente?.oc || null;
@@ -170,27 +174,29 @@ export async function cadastrarPorDocumento(u: Usuario, doc: Documento, op: { oc
   if (existente) {
     await sql.begin(async (tx) => {
       await tx`update notas set serie = ${nf.serie}, data_emissao = ${nf.data_emissao}, natureza = ${nf.natureza}, empenho = coalesce(${nf.empenho || null}, empenho),
+                 tipo_nf = ${tipoNf}, tipo_nf_motivo = ${motivo},
                  oc = coalesce(oc, ${oc}), dados = ${tx.json(nf.dados as never)}, itens = ${tx.json(nf.itens as never)}, tem_xml = ${!!xml}, fonte = ${doc.tipo},
                  busca = ${busca} || ' ' || coalesce(oc, '') where id = ${existente.id}`;
       if (xml) await tx`insert into nota_xml (nota_id, xml, enviado_por) values (${existente.id}, ${xml}, ${u.id})`;
       await registrarEvento(tx, { nota_id: existente.id, tipo: "xml", usuario: u, texto: xml ? "XML da NF-e anexado" : "Dados da NF-e anexados (PDF da consulta no Portal da NF-e)" });
     });
-    return { id: existente.id, numero: nf.numero, anexado: true };
+    return { id: existente.id, numero: nf.numero, anexado: true, chave: nf.chave };
   }
 
   const etapa = await etapaInicial(!!op.sobMedida);
   const id = await sql.begin(async (tx) => {
     await garantirEmpresa(tx as never, nf.emit_cnpj, nf.emit_nome);
     const [n] = await tx`insert into notas (chave, numero, serie, emit_cnpj, emit_nome, valor, oc, empenho, data_emissao, natureza, sob_medida,
-                           status, etapa_id, tem_xml, fonte, dados, itens, busca, criado_por)
+                           status, etapa_id, tem_xml, fonte, dados, itens, busca, criado_por, tipo_nf, tipo_nf_motivo)
         values (${nf.chave}, ${nf.numero}, ${nf.serie}, ${nf.emit_cnpj}, ${nf.emit_nome}, ${nf.valor}, ${oc}, ${nf.empenho || null}, ${nf.data_emissao},
-                ${nf.natureza}, ${!!op.sobMedida}, 'em_tramite', ${etapa.id}, ${!!xml}, ${doc.tipo}, ${tx.json(nf.dados as never)}, ${tx.json(nf.itens as never)}, ${busca}, ${u.id})
+                ${nf.natureza}, ${!!op.sobMedida}, 'em_tramite', ${etapa.id}, ${!!xml}, ${doc.tipo}, ${tx.json(nf.dados as never)}, ${tx.json(nf.itens as never)}, ${busca}, ${u.id},
+                ${tipoNf}, ${motivo})
         returning id`;
     if (xml) await tx`insert into nota_xml (nota_id, xml, enviado_por) values (${n.id}, ${xml}, ${u.id})`;
     await registrarEvento(tx, { nota_id: n.id, tipo: "cadastro", movimento: true, de_nome: "Cadastro", para_etapa_id: etapa.id, para_status: "em_tramite", para_nome: etapa.nome, usuario: u, texto: op.obs });
     return n.id as number;
   });
-  return { id, numero: nf.numero, anexado: false };
+  return { id, numero: nf.numero, anexado: false, chave: nf.chave };
 }
 
 /** Cadastro manual (documentos sem XML). */

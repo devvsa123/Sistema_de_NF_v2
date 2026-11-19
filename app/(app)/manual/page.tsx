@@ -169,7 +169,7 @@ export default async function Manual() {
           <li>Clique em <B>Assinar … documento(s) com o token</B> e confirme no Assinador SERPRO. As assinaturas que já existiam no documento continuam válidas.</li>
         </Passos>
         <Lista>
-          <li><B>NF e Certificado de Recebimento de Bens</B>: ao anexar o PDF da NF, o sistema acrescenta automaticamente o certificado (código OM, contas e ND fixos), com campos para o fiel de armazenagem, o perito, o fiel de suprimentos e o gestor de bens patrimoniais. Se o PDF já tiver um certificado ou já estiver assinado, nada é acrescentado.</li>
+          <li><B>NF e Certificado de Recebimento de Bens</B>: ao anexar o PDF da NF, o sistema acrescenta automaticamente o certificado (código OM, contas e ND fixos), com campos para o fiel de armazenagem, o perito, o fiel de suprimentos e o gestor de bens patrimoniais. Se o PDF já tiver um certificado ou já estiver assinado, nada é acrescentado. Em <B>NF de serviço</B>, entra o <B>Certificado de Prestação de Serviços</B>, com um único campo de assinatura, da Estocagem.</li>
           <li>Cada assinatura gera uma nova versão do documento; a anterior fica guardada e tudo vai para o histórico.</li>
         </Lista>
       </>,
@@ -254,6 +254,13 @@ export default async function Manual() {
         <p>Em <Ir href="/notas/nova">Cadastrar NF</Ir>, arraste um ou vários arquivos. O sistema lê emitente, valor, itens, empenho e OC automaticamente e mostra uma prévia antes de gravar.</p>
         <p className="mt-3 font-semibold text-slate-900">Com o XML da NF-e</p>
         <p>Use o arquivo .xml enviado pelo fornecedor. É a forma mais completa.</p>
+        <p className="mt-3 font-semibold text-slate-900">NF de material ou de serviço e PDF da DANFE</p>
+        <Lista>
+          <li>Na prévia, o sistema mostra se a NF é de <B>Material</B> ou de <B>Serviço</B>, identificado pelo CFOP dos itens (ex.: <B>5124/6124 — industrialização efetuada para outra empresa</B>, ou 5933/6933 — serviço com ISSQN) e pela natureza da operação. Confira e, se precisar, troque antes de cadastrar. NF com CFOP de serviço e de compra ao mesmo tempo aparece como “NF mista” e fica como Material.</li>
+          <li>No mesmo cadastro, use <B>Anexar PDF da DANFE</B>: ao cadastrar, o sistema acrescenta o certificado certo ao PDF e já o anexa na NF. <B>Material</B>: Certificado de Recebimento de Bens (fiel de armazenagem, perito, fiel de suprimentos e gestor). <B>Serviço</B>: Certificado de Prestação de Serviços, com assinatura só da <B>Estocagem</B> (servidor responsável).</li>
+          <li>Se o PDF da DANFE tiver texto, o sistema confere se a chave de acesso é a mesma do XML. DANFE escaneada não dá para conferir: confira o número antes de enviar.</li>
+          <li>O tipo pode ser trocado depois em <B>Editar OC, tipo da NF e observações</B>, na página da NF. A troca vale para o PDF da NF anexado depois dela.</li>
+        </Lista>
         <p className="mt-3 font-semibold text-slate-900">Sem o XML: PDF da consulta na SEFAZ</p>
         <Passos>
           <li>Acesse o Portal da NF-e (nfe.fazenda.gov.br) → <B>Consultar NF-e</B> → informe a chave de acesso.</li>

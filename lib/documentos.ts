@@ -28,7 +28,7 @@ async function temCertificado(bytes: Uint8Array) {
     for (let i = 1; i <= pdf.numPages; i++) {
       const t = await (await pdf.getPage(i)).getTextContent();
       const txt = t.items.map((x) => ("str" in x ? x.str : "")).join(" ").toUpperCase();
-      if (txt.includes("CERTIFICADO DE RECEBIMENTO")) return true;
+      if (txt.includes("CERTIFICADO DE RECEBIMENTO") || txt.includes("CERTIFICADO DE PRESTAÇÃO DE SERVIÇOS") || txt.includes("CERTIFICADO DE PRESTACAO DE SERVICOS")) return true;
     }
   } catch { /* sem texto legível */ }
   return false;
@@ -103,10 +103,12 @@ export async function enviarDocumento(u: Usuario, notaId: number, tipoId: number
   // PDF da NF: acrescenta o Certificado de Recebimento de Bens (com os campos de assinatura), se ainda não tiver
   let certificado = "";
   if (tipo.nome === TIPO_NF && ext === "pdf" && marcas.doc !== "nf-certificado" && !(await temCertificado(bytes))) {
-    const [n] = await sql`select numero, recebida_em from notas where id = ${notaId}`;
+    const [n] = await sql`select numero, recebida_em, tipo_nf from notas where id = ${notaId}`;
     const ano = new Date(n.recebida_em).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", year: "numeric" });
-    const comCert = await nfComCertificado(bytes, { numero_nf: n.numero, ano }, { nota: notaId });
-    if (comCert) { bytes = new Uint8Array(comCert); certificado = " (Certificado de Recebimento de Bens acrescentado)"; }
+    // NF de serviço leva o Certificado de Prestação de Serviços; de material, o de Recebimento de Bens
+    const servico = n.tipo_nf === "servico";
+    const comCert = await nfComCertificado(bytes, { numero_nf: n.numero, ano }, { nota: notaId }, servico ? "servico" : "material");
+    if (comCert) { bytes = new Uint8Array(comCert); certificado = ` (${servico ? "Certificado de Prestação de Serviços" : "Certificado de Recebimento de Bens"} acrescentado)`; }
   }
   const hash = sha256(bytes);
   const [repetido] = await sql`select t.nome from documentos d join tipos_documento t on t.id = d.tipo_id where d.nota_id = ${notaId} and d.sha256 = ${hash} and d.removido_em is null`;

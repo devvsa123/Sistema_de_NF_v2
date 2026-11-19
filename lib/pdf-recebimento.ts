@@ -381,20 +381,60 @@ function paginaCertificado(c: Ctx, v: { numero_nf: string; ano: string }) {
   }
 }
 
+/** Campo do Certificado de Prestação de Serviços (assinado somente pela Estocagem). */
+export const CAMPO_SERVICO = "Servidor Responsavel";
+
 /**
- * NF com o Certificado de Recebimento de Bens: acrescenta a página do certificado ao PDF da NF.
+ * Página do Certificado de Prestação de Serviços (NF de serviço), no modelo do Depósito:
+ * um único campo de assinatura, do servidor responsável (Estocagem / fiel de armazenagem).
+ */
+function paginaCertificadoServico(c: Ctx, v: { numero_nf: string; ano: string }) {
+  const W = 330, x0 = 34;
+  let y = A4[1] - 40;
+  const caixa = (h: number) => c.pag.drawRectangle({ x: x0, y: y - h, width: W, height: h, borderColor: rgb(0, 0, 0), borderWidth: 0.8 });
+  const vert = (x: number, topo: number, base: number) => c.pag.drawLine({ start: { x, y: topo }, end: { x, y: base }, thickness: 0.6 });
+  const hor = (yy: number, xa = x0, xb = x0 + W) => c.pag.drawLine({ start: { x: xa, y: yy }, end: { x: xb, y: yy }, thickness: 0.6 });
+  const col = x0 + W * 0.3;
+  const centro = (s: string, xa: number, xb: number, yy: number, tam = 7.5, neg = false) => texto(c, s, xa, yy, { tam, negrito: neg, alinhar: "centro", largura: xb - xa });
+
+  caixa(14); centro("CERTIFICADO DE PRESTAÇÃO DE SERVIÇOS", x0, x0 + W, y - 10, 8.5, true); y -= 14;
+  caixa(13); texto(c, `DOCUMENTO DE ORIGEM Nº ${v.numero_nf}`, x0 + 3, y - 9.5, { tam: 7.5 }); y -= 13;
+  const decl = quebrar(c.f, "Certifico que o material a que se refere o presente título de crédito/documento foi por mim recebido, conferido e aceito, achando-se em perfeitas condições de aplicação.", 7, W - 8);
+  const hDecl = 5 + decl.length * 9;
+  caixa(hDecl); decl.forEach((l, i) => texto(c, l, x0 + 4, y - 9 - i * 9, { tam: 7 })); y -= hDecl;
+  // DATA | SERVIDOR RESPONSÁVEL (com o campo de assinatura)
+  caixa(18); vert(col, y, y - 18 - 58); centro("DATA", x0, col, y - 12); centro("SERVIDOR RESPONSÁVEL", col, x0 + W, y - 12); y -= 18;
+  caixa(58);
+  texto(c, `      /      /${v.ano}`, x0 + 8, y - 32, { tam: 7.5 });
+  campoEm(c, CAMPO_SERVICO, "Servidor Responsável (Fiel de Armazenagem)", col + 2, y - 56, x0 + W - col - 4, 54);
+  y -= 58;
+  // CÓD. OM | DOC. Nº | LICITAÇÃO (TIPO / Nº)
+  const c1 = x0 + W / 3, c2 = x0 + (2 * W) / 3, c3 = c2 + (x0 + W - c2) / 2;
+  caixa(12); vert(c1, y, y - 12 - 30); vert(c2, y, y - 12 - 30);
+  centro("CÓD. OM", x0, c1, y - 9); centro("DOC. Nº", c1, c2, y - 9); centro("LICITAÇÃO", c2, x0 + W, y - 9); y -= 12;
+  caixa(30); hor(y - 10, c2); vert(c3, y, y - 30); centro("TIPO", c2, c3, y - 8, 7); centro("Nº", c3, x0 + W, y - 8, 7); y -= 30;
+  // DATA | AGENTE FINANCEIRO/GESTOR
+  caixa(12); vert(col, y, y - 12 - 36); centro("DATA", x0, col, y - 9); centro("AGENTE FINANCEIRO/GESTOR", col, x0 + W, y - 9); y -= 12;
+  caixa(36); y -= 36;
+  caixa(12); texto(c, "AGENTE FISCAL", x0 + 3, y - 9, { tam: 7.5 }); y -= 12;
+  caixa(24);
+}
+
+/**
+ * NF com o certificado: acrescenta a página do Certificado de Recebimento de Bens (material) ou do
+ * Certificado de Prestação de Serviços (serviço) ao PDF da NF.
  * Se o PDF da NF já estiver assinado, devolve null (não se mexe num documento assinado).
  */
-export async function nfComCertificado(nf: Uint8Array, v: { numero_nf: string; ano: string }, ids: { nota: number }) {
+export async function nfComCertificado(nf: Uint8Array, v: { numero_nf: string; ano: string }, ids: { nota: number }, tipo: "material" | "servico" = "material") {
   const bruto = Buffer.from(nf).toString("latin1");
   if (/\/ByteRange\s*\[/.test(bruto)) return null;
   const doc = await PDFDocument.load(nf, { ignoreEncryption: true, updateMetadata: false });
   const [f, b] = await Promise.all([doc.embedFont(StandardFonts.Helvetica), doc.embedFont(StandardFonts.HelveticaBold)]);
   const pag = doc.addPage(A4);
   const c: Ctx = { doc, f, b, pag, y: A4[1] - M, paginas: [pag], rodape: "" };
-  paginaCertificado(c, v);
-  doc.setKeywords(["nf-sistema", "nf-doc:nf-certificado", `nf-nota:${ids.nota}`]);
-  doc.setTitle(`NF ${v.numero_nf} e Certificado de Recebimento de Bens`);
+  if (tipo === "servico") paginaCertificadoServico(c, v); else paginaCertificado(c, v);
+  doc.setKeywords(["nf-sistema", "nf-doc:nf-certificado", `nf-nota:${ids.nota}`, `nf-tipo:${tipo}`]);
+  doc.setTitle(`NF ${v.numero_nf} e ${tipo === "servico" ? "Certificado de Prestação de Serviços" : "Certificado de Recebimento de Bens"}`);
   return doc.save({ useObjectStreams: false });
 }
 

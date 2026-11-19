@@ -7,6 +7,8 @@ import { exigirUsuario, podeCadastrar } from "@/lib/auth";
 import { ajustarComoAdmin, definirIdPa, etapasAtivas, executarAcao, podeEditarIdPa, registrarEvento, type Acao, type OpcoesAcao } from "@/lib/fluxo";
 import { analisarDocumento, cadastrarManual, cadastrarPorDocumento, obterNota, type Documento } from "@/lib/notas";
 import { textoBusca } from "@/lib/nfe";
+import { enviarDocumento, TIPO_NF } from "@/lib/documentos";
+import { classificarNF, NOME_TIPO_NF } from "@/lib/tipo-nf";
 import { TIPO_EVENTO } from "@/lib/format";
 import { cienteAoResponder, lerMarcados, observarComMarcacao } from "@/lib/mencoes";
 import type { Estado } from "@/components/FormAcao";
@@ -110,18 +112,23 @@ export async function acaoEditarNota(_: Estado, f: FormData): Promise<Estado> {
   const id = Number(f.get("id"));
   const oc = campo(f, "oc").slice(0, 60) || null;
   if (!oc) return { erro: "A OC não pode ficar em branco." };
-  const [n] = await sql`select numero, chave, emit_nome, emit_cnpj, empenho, itens, oc, obs_oc, sob_medida from notas where id = ${id}`;
+  const [n] = await sql`select numero, chave, emit_nome, emit_cnpj, empenho, itens, natureza, oc, obs_oc, sob_medida, tipo_nf from notas where id = ${id}`;
   if (!n) return { erro: "NF não encontrada." };
   const obsOc = campo(f, "obs_oc").slice(0, 2000) || null;
   const sobMedida = f.get("sob_medida") === "on";
+  const tipoNf = f.get("tipo_nf") === "servico" ? "servico" : f.get("tipo_nf") === "material" ? "material" : n.tipo_nf;
+  const lido = classificarNF(n as never);
+  const motivoTipo = tipoNf === lido.tipo ? lido.motivo : `alterado por ${u.nome}`;
   const mudou = [
+    n.tipo_nf !== tipoNf && `Tipo da NF: ${NOME_TIPO_NF[n.tipo_nf as "material"]} → ${NOME_TIPO_NF[tipoNf as "material"]}`,
     n.oc !== oc && `OC: ${n.oc ?? "—"} → ${oc}`,
     !!n.sob_medida !== sobMedida && `Sob medida: ${n.sob_medida ? "sim" : "não"} → ${sobMedida ? "sim" : "não"}`,
     (n.obs_oc ?? null) !== obsOc && (obsOc ? `Observação da OC: ${obsOc}` : "Observação da OC removida"),
   ].filter(Boolean) as string[];
   if (!mudou.length) return { ok: "Nada foi alterado." };
   await sql.begin(async (tx) => {
-    await tx`update notas set oc = ${oc}, obs_oc = ${obsOc}, sob_medida = ${sobMedida},
+    await tx`update notas set oc = ${oc}, obs_oc = ${obsOc}, sob_medida = ${sobMedida}, tipo_nf = ${tipoNf},
+               tipo_nf_motivo = case when tipo_nf = ${tipoNf} then tipo_nf_motivo else ${motivoTipo} end,
                busca = ${textoBusca({ ...(n as Parameters<typeof textoBusca>[0]), oc })} where id = ${id}`;
     await registrarEvento(tx, { nota_id: id, tipo: "edicao", usuario: u, texto: mudou.join("\n") });
   });
@@ -151,11 +158,11 @@ export async function acaoAnalisarDocumento(tipo: string, conteudo: string) {
   const u = await exigirUsuario();
   if (!podeCadastrar(u)) return { erro: "Seu perfil não permite cadastrar NF." };
   try {
-    const { nf, existente, bloqueio } = await analisarDocumento(documento(tipo, conteudo));
+    const { nf, existente, bloqueio, tipo: tipoNf, motivo } = await analisarDocumento(documento(tipo, conteudo));
     return {
       previa: {
         chave: nf.chave, numero: nf.numero, serie: nf.serie, emit_cnpj: nf.emit_cnpj, emit_nome: nf.emit_nome, valor: nf.valor,
-        data_emissao: nf.data_emissao, oc: nf.oc, empenho: nf.empenho, itens: nf.itens.length, existente, bloqueio,
+        data_emissao: nf.data_emissao, oc: nf.oc, empenho: nf.empenho, itens: nf.itens.length, existente, bloqueio, tipo: tipoNf, motivo,
       },
     };
   } catch (e) {
@@ -163,14 +170,53 @@ export async function acaoAnalisarDocumento(tipo: string, conteudo: string) {
   }
 }
 
-export async function acaoCadastrarDocumento(tipo: string, conteudo: string, op: { oc?: string; sobMedida?: boolean; obs?: string }) {
+export async function acaoCadastrarDocumento(
+  tipo: string, conteudo: string,
+  op: { oc?: string; sobMedida?: boolean; obs?: string; tipoNf?: string; danfe?: { nome: string; conteudo: string } | null },
+) {
   const u = await exigirUsuario();
+  let danfe: Uint8Array | null = null;
+  if (op.danfe?.conteudo) {
+    danfe = new Uint8Array(Buffer.from(String(op.danfe.conteudo), "base64"));
+    if (danfe.length > 3 * 1048576) return { erro: "O PDF da DANFE tem mais de 3 MB. Reduza o tamanho e envie de novo." };
+  }
   try {
-    const r = await cadastrarPorDocumento(u, documento(tipo, conteudo), { oc: String(op.oc ?? "").slice(0, 60), sobMedida: !!op.sobMedida, obs: String(op.obs ?? "").slice(0, 2000) });
+    const tipoNf = op.tipoNf === "servico" || op.tipoNf === "material" ? op.tipoNf : undefined;
+    const doc = documento(tipo, conteudo);
+    // confere, antes de cadastrar, se o PDF é desta NF (quando o PDF tem texto; DANFE escaneada não dá para conferir)
+    if (danfe) {
+      const { nf } = await analisarDocumento(doc);
+      const chaves = await chavesNoPdf(danfe);
+      if (chaves.length && !chaves.includes(nf.chave)) return { erro: `O PDF da DANFE é de outra NF (chave ${chaves[0]}). Confira o arquivo.` };
+    }
+    const r = await cadastrarPorDocumento(u, doc, { oc: String(op.oc ?? "").slice(0, 60), sobMedida: !!op.sobMedida, obs: String(op.obs ?? "").slice(0, 2000), tipoNf });
+    let aviso = "";
+    if (danfe) {
+      try {
+        const [t] = await sql`select id from tipos_documento where nome = ${TIPO_NF} and ativo`;
+        const nome = String(op.danfe!.nome || `NF-${r.numero}.pdf`).replace(/[^\w.\- ()À-ÿ]/g, "_").slice(-120);
+        await enviarDocumento(u, r.id, (t?.id as number) ?? 0, new File([Buffer.from(danfe)], /\.pdf$/i.test(nome) ? nome : `${nome}.pdf`, { type: "application/pdf" }));
+      } catch (e) {
+        aviso = `NF cadastrada, mas o PDF da DANFE não foi anexado: ${msg(e)}`;
+      }
+    }
     revalidatePath("/", "layout");
-    return { ok: r };
+    return { ok: { ...r, aviso } };
   } catch (e) {
     return { erro: msg(e) };
+  }
+}
+
+/** Chaves de acesso (44 dígitos) escritas no texto do PDF. */
+async function chavesNoPdf(bytes: Uint8Array) {
+  try {
+    const { getDocumentProxy } = await import("unpdf");
+    const pdf = await getDocumentProxy(new Uint8Array(bytes));
+    let txt = "";
+    for (let i = 1; i <= Math.min(pdf.numPages, 3); i++) txt += " " + (await (await pdf.getPage(i)).getTextContent()).items.map((x) => ("str" in x ? x.str : "")).join(" ");
+    return [...new Set([...txt.matchAll(/(?<!\d)(\d{4}(?:[ .]?\d{4}){10})(?!\d)/g)].map((m) => m[1].replace(/\D/g, "")))];
+  } catch {
+    return [];
   }
 }
 
