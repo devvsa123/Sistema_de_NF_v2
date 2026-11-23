@@ -11,6 +11,7 @@ import { FormAcao } from "@/components/FormAcao";
 import { FormObservacao } from "@/components/FormObservacao";
 import { DocumentosNota } from "@/components/DocumentosNota";
 import { PacoteFinal } from "@/components/PacoteFinal";
+import { exigePacoteFinal } from "@/lib/pacote";
 import { AssinarToken } from "@/components/AssinarToken";
 import type { BotaoFila } from "@/components/FilaTabela";
 import { acaoAjusteAdmin, acaoEditarNota } from "@/app/acoes/notas";
@@ -163,7 +164,7 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
         </div>
       )}
 
-      {pacoteFinal && <PacoteFinal notaId={nota.id} numero={nota.numero} empresa={nota.emit_nome} />}
+      {pacoteFinal && <PacoteFinal notaId={nota.id} numero={nota.numero} empresa={nota.emit_nome} obrigatorio={await exigePacoteFinal()} />}
       {interno && <DocumentosNota nota={nota} podeAnexar={u.papel === "admin" || (u.papel === "interno" && nota.status !== "finalizada")} ehAdmin={u.papel === "admin"} usuarioId={u.id} />}
 
       {(recebedor || docsReceb.length > 0) && (

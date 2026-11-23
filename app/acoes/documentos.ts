@@ -84,3 +84,13 @@ export async function acaoTestarArmazenamento(): Promise<Estado> {
     return { erro: msg(e) };
   }
 }
+
+/** Liga/desliga a exigência do pacote final para finalizar a NF. Somente o administrador geral. */
+export async function acaoSalvarExigenciaPacote(_: Estado, f: FormData): Promise<Estado> {
+  await exigirAdmin();
+  const ligar = f.get("exigir") === "on";
+  const { salvarExigenciaPacote } = await import("@/lib/pacote");
+  await salvarExigenciaPacote(ligar);
+  revalidatePath("/", "layout");
+  return { ok: ligar ? "Exigência ligada: a NF só finaliza com o pacote final baixado e conferido." : "Exigência desligada: a NF finaliza como antes (o pacote continua disponível, opcional)." };
+}

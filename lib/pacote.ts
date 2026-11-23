@@ -17,7 +17,7 @@ import type { ItemNF } from "./nfe";
  */
 
 export type ArquivoPacote = { id: number; tipo: string; nome: string; sha256: string; tamanho: number; mime: string; assinaturas: string[] };
-export type VerificacaoPacote = { arquivos: ArquivoPacote[]; pendencias: string[]; conferido: { em: Date; por: string } | null };
+export type VerificacaoPacote = { arquivos: ArquivoPacote[]; pendencias: string[]; conferido: { em: Date; por: string } | null; obrigatorio: boolean };
 
 /** Documentos atuais da NF e o que impede o pacote (campo de assinatura vazio, assinatura que não confere...). */
 export async function verificarPacote(notaId: number): Promise<VerificacaoPacote> {
@@ -51,7 +51,7 @@ export async function verificarPacote(notaId: number): Promise<VerificacaoPacote
   }
   const conferido = n.pacote_conferido_em && pacoteConfere(n.pacote_docs as { id: number; sha256: string }[] | null, arquivos)
     ? { em: n.pacote_conferido_em as Date, por: n.pacote_conferido_por as string } : null;
-  return { arquivos, pendencias: pend, conferido };
+  return { arquivos, pendencias: pend, conferido, obrigatorio: await exigePacoteFinal() };
 }
 
 /** O pacote conferido corresponde exatamente aos documentos atuais (nada entrou, saiu ou mudou depois)? */
@@ -78,17 +78,38 @@ export async function confirmarPacote(u: Usuario, notaId: number, recebidos: { i
   });
 }
 
-/** Para a finalização: o pacote foi conferido com os documentos atuais? Devolve o motivo, se não. */
+/** A finalização exige o pacote final? (Administração → Documentos da NF; desligada enquanto houver NF do trâmite antigo) */
+export async function exigePacoteFinal(db: Tx | typeof sql = sql) {
+  const [r] = await db`select valor from config where chave = 'exigir_pacote_final'`;
+  return r?.valor === "sim";
+}
+
+export async function salvarExigenciaPacote(ligar: boolean) {
+  await sql`insert into config (chave, valor) values ('exigir_pacote_final', ${ligar ? "sim" : "nao"}) on conflict (chave) do update set valor = excluded.valor`;
+}
+
+/** O pacote final da NF foi conferido com os documentos atuais? */
+async function pacoteConferido(db: Tx | typeof sql, notaId: number) {
+  const [n] = await db`select pacote_conferido_em, pacote_docs from notas where id = ${notaId}`;
+  const atuais = await db<{ id: number; sha256: string }[]>`select id, sha256 from documentos where nota_id = ${notaId} and removido_em is null`;
+  return !!n?.pacote_conferido_em && pacoteConfere(n.pacote_docs as { id: number; sha256: string }[] | null, atuais);
+}
+
+/** Para a finalização: com a exigência ligada, o pacote precisa estar conferido com os documentos atuais. */
 export async function bloqueioFinalizacao(tx: Tx, nota: { id: number; numero: string }) {
-  const [n] = await tx`select pacote_conferido_em, pacote_docs from notas where id = ${nota.id}`;
-  const atuais = await tx<{ id: number; sha256: string }[]>`select id, sha256 from documentos where nota_id = ${nota.id} and removido_em is null`;
-  if (!n?.pacote_conferido_em || !pacoteConfere(n.pacote_docs as { id: number; sha256: string }[] | null, atuais))
+  if (!(await exigePacoteFinal(tx))) return null;
+  if (!(await pacoteConferido(tx, nota.id)))
     return `NF ${nota.numero}: antes de finalizar, baixe e confira o pacote final de documentos (página da NF → Pacote final da NF).`;
   return null;
 }
 
-/** Depois de finalizada: exclui os arquivos (R2 ou banco), mantendo os registros, as assinaturas e todo o histórico. */
+/**
+ * Depois de finalizada: exclui os arquivos (R2 ou banco), mantendo os registros, as assinaturas e todo o histórico.
+ * Só exclui se o pacote final foi baixado e conferido com os documentos atuais (com a exigência desligada,
+ * NF finalizada sem pacote continua com os arquivos no sistema).
+ */
 export async function excluirArquivosDaNota(u: Usuario, notaId: number) {
+  if (!(await pacoteConferido(sql, notaId))) return;
   const docs = await sql<{ id: number; armazenamento: string; chave: string | null }[]>`
     select id, armazenamento, chave from documentos where nota_id = ${notaId} and arquivo_excluido_em is null`;
   let falhas = 0;

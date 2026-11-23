@@ -243,7 +243,7 @@ export default async function Manual() {
     },
     {
       id: "pacote-final", titulo: "Pacote final e finalização da NF", para: ["admin", "interno"], conteudo: <>
-        <p>Na última etapa (<B>Controle — Finalização</B>), a NF só é finalizada depois que o pacote final é baixado e conferido. O quadro <B>Pacote final da NF</B> aparece na página da NF.</p>
+        <p>Na última etapa (<B>Controle — Finalização</B>), o quadro <B>Pacote final da NF</B> aparece na página da NF. Com a exigência ligada (Administração → Documentos da NF → <B>Pacote final obrigatório</B>), a NF só é finalizada depois que o pacote é baixado e conferido. Com ela desligada (trâmite antigo, NF sem documentos no sistema), a NF finaliza como antes e o pacote fica opcional; os arquivos só são excluídos se o pacote tiver sido baixado e conferido.</p>
         <Passos>
           <li>O sistema confere os documentos: todos os campos de assinatura precisam estar assinados, as assinaturas precisam conferir com os arquivos e os documentos obrigatórios precisam estar anexados. O que faltar aparece em vermelho.</li>
           <li>Clique em <B>Baixar pacote</B>: vem um arquivo ZIP com uma pasta da NF contendo todos os documentos assinados, o <B>Histórico da NF</B> em PDF (identificação, itens, toda a tramitação com datas e usuários, e os documentos com as assinaturas e o código SHA-256 de cada arquivo) e uma lista de conferência. Cada arquivo é conferido automaticamente com o código registrado no sistema.</li>

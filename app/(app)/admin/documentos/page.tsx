@@ -4,7 +4,8 @@ import { regrasDocumentos, usoArmazenamento } from "@/lib/documentos";
 import { armazenamentoExterno } from "@/lib/arquivos";
 import { Cabecalho } from "@/components/ui";
 import { FormAcao } from "@/components/FormAcao";
-import { acaoSalvarRegrasDocumentos, acaoSalvarTipoDocumento, acaoTestarArmazenamento } from "@/app/acoes/documentos";
+import { acaoSalvarExigenciaPacote, acaoSalvarRegrasDocumentos, acaoSalvarTipoDocumento, acaoTestarArmazenamento } from "@/app/acoes/documentos";
+import { exigePacoteFinal } from "@/lib/pacote";
 
 export const metadata = { title: "Documentos da NF — Administração" };
 
@@ -12,7 +13,7 @@ const mb = (b: number) => `${(b / 1048576).toFixed(1)} MB`;
 
 export default async function AdminDocumentos() {
   await exigirAdmin();
-  const [{ tipos, regras }, etapas, uso] = await Promise.all([regrasDocumentos(), etapasAtivas(), usoArmazenamento()]);
+  const [{ tipos, regras }, etapas, uso, exigePacote] = await Promise.all([regrasDocumentos(), etapasAtivas(), usoArmazenamento(), exigePacoteFinal()]);
   const r2 = armazenamentoExterno();
   const marcado = (e: number, t: number) => regras.some((r) => r.etapa_id === e && r.tipo_id === t);
   const ativos = tipos.filter((t) => t.ativo);
@@ -20,6 +21,22 @@ export default async function AdminDocumentos() {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <Cabecalho titulo="Documentos da NF" descricao="Tipos de documento, quais são obrigatórios para a NF sair de cada etapa e onde os arquivos ficam guardados." />
+
+      <section className="cartao space-y-3 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-[15px] font-semibold text-slate-900">Pacote final obrigatório para finalizar a NF</h2>
+          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${exigePacote ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200" : "bg-slate-100 text-slate-600 ring-1 ring-slate-200"}`}>{exigePacote ? "Ligado" : "Desligado"}</span>
+        </div>
+        <p className="text-sm text-slate-600">
+          <strong>Ligado:</strong> na última etapa ({etapas[etapas.length - 1]?.nome ?? "—"}), a NF só finaliza com todos os documentos anexados e assinados e com o pacote final
+          (documentos + histórico em ZIP) baixado e conferido; na finalização os arquivos são excluídos do sistema.<br />
+          <strong>Desligado:</strong> a NF finaliza como antes, mesmo sem documentos (trâmite antigo). O pacote continua disponível, opcional, na página da NF;
+          os arquivos só são excluídos se o pacote tiver sido baixado e conferido.
+        </p>
+        <FormAcao acao={acaoSalvarExigenciaPacote} botao="Salvar" classeBotao="botao h-9" className="flex flex-wrap items-center gap-4">
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="exigir" defaultChecked={exigePacote} /> Exigir o pacote final para finalizar a NF</label>
+        </FormAcao>
+      </section>
 
       <section className="cartao space-y-3 p-5">
         <h2 className="text-[15px] font-semibold text-slate-900">Documentos obrigatórios por etapa</h2>

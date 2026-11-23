@@ -14,13 +14,28 @@ import { dataHora } from "@/lib/format";
  * Só depois a NF pode ser finalizada; ao finalizar, os arquivos são excluídos do sistema.
  */
 
-type Verif = { arquivos: ArquivoPacote[]; pendencias: string[]; conferido: { em: Date; por: string } | null };
+type Verif = { arquivos: ArquivoPacote[]; pendencias: string[]; conferido: { em: Date; por: string } | null; obrigatorio: boolean };
 type Baixado = { recebidos: { id: number; sha256: string }[]; historicoSha: string; nomeZip: string };
 
 const hex = (b: ArrayBuffer) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("");
 const seguro = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w.\- ()]+/g, "_").replace(/\s+/g, " ").trim();
 
-export function PacoteFinal({ notaId, numero, empresa }: { notaId: number; numero: string; empresa: string }) {
+export function PacoteFinal({ notaId, numero, empresa, obrigatorio }: { notaId: number; numero: string; empresa: string; obrigatorio: boolean }) {
+  const [aberto, setAberto] = useState(obrigatorio);
+  if (!aberto)
+    return (
+      <section className="cartao flex flex-wrap items-center justify-between gap-3 p-4" id="pacote-final">
+        <div>
+          <h2 className="text-[15px] font-semibold text-slate-900">Pacote final da NF <span className="ml-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">opcional</span></h2>
+          <p className="text-xs text-slate-500">A exigência está desligada: a NF pode ser finalizada como antes. Se quiser, baixe os documentos assinados e o histórico em ZIP.</p>
+        </div>
+        <button type="button" className="botao-sec h-9 text-sm" onClick={() => setAberto(true)}>Abrir pacote final</button>
+      </section>
+    );
+  return <Painel notaId={notaId} numero={numero} empresa={empresa} obrigatorio={obrigatorio} />;
+}
+
+function Painel({ notaId, numero, empresa, obrigatorio }: { notaId: number; numero: string; empresa: string; obrigatorio: boolean }) {
   const [v, setV] = useState<Verif | null>(null);
   const [erro, setErro] = useState("");
   const [etapa, setEtapa] = useState<"" | "baixando" | "confirmando" | "finalizando">("");
@@ -108,9 +123,9 @@ export function PacoteFinal({ notaId, numero, empresa }: { notaId: number; numer
 
   return (
     <section className="cartao border-l-4 border-l-marinha p-5" id="pacote-final">
-      <h2 className="text-[15px] font-semibold text-slate-900">Pacote final da NF</h2>
+      <h2 className="text-[15px] font-semibold text-slate-900">Pacote final da NF{!obrigatorio && <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">opcional</span>}</h2>
       <p className="mt-0.5 max-w-3xl text-xs leading-relaxed text-slate-500">
-        Para finalizar, baixe o pacote com todos os documentos assinados e o histórico da NF (para os autos do processo de pagamento), confira e confirme.
+        {obrigatorio ? "Para finalizar, baixe" : "Exigência desligada: a NF pode ser finalizada sem o pacote. Se quiser, baixe"} o pacote com todos os documentos assinados e o histórico da NF (para os autos do processo de pagamento), confira e confirme.
         Ao finalizar, os arquivos são excluídos do sistema; o histórico e os dados da NF continuam aqui.
       </p>
 
