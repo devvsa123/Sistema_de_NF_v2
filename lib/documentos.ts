@@ -42,7 +42,7 @@ const TIPOS_ARQUIVO: Record<string, string> = { pdf: "application/pdf", jpg: "im
 export type TipoDocumento = { id: number; nome: string; exige_assinatura: boolean; ordem: number; ativo: boolean };
 export type Documento = {
   id: number; nota_id: number; tipo_id: number; tipo: string; exige_assinatura: boolean; nome_arquivo: string; mime: string; tamanho: number;
-  assinaturas: Assinatura[]; enviado_por: number | null; enviado_por_nome: string | null; criado_em: Date;
+  assinaturas: Assinatura[]; enviado_por: number | null; enviado_por_nome: string | null; criado_em: Date; arquivo_excluido_em: Date | null;
 };
 
 export async function tiposDocumento(todos = false) {
@@ -55,7 +55,7 @@ export const valido = (d: { exige_assinatura: boolean; assinaturas: Assinatura[]
 export async function documentosDaNota(notaId: number) {
   return sql<Documento[]>`
     select d.id, d.nota_id, d.tipo_id, t.nome as tipo, t.exige_assinatura, d.nome_arquivo, d.mime, d.tamanho, d.assinaturas,
-           d.enviado_por, d.enviado_por_nome, d.criado_em
+           d.enviado_por, d.enviado_por_nome, d.criado_em, d.arquivo_excluido_em
     from documentos d join tipos_documento t on t.id = d.tipo_id
     where d.nota_id = ${notaId} and d.removido_em is null order by t.ordem, d.criado_em`;
 }
@@ -130,8 +130,10 @@ export async function enviarDocumento(u: Usuario, notaId: number, tipoId: number
 }
 
 export async function arquivoDoDocumento(id: number) {
-  const [d] = await sql`select d.id, d.nota_id, d.nome_arquivo, d.mime, d.armazenamento, d.chave, d.conteudo from documentos d where d.id = ${id} and d.removido_em is null`;
+  const [d] = await sql`select d.id, d.nota_id, d.nome_arquivo, d.mime, d.armazenamento, d.chave, d.conteudo, d.arquivo_excluido_em
+                        from documentos d where d.id = ${id} and d.removido_em is null`;
   if (!d) return null;
+  if (d.arquivo_excluido_em) throw new Error("O arquivo deste documento foi excluído do sistema na finalização da NF (está no pacote final baixado pelo Controle).");
   const bytes = d.armazenamento === "banco" ? new Uint8Array(d.conteudo as Buffer) : await ler(d.chave as string);
   return { notaId: d.nota_id as number, nome: d.nome_arquivo as string, mime: d.mime as string, bytes };
 }

@@ -131,6 +131,7 @@ export type OpcoesAcao = { obs?: string; visual?: string; laboratorial?: string 
 
 /** Executa uma ação de tramitação em uma NF, validando perfil e caminho dentro de uma transação. */
 export async function executarAcao(u: Usuario, notaId: number, acao: Acao, op: OpcoesAcao = {}): Promise<void> {
+  let finalizou = false;
   await sql.begin(async (tx) => {
     const [nota] = await tx<NotaMov[]>`select id, numero, status, etapa_id, arrecadada_em, armazenada_em, id_pa, exige_id_pa from notas where id = ${notaId} for update`;
     if (!nota) throw new Error("NF não encontrada.");
@@ -161,8 +162,13 @@ export async function executarAcao(u: Usuario, notaId: number, acao: Acao, op: O
           await tx`update notas set etapa_id = ${proxima.id}, etapa_desde = now() where id = ${nota.id}`;
           await registrarEvento(tx, { ...base, tipo: "avanco", movimento: true, para_etapa_id: proxima.id, para_status: "em_tramite", para_nome: proxima.nome });
         } else {
+          // última etapa: só finaliza com o pacote final (documentos assinados + histórico) baixado e conferido
+          const { bloqueioFinalizacao } = await import("./pacote");
+          const bloqueio = await bloqueioFinalizacao(tx, nota);
+          if (bloqueio) throw new Error(bloqueio);
           await tx`update notas set status = 'finalizada', etapa_desde = now(), concluida_em = now() where id = ${nota.id}`;
           await registrarEvento(tx, { ...base, tipo: "finalizacao", movimento: true, para_status: "finalizada", para_nome: "Finalizada" });
+          finalizou = true;
         }
         break;
       case "retornar":
@@ -199,6 +205,11 @@ export async function executarAcao(u: Usuario, notaId: number, acao: Acao, op: O
       }
     }
   });
+  // fora da transação: exclui os arquivos (já estão no pacote final baixado e conferido)
+  if (finalizou) {
+    const { excluirArquivosDaNota } = await import("./pacote");
+    await excluirArquivosDaNota(u, notaId);
+  }
 }
 
 /** Correção feita pelo administrador: coloca a NF em qualquer etapa ou situação. */

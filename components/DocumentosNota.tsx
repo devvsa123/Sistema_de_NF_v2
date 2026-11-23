@@ -39,7 +39,7 @@ export async function DocumentosNota({ nota, podeAnexar, ehAdmin, usuarioId }: {
         <div>
           <h2 className="text-[15px] font-semibold text-slate-900">Documentos da NF</h2>
           <p className="mt-0.5 text-xs text-slate-500">NF, OC, laudos e os documentos assinados de cada etapa. A assinatura digital dos PDFs é conferida no envio.</p>
-          {docs.length > 0 && <div className="mt-2"><BotaoDocumentos notaId={nota.id} numero={nota.numero} total={docs.length} rotulo="Ver e assinar documentos" className="botao h-9 px-3 text-sm" /></div>}
+          {docs.some((d) => !d.arquivo_excluido_em) && <div className="mt-2"><BotaoDocumentos notaId={nota.id} numero={nota.numero} total={docs.length} rotulo="Ver e assinar documentos" className="botao h-9 px-3 text-sm" /></div>}
         </div>
         {regra && regra.exigidos.length > 0 && (
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
@@ -64,7 +64,9 @@ export async function DocumentosNota({ nota, podeAnexar, ehAdmin, usuarioId }: {
                   <li key={d.id} className="flex flex-wrap items-start justify-between gap-2 px-3 py-2.5">
                     <div className="min-w-0 space-y-1">
                       <p className="text-sm">
-                        <a href={`/api/documentos/${d.id}`} target="_blank" rel="noopener" className="font-medium text-marinha hover:underline">{d.nome_arquivo}</a>
+                        {d.arquivo_excluido_em ? <span className="font-medium text-slate-700">{d.nome_arquivo}</span>
+                          : <a href={`/api/documentos/${d.id}`} target="_blank" rel="noopener" className="font-medium text-marinha hover:underline">{d.nome_arquivo}</a>}
+                        {d.arquivo_excluido_em && <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-slate-500" title="O arquivo está no pacote final baixado pelo Controle">Arquivo excluído na finalização · {dataHora(d.arquivo_excluido_em)}</span>}
                         <span className="text-xs text-slate-500"> · {tamanho(d.tamanho)} · enviado por {d.enviado_por_nome ?? "—"} em {dataHora(d.criado_em)}</span>
                       </p>
                       <div className="flex flex-wrap gap-1">
@@ -73,7 +75,7 @@ export async function DocumentosNota({ nota, podeAnexar, ehAdmin, usuarioId }: {
                         {!valido(d) && <span className="rounded-md bg-red-50 px-2 py-0.5 text-[11px] text-red-700 ring-1 ring-red-200">Não vale como entregue</span>}
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 text-xs">
+                    {!d.arquivo_excluido_em && <div className="flex items-center gap-3 text-xs">
                       <a href={`/api/documentos/${d.id}?baixar=1`} className="font-medium text-marinha hover:underline">Baixar</a>
                       {(ehAdmin || d.enviado_por === usuarioId) && (
                         <details className="relative">
@@ -86,7 +88,7 @@ export async function DocumentosNota({ nota, podeAnexar, ehAdmin, usuarioId }: {
                           </div>
                         </details>
                       )}
-                    </div>
+                    </div>}
                   </li>
                 ))}
               </ul>

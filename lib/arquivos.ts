@@ -50,6 +50,14 @@ export async function ler(chave: string): Promise<Uint8Array> {
   return new Uint8Array(await resp.arrayBuffer());
 }
 
+/** Exclui o arquivo do armazenamento (R2). */
+export async function apagar(chave: string): Promise<void> {
+  const r = r2();
+  if (!r) return;
+  const resp = await r.cliente.fetch(`${r.base}/${caminho(chave)}`, { method: "DELETE" });
+  if (!resp.ok && resp.status !== 404) throw new Error(`Não foi possível excluir o arquivo do armazenamento (${resp.status}).`);
+}
+
 /** Teste de conexão para a página de administração. */
 export async function testarArmazenamento(): Promise<string> {
   const r = r2();

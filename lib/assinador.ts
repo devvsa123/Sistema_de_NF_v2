@@ -107,7 +107,7 @@ export type DocParaAssinar = {
 export async function documentosParaAssinar(notaId: number): Promise<DocParaAssinar[]> {
   const docs = await sql<{ id: number; tipo: string; nome_arquivo: string; criado_em: Date; assinaturas: { nome: string; integra: boolean }[] }[]>`
     select d.id, t.nome as tipo, d.nome_arquivo, d.criado_em, d.assinaturas from documentos d join tipos_documento t on t.id = d.tipo_id
-    where d.nota_id = ${notaId} and d.removido_em is null and d.mime = 'application/pdf' order by t.ordem, d.criado_em`;
+    where d.nota_id = ${notaId} and d.removido_em is null and d.arquivo_excluido_em is null and d.mime = 'application/pdf' order by t.ordem, d.criado_em`;
   const saida: DocParaAssinar[] = [];
   for (const d of docs) {
     let campos: CampoAssinatura[] = [];

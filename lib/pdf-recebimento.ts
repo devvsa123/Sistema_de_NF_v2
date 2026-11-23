@@ -27,6 +27,7 @@ function limpo(f: PDFFont, s: string) {
   const troca: Record<string, string> = { "→": "->", "↳": "-", "✔": "", "✖": "", "✍": "", "–": "-", "“": '"', "”": '"', "‘": "'", "’": "'" };
   let out = "";
   for (const c of String(s ?? "").replace(/\r/g, "")) {
+    if (c === "\n") { out += c; continue; } // quebras de linha são tratadas por quem quebra o texto
     const t = troca[c] ?? c;
     try { f.encodeText(t); out += t; } catch { out += "?"; }
   }
@@ -56,7 +57,7 @@ function quebrar(f: PDFFont, s: string, tam: number, largura: number): string[] 
 
 function texto(c: Ctx, s: string, x: number, y: number, o: { tam?: number; negrito?: boolean; cor?: ReturnType<typeof rgb>; alinhar?: "esq" | "centro" | "dir"; largura?: number } = {}) {
   const fonte = o.negrito ? c.b : c.f, tam = o.tam ?? 9;
-  const t = limpo(fonte, s);
+  const t = limpo(fonte, s).replace(/\n/g, " ");
   const w = fonte.widthOfTextAtSize(t, tam);
   const px = o.alinhar === "centro" ? x + ((o.largura ?? 0) - w) / 2 : o.alinhar === "dir" ? x + (o.largura ?? 0) - w : x;
   c.pag.drawText(t, { x: px, y, size: tam, font: fonte, color: o.cor ?? rgb(0, 0, 0) });
@@ -488,5 +489,74 @@ export async function pdfParecer(v: Valores, ids: { nota: number; laudo: number 
   quadroDecisao(c, "Encarregado da Divisao Tecnica", "Encarregado da Divisão Técnica", tec.opcoes, [v.encarregado_nome ?? "", "Encarregado da Divisão Técnica"]);
   secao(c, "Resolução do Sr. Diretor", 210);
   quadroDecisao(c, "Resolucao do Diretor", "Diretor", dir.opcoes, [v.diretor_nome ?? "", v.diretor_posto ?? "", v.diretor_cargo || "Diretor"], 150, true);
+  return finalizar(c);
+}
+
+// ------------------------------------------------------------------ Histórico da NF (pacote final)
+
+export type HistoricoNF = {
+  nota: { id: number; numero: string; serie: string | null; chave: string | null; emit_nome: string; emit_cnpj: string; valor: string; oc: string | null;
+    empenho: string | null; natureza: string | null; data_emissao: Date | null; tipo_nf: string; sob_medida: boolean; id_pa: string | null;
+    recebida_em: Date; status: string; etapa: string | null; obs_oc: string | null };
+  itens: { n: number; codigo: string; descricao: string; qtd: number; un: string; vTotal: number; cfop: string }[];
+  eventos: { criado_em: Date; tipo: string; de_nome: string | null; para_nome: string | null; usuario_nome: string | null; texto: string | null }[];
+  documentos: { tipo: string; nome: string; enviado_por: string | null; criado_em: Date; sha256: string; tamanho: number; removido: string | null;
+    assinaturas: { nome: string; tipo: string; quando: string | null; integra: boolean }[] }[];
+  geradoPor: string; geradoEm: Date;
+};
+
+const dh = (d: Date | string | null) => (d ? new Date(d).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).replace(",", "") : "—");
+const brl = (v: number | string) => Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+/** Histórico completo da NF em PDF: identificação, itens, toda a tramitação e os documentos com as assinaturas. */
+export async function pdfHistorico(h: HistoricoNF, tipoEvento: Record<string, string>) {
+  const n = h.nota;
+  const c = await iniciar(`Histórico da NF ${n.numero}`, `Histórico sistêmico da NF ${n.numero} — ${n.emit_nome}`,
+    ["nf-sistema", "nf-doc:historico", `nf-nota:${n.id}`], `Histórico da NF ${n.numero} · gerado em ${dh(h.geradoEm)} por ${h.geradoPor}`);
+  cabecalho(c, "HISTÓRICO DA NOTA FISCAL", `NF nº ${n.numero}${n.serie ? ` · série ${n.serie}` : ""}`, "SISTEMA DE TRAMITAÇÃO DE NF");
+
+  secao(c, "Identificação");
+  const cnpjF = n.emit_cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+  grade(c, [
+    [{ rotulo: "Empresa", valor: n.emit_nome, cm: 12, negrito: true }, { rotulo: "CNPJ", valor: cnpjF, cm: 6 }],
+    [{ rotulo: "Número da NF", valor: n.numero, cm: 4.5, negrito: true }, { rotulo: "Valor", valor: brl(n.valor), cm: 4.5 }, { rotulo: "OC", valor: n.oc ?? "", cm: 4.5 }, { rotulo: "Empenho", valor: n.empenho ?? "", cm: 4.5 }],
+    [{ rotulo: "Chave de acesso", valor: n.chave ?? "", cm: 12 }, { rotulo: "Emissão", valor: n.data_emissao ? dh(n.data_emissao).slice(0, 10) : "", cm: 6 }],
+    [{ rotulo: "Natureza da operação", valor: n.natureza ?? "", cm: 9 }, { rotulo: "Tipo", valor: `${n.tipo_nf === "servico" ? "Serviço" : "Material"}${n.sob_medida ? " · sob medida" : ""}`, cm: 4.5 }, { rotulo: "ID de PA", valor: n.id_pa ?? "", cm: 4.5 }],
+    [{ rotulo: "Cadastrada no sistema", valor: dh(n.recebida_em), cm: 6 }, { rotulo: "Situação na geração deste histórico", valor: n.etapa ? `Em trâmite: ${n.etapa}` : n.status, cm: 12 }],
+  ]);
+  if (n.obs_oc) { texto(c, "OBSERVAÇÕES DA OC", M, c.y - 9, { tam: 6.5, negrito: true, cor: CINZA }); c.y -= 12; quadro(c, n.obs_oc, 20); }
+
+  if (h.itens.length) {
+    secao(c, `Itens da NF (${h.itens.length})`, 80);
+    tabela(c, {
+      titulo: "Itens",
+      colunas: [{ titulo: "#", cm: 0.8, alinhar: "centro" }, { titulo: "CÓDIGO", cm: 2.6 }, { titulo: "DESCRIÇÃO", cm: 8.6 }, { titulo: "CFOP", cm: 1.2, alinhar: "centro" },
+        { titulo: "QTD.", cm: 2.2, alinhar: "dir" }, { titulo: "VALOR", cm: 2.6, alinhar: "dir" }],
+      linhas: h.itens.map((i) => [String(i.n), i.codigo, i.descricao, i.cfop, `${i.qtd.toLocaleString("pt-BR")} ${i.un}`, brl(i.vTotal)]),
+    } as Tabela);
+  }
+
+  secao(c, `Tramitação e histórico (${h.eventos.length} registros)`, 80);
+  tabela(c, {
+    titulo: "Histórico",
+    colunas: [{ titulo: "DATA E HORA", cm: 2.5 }, { titulo: "REGISTRO", cm: 2.6 }, { titulo: "USUÁRIO", cm: 3.2 }, { titulo: "DETALHE", cm: 9.7 }],
+    linhas: h.eventos.map((e) => [
+      dh(e.criado_em), tipoEvento[e.tipo] ?? e.tipo, e.usuario_nome ?? "Sistema",
+      [e.de_nome || e.para_nome ? `${e.de_nome ?? "—"} -> ${e.para_nome ?? "—"}` : "", e.texto ?? ""].filter(Boolean).join(" · ") || "—",
+    ]),
+  } as Tabela);
+
+  secao(c, `Documentos da NF (${h.documentos.length})`, 80);
+  tabela(c, {
+    titulo: "Documentos",
+    colunas: [{ titulo: "DOCUMENTO", cm: 4.6 }, { titulo: "ENVIADO", cm: 3.2 }, { titulo: "ASSINATURAS DIGITAIS", cm: 6 }, { titulo: "SHA-256 DO ARQUIVO", cm: 4.2 }],
+    linhas: h.documentos.map((d) => [
+      `${d.tipo}\n${d.nome}${d.removido ? `\n(substituído/removido: ${d.removido})` : ""}`,
+      `${dh(d.criado_em)}\n${d.enviado_por ?? ""}`,
+      d.assinaturas.length ? d.assinaturas.map((a) => `${a.nome} (${a.tipo}${a.quando ? `, ${dh(a.quando)}` : ""})${a.integra ? "" : " - NÃO CONFERE"}`).join("\n") : "sem assinatura digital",
+      d.sha256,
+    ]),
+    nota: "O SHA-256 identifica cada arquivo: o mesmo arquivo sempre gera o mesmo código. Os arquivos foram baixados no pacote final da NF e excluídos do sistema na finalização; este histórico permanece no sistema.",
+  } as Tabela);
   return finalizar(c);
 }

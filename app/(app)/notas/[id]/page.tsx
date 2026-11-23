@@ -10,6 +10,7 @@ import { AcoesNota } from "@/components/AcoesNota";
 import { FormAcao } from "@/components/FormAcao";
 import { FormObservacao } from "@/components/FormObservacao";
 import { DocumentosNota } from "@/components/DocumentosNota";
+import { PacoteFinal } from "@/components/PacoteFinal";
 import { AssinarToken } from "@/components/AssinarToken";
 import type { BotaoFila } from "@/components/FilaTabela";
 import { acaoAjusteAdmin, acaoEditarNota } from "@/app/acoes/notas";
@@ -52,7 +53,10 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
   });
 
   const permitidas = acoesPermitidas(u, nota, etapas);
-  const { anterior, proxima } = vizinhos(etapas, nota.etapa_id);
+  const { anterior, proxima, atual: etapaAtual } = vizinhos(etapas, nota.etapa_id);
+  // última etapa: pacote final (documentos assinados + histórico) antes de finalizar
+  const pacoteFinal = interno && nota.status === "em_tramite" && !!etapaAtual && !proxima
+    && (u.papel === "admin" || (u.papel === "interno" && u.etapas.includes(etapaAtual.id)));
   const ROTULOS: Record<Acao, BotaoFila> = {
     retornar: { acao: "retornar", rotulo: `← Devolver para ${anterior?.nome}`, estilo: "sec" },
     reprovar: { acao: "reprovar", rotulo: "Reprovar", estilo: "perigo" },
@@ -159,7 +163,8 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
         </div>
       )}
 
-      {interno && <DocumentosNota nota={nota} podeAnexar={u.papel === "admin" || u.papel === "interno"} ehAdmin={u.papel === "admin"} usuarioId={u.id} />}
+      {pacoteFinal && <PacoteFinal notaId={nota.id} numero={nota.numero} empresa={nota.emit_nome} />}
+      {interno && <DocumentosNota nota={nota} podeAnexar={u.papel === "admin" || (u.papel === "interno" && nota.status !== "finalizada")} ehAdmin={u.papel === "admin"} usuarioId={u.id} />}
 
       {(recebedor || docsReceb.length > 0) && (
         <div className="cartao flex flex-wrap items-start justify-between gap-4 p-5">

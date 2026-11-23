@@ -242,6 +242,18 @@ export default async function Manual() {
       </>,
     },
     {
+      id: "pacote-final", titulo: "Pacote final e finalização da NF", para: ["admin", "interno"], conteudo: <>
+        <p>Na última etapa (<B>Controle — Finalização</B>), a NF só é finalizada depois que o pacote final é baixado e conferido. O quadro <B>Pacote final da NF</B> aparece na página da NF.</p>
+        <Passos>
+          <li>O sistema confere os documentos: todos os campos de assinatura precisam estar assinados, as assinaturas precisam conferir com os arquivos e os documentos obrigatórios precisam estar anexados. O que faltar aparece em vermelho.</li>
+          <li>Clique em <B>Baixar pacote</B>: vem um arquivo ZIP com uma pasta da NF contendo todos os documentos assinados, o <B>Histórico da NF</B> em PDF (identificação, itens, toda a tramitação com datas e usuários, e os documentos com as assinaturas e o código SHA-256 de cada arquivo) e uma lista de conferência. Cada arquivo é conferido automaticamente com o código registrado no sistema.</li>
+          <li>Abra o ZIP no computador, confira os documentos, guarde o pacote para os autos do processo de pagamento, marque a confirmação e clique em <B>Confirmar conferência</B>.</li>
+          <li>Clique em <B>Finalizar NF</B> (ou finalize pela fila). Na finalização, os <B>arquivos</B> dos documentos são excluídos do sistema; o histórico, os dados da NF e o registro de quem assinou continuam no sistema.</li>
+        </Passos>
+        <Dica tipo="atencao">Se algum documento mudar depois da conferência (nova assinatura, documento novo ou removido), é preciso baixar e conferir o pacote de novo. Depois de finalizada, os arquivos só existem no pacote baixado.</Dica>
+      </>,
+    },
+    {
       id: "arrecadacao", titulo: "Arrecadação e armazenagem", para: OPERADORES, conteudo: <>
         <Lista>
           <li>Na etapa <B>{arrecada}</B>, use <B>Marcar como arrecadada</B> antes de finalizar. Sem isso, o botão de avançar não aparece.</li>
