@@ -12,20 +12,20 @@ import type { DadosNF, ItemNF, NFLida } from "./nfe";
  * seguinte, cerca de 3 pontos à direita do rótulo. A leitura se apoia nessa posição.
  */
 
-type Pedaco = { x: number; s: string };
-type LinhaPdf = { pag: number; y: number; itens: Pedaco[] };
+export type Pedaco = { x: number; s: string };
+export type LinhaPdf = { pag: number; y: number; itens: Pedaco[] };
 type Pos = { linha: number; x: number };
 
-const limpar = (s: string) => s.replace(/\s+/g, " ").trim();
-const semAcento = (s: string) => limpar(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+export const limpar = (s: string) => s.replace(/\s+/g, " ").trim();
+export const semAcento = (s: string) => limpar(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 /** "907.830,000" → 907830 */
-function numBR(s: string | undefined): number {
+export function numBR(s: string | undefined): number {
   const n = Number(String(s ?? "").replace(/\./g, "").replace(",", "."));
   return isFinite(n) ? n : 0;
 }
 
-async function extrairLinhas(bytes: Uint8Array): Promise<LinhaPdf[]> {
+export async function extrairLinhas(bytes: Uint8Array): Promise<LinhaPdf[]> {
   const pdf = await getDocumentProxy(bytes);
   if (pdf.numPages > 60) throw new Error("PDF com páginas demais para ser a consulta de uma NF-e.");
   const linhas: LinhaPdf[] = [];
@@ -95,7 +95,7 @@ class Leitor {
   }
 }
 
-function conferirChave(chave: string) {
+export function conferirChave(chave: string) {
   if (!/^\d{44}$/.test(chave)) return false;
   let soma = 0, peso = 2;
   for (let i = 42; i >= 0; i--) {

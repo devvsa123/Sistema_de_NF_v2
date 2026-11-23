@@ -21,12 +21,22 @@ export default async function NovaNota() {
         </>} />
       <EnvioXml />
       <p className="text-sm text-slate-600">
-        <strong>Sem acesso ao XML?</strong> No Portal da NF-e (nfe.fazenda.gov.br → Consultar NF-e), abra a nota pela chave de acesso, clique em imprimir e
-        escolha <em>Salvar como PDF</em>. Envie esse PDF aqui: o sistema lê os mesmos dados (emitente, itens, totais, OC, empenho).
+        <strong>PDF da DANFE:</strong> baixe a DANFE pela chave de acesso e envie o PDF aqui. O sistema lê emitente, itens, totais, OC e empenho,
+        confere tudo com a chave de acesso e já anexa o PDF na NF com o certificado (material ou serviço) como última página, para as assinaturas.
+        Também são aceitos o XML da NF-e e o PDF da consulta completa no Portal da NF-e.
       </p>
       <details className="cartao p-5">
-        <summary className="cursor-pointer text-sm font-semibold text-slate-700">Não tem XML nem PDF? Cadastrar manualmente</summary>
+        <summary className="cursor-pointer text-sm font-semibold text-slate-700">Não conseguiu o PDF pela chave de acesso? Cadastrar manualmente com a NF digitalizada</summary>
         <FormAcao acao={acaoCadastrarManual} botao="Cadastrar nota" className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="sm:col-span-2"><span className="rotulo">NF digitalizada (PDF) *</span>
+            <input type="file" name="digitalizada" accept=".pdf,application/pdf" required className="campo py-1.5" />
+            <span className="mt-1 block text-xs text-slate-500">Obrigatória para a NF seguir no trâmite. O sistema acrescenta o certificado como última página e a anexa na NF para as assinaturas. Até 4 MB.</span></label>
+          <fieldset className="sm:col-span-2"><legend className="rotulo">Tipo da NF *</legend>
+            <div className="flex flex-wrap gap-4 text-sm">
+              <label className="flex items-center gap-2"><input type="radio" name="tipo_nf" value="material" defaultChecked required /> Material — Certificado de Recebimento de Bens</label>
+              <label className="flex items-center gap-2"><input type="radio" name="tipo_nf" value="servico" /> Serviço — Certificado de Prestação de Serviços</label>
+            </div>
+          </fieldset>
           <label className="sm:col-span-2"><span className="rotulo">Chave de acesso (ou nº do documento)</span><input name="chave" className="campo" maxLength={60} /></label>
           <label><span className="rotulo">Número da NF</span><input name="numero" className="campo" required maxLength={20} /></label>
           <label><span className="rotulo">Valor total (R$)</span><input name="valor" className="campo" required inputMode="decimal" placeholder="1.234,56" /></label>

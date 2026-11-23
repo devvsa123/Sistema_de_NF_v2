@@ -252,22 +252,31 @@ export default async function Manual() {
     {
       id: "cadastro", titulo: "Cadastrar notas fiscais", para: ["admin", "interno"], conteudo: <>
         <p>Em <Ir href="/notas/nova">Cadastrar NF</Ir>, arraste um ou vários arquivos. O sistema lê emitente, valor, itens, empenho e OC automaticamente e mostra uma prévia antes de gravar.</p>
+        <p className="mt-3 font-semibold text-slate-900">Com o PDF da DANFE (forma padrão)</p>
+        <Passos>
+          <li>Baixe a DANFE em PDF pela chave de acesso e arraste o PDF na tela de cadastro (pode enviar vários de uma vez).</li>
+          <li>O sistema lê emitente, itens (com CFOP), totais, OC e empenho, e confere tudo com a chave de acesso (CNPJ, número e série) e a soma dos itens com o total. Se algo não bater, o PDF é recusado.</li>
+          <li>Na prévia aparece se a NF é de <B>Material</B> ou de <B>Serviço</B>. Ao cadastrar, o próprio PDF já fica anexado como documento da NF, com o certificado correspondente como <B>última página</B>, pronto para as assinaturas.</li>
+        </Passos>
+        <Dica tipo="atencao">A DANFE precisa ter texto (a gerada pela chave de acesso tem). DANFE escaneada ou foto não dá para ler: use o cadastro manual.</Dica>
+        <p className="mt-3 font-semibold text-slate-900">Sem o PDF pela chave: cadastro manual com a NF digitalizada</p>
+        <p>Se não conseguir a DANFE pela chave de acesso, use <B>Cadastrar manualmente com a NF digitalizada</B>: preencha número, valor, CNPJ, empresa e OC, escolha se é de material ou serviço e <B>anexe a NF digitalizada (PDF)</B>, que é obrigatória. O sistema acrescenta o certificado como última página e anexa na NF para as assinaturas. Sem os itens da NF, o TAV e o Check-list saem sem a lista de itens; se depois a DANFE ou o XML aparecerem, envie na tela de cadastro que os dados são anexados à mesma NF (sem duplicar o documento).</p>
         <p className="mt-3 font-semibold text-slate-900">Com o XML da NF-e</p>
-        <p>Use o arquivo .xml enviado pelo fornecedor. É a forma mais completa.</p>
+        <p>O arquivo .xml continua aceito. Nesse caso, anexe o PDF da DANFE no mesmo cadastro, pelo botão <B>Anexar PDF da DANFE</B>.</p>
         <p className="mt-3 font-semibold text-slate-900">NF de material ou de serviço e PDF da DANFE</p>
         <Lista>
           <li>Na prévia, o sistema mostra se a NF é de <B>Material</B> ou de <B>Serviço</B>, identificado pelo CFOP dos itens (ex.: <B>5124/6124 — industrialização efetuada para outra empresa</B>, ou 5933/6933 — serviço com ISSQN) e pela natureza da operação. Confira e, se precisar, troque antes de cadastrar. NF com CFOP de serviço e de compra ao mesmo tempo aparece como “NF mista” e fica como Material.</li>
-          <li>No mesmo cadastro, use <B>Anexar PDF da DANFE</B>: ao cadastrar, o sistema acrescenta o certificado certo ao PDF e já o anexa na NF. <B>Material</B>: Certificado de Recebimento de Bens (fiel de armazenagem, perito, fiel de suprimentos e gestor). <B>Serviço</B>: Certificado de Prestação de Serviços, com assinatura só da <B>Estocagem</B> (servidor responsável).</li>
+          <li>O certificado entra como última página do PDF da NF. <B>Material</B>: Certificado de Recebimento de Bens (fiel de armazenagem, perito, fiel de suprimentos e gestor). <B>Serviço</B>: Certificado de Prestação de Serviços, com assinatura só da <B>Estocagem</B> (servidor responsável).</li>
           <li>Se o PDF da DANFE tiver texto, o sistema confere se a chave de acesso é a mesma do XML. DANFE escaneada não dá para conferir: confira o número antes de enviar.</li>
           <li>O tipo pode ser trocado depois em <B>Editar OC, tipo da NF e observações</B>, na página da NF. A troca vale para o PDF da NF anexado depois dela.</li>
         </Lista>
-        <p className="mt-3 font-semibold text-slate-900">Sem o XML: PDF da consulta na SEFAZ</p>
+        <p className="mt-3 font-semibold text-slate-900">Também aceito: PDF da consulta completa no Portal da NF-e</p>
         <Passos>
           <li>Acesse o Portal da NF-e (nfe.fazenda.gov.br) → <B>Consultar NF-e</B> → informe a chave de acesso.</li>
           <li>Na consulta completa, clique em imprimir e escolha <B>Salvar como PDF</B>.</li>
           <li>Envie esse PDF na tela de cadastro, como faria com o XML.</li>
         </Passos>
-        <Dica tipo="atencao">O DANFE enviado pelo fornecedor não serve: só o PDF da consulta completa do Portal da NF-e é lido. O sistema confere a chave de acesso e a soma dos itens e recusa arquivos inconsistentes.</Dica>
+        <Dica tipo="atencao">O sistema confere a chave de acesso e a soma dos itens e recusa arquivos inconsistentes.</Dica>
         <Lista>
           <li>O sistema procura a <B>OC</B> nos dados adicionais da nota (escrita como “OC”, “O.C.”, “Ordem de Compra” ou “Pedido”, sempre com 7 dígitos) e preenche sozinha. Quando a nota não informa a OC, o campo fica em destaque e é preciso digitá-la: <B>nenhuma NF é cadastrada sem OC</B>.</li>
           <li>Marque <B>Sob medida</B> quando for o caso e clique em <B>Cadastrar</B>.</li>

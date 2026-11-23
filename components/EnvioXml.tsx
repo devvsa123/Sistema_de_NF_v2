@@ -9,7 +9,7 @@ import { descreverMotivo, NOME_TIPO_NF, type TipoNF } from "@/lib/tipo-nf";
 type Previa = {
   chave: string; numero: string; serie: string; emit_cnpj: string; emit_nome: string; valor: number; data_emissao: string | null;
   oc: string; empenho: string; itens: number; existente: { id: number; tem_xml: boolean; fonte: string | null; oc: string | null } | null; bloqueio: string | null;
-  tipo: TipoNF; motivo: string;
+  tipo: TipoNF; motivo: string; origem: "xml" | "pdf" | "danfe";
 };
 type Item = {
   arquivo: string; tipo: "xml" | "pdf"; conteudo: string; previa?: Previa; erro?: string; oc: string; sobMedida: boolean;
@@ -58,7 +58,7 @@ export function EnvioXml() {
       const it = itens[i];
       if (it.estado !== "pronto") continue;
       mudar(i, { estado: "enviando" });
-      const r = await acaoCadastrarDocumento(it.tipo, it.conteudo, { oc: it.oc, sobMedida: it.sobMedida, tipoNf: it.tipoNf, danfe: it.danfe });
+      const r = await acaoCadastrarDocumento(it.tipo, it.conteudo, { oc: it.oc, sobMedida: it.sobMedida, tipoNf: it.tipoNf, danfe: it.danfe, nomeArquivo: it.arquivo });
       if (r.ok) mudar(i, { estado: "ok", id: r.ok.id, anexado: r.ok.anexado, aviso: r.ok.aviso });
       else mudar(i, { estado: "erro", erro: r.erro });
     }
@@ -82,8 +82,8 @@ export function EnvioXml() {
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => { e.preventDefault(); escolher(e.dataTransfer.files); }}
       >
-        <span className="text-base font-semibold text-slate-700">{lendo ? "Lendo arquivos…" : "Clique ou arraste aqui os arquivos das NF-e (XML ou PDF da consulta na SEFAZ)"}</span>
-        <span className="mt-1 text-sm text-slate-500">Pode enviar vários de uma vez. Os dados da nota são preenchidos automaticamente.</span>
+        <span className="text-base font-semibold text-slate-700">{lendo ? "Lendo arquivos…" : "Clique ou arraste aqui os PDF da DANFE (ou o XML da NF-e)"}</span>
+        <span className="mt-1 text-sm text-slate-500">Pode enviar vários de uma vez. O sistema lê os dados, identifica se é de material ou serviço e anexa o PDF com o certificado.</span>
         <input type="file" accept=".xml,.pdf,text/xml,application/xml,application/pdf" multiple className="hidden" disabled={lendo || enviando}
           onChange={(e) => { escolher(e.target.files); e.target.value = ""; }} />
       </label>
@@ -120,14 +120,16 @@ export function EnvioXml() {
                       <span className="text-slate-500">{it.tipoNf === it.previa.tipo ? descreverMotivo(it.previa.motivo) : "Alterado manualmente"}</span>
                     </div>
                     <p className="text-slate-500">Certificado que vai junto com o PDF da NF: <strong className="text-slate-700">{it.tipoNf === "servico" ? "Prestação de Serviços (assinatura só da Estocagem)" : "Recebimento de Bens"}</strong></p>
-                    <div className="flex flex-wrap items-center gap-2">
+                    {it.previa.origem === "danfe" ? (
+                      <p className="font-medium text-emerald-700">✓ Dados lidos da DANFE. Este PDF já vai anexado na NF, com o certificado como última página, pronto para as assinaturas.</p>
+                    ) : <div className="flex flex-wrap items-center gap-2">
                       <label className="botao-sec h-7 cursor-pointer px-2.5 text-xs">
                         {it.danfe ? "Trocar PDF da DANFE" : "Anexar PDF da DANFE"}
                         <input type="file" accept=".pdf,application/pdf" className="hidden" disabled={enviando} onChange={(e) => { escolherDanfe(i, e.target.files?.[0]); e.target.value = ""; }} />
                       </label>
                       {it.danfe ? <span className="text-emerald-700">✓ {it.danfe.nome} <button type="button" className="ml-1 text-slate-500 underline" onClick={() => mudar(i, { danfe: null })} disabled={enviando}>remover</button></span>
                         : <span className="text-slate-500">opcional: o sistema acrescenta o certificado ao PDF e anexa na NF</span>}
-                    </div>
+                    </div>}
                     {it.aviso && <p className="font-medium text-amber-800">{it.aviso}</p>}
                   </div>
                 )}

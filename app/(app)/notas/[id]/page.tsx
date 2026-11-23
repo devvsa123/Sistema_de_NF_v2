@@ -211,7 +211,7 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
 
       {d && (
         <div className="cartao p-5">
-          <h2 className="mb-4 text-[15px] font-semibold text-slate-900">Dados da NF-e{nota.fonte === "pdf" && <span className="ml-2 font-normal normal-case text-slate-400">lidos do PDF da consulta no Portal da NF-e</span>}</h2>
+          <h2 className="mb-4 text-[15px] font-semibold text-slate-900">Dados da NF-e{nota.fonte === "pdf" && <span className="ml-2 font-normal normal-case text-slate-400">lidos do PDF da consulta no Portal da NF-e</span>}{nota.fonte === "danfe" && <span className="ml-2 font-normal normal-case text-slate-400">lidos do PDF da DANFE</span>}</h2>
           <dl className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <Campo rotulo="Natureza da operação">{nota.natureza}</Campo>
             <Campo rotulo="Protocolo de autorização">{d.protocolo && `${d.protocolo}${d.autorizadaEm ? " · " + dataHora(d.autorizadaEm) : ""}`}</Campo>
@@ -273,7 +273,7 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
       {!nota.fonte && podeCadastrar(u) && (
         <p className="rounded-lg border border-dashed border-slate-300 bg-white px-4 py-3 text-sm text-slate-600">
           Esta NF ainda não tem os dados da NF-e. {nota.chave && /^\d{44}$/.test(nota.chave)
-            ? <>Envie o XML ou o PDF da consulta na SEFAZ em <Link href="/notas/nova" className="font-medium text-marinha hover:underline">Cadastrar NF</Link> — ele será anexado automaticamente pela chave de acesso.</>
+            ? <>Envie o PDF da DANFE ou o XML em <Link href="/notas/nova" className="font-medium text-marinha hover:underline">Cadastrar NF</Link> — ele será anexado automaticamente pela chave de acesso.</>
             : "Como foi cadastrada sem chave de acesso, o arquivo não pode ser associado automaticamente."}
         </p>
       )}

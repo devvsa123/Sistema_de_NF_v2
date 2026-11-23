@@ -158,11 +158,11 @@ export async function acaoAnalisarDocumento(tipo: string, conteudo: string) {
   const u = await exigirUsuario();
   if (!podeCadastrar(u)) return { erro: "Seu perfil não permite cadastrar NF." };
   try {
-    const { nf, existente, bloqueio, tipo: tipoNf, motivo } = await analisarDocumento(documento(tipo, conteudo));
+    const { nf, existente, bloqueio, tipo: tipoNf, motivo, origem } = await analisarDocumento(documento(tipo, conteudo));
     return {
       previa: {
         chave: nf.chave, numero: nf.numero, serie: nf.serie, emit_cnpj: nf.emit_cnpj, emit_nome: nf.emit_nome, valor: nf.valor,
-        data_emissao: nf.data_emissao, oc: nf.oc, empenho: nf.empenho, itens: nf.itens.length, existente, bloqueio, tipo: tipoNf, motivo,
+        data_emissao: nf.data_emissao, oc: nf.oc, empenho: nf.empenho, itens: nf.itens.length, existente, bloqueio, tipo: tipoNf, motivo, origem,
       },
     };
   } catch (e) {
@@ -172,7 +172,7 @@ export async function acaoAnalisarDocumento(tipo: string, conteudo: string) {
 
 export async function acaoCadastrarDocumento(
   tipo: string, conteudo: string,
-  op: { oc?: string; sobMedida?: boolean; obs?: string; tipoNf?: string; danfe?: { nome: string; conteudo: string } | null },
+  op: { oc?: string; sobMedida?: boolean; obs?: string; tipoNf?: string; danfe?: { nome: string; conteudo: string } | null; nomeArquivo?: string },
 ) {
   const u = await exigirUsuario();
   let danfe: Uint8Array | null = null;
@@ -191,13 +191,20 @@ export async function acaoCadastrarDocumento(
     }
     const r = await cadastrarPorDocumento(u, doc, { oc: String(op.oc ?? "").slice(0, 60), sobMedida: !!op.sobMedida, obs: String(op.obs ?? "").slice(0, 2000), tipoNf });
     let aviso = "";
+    // cadastro pela própria DANFE: o PDF enviado já é o documento da NF (com o certificado como última página)
+    if (!danfe && r.origem === "danfe") danfe = new Uint8Array(Buffer.from(doc.conteudo, "base64"));
+    if (danfe && r.anexado) {
+      // NF que já existia (ex.: cadastro manual com a NF digitalizada): não duplica o documento da NF
+      const [ja] = await sql`select 1 from documentos d join tipos_documento t on t.id = d.tipo_id where d.nota_id = ${r.id} and t.nome = ${TIPO_NF} and d.removido_em is null limit 1`;
+      if (ja) { danfe = null; aviso = "Dados da NF-e anexados. A NF já tinha o PDF da NF nos documentos, por isso este PDF não foi anexado de novo."; }
+    }
     if (danfe) {
       try {
         const [t] = await sql`select id from tipos_documento where nome = ${TIPO_NF} and ativo`;
-        const nome = String(op.danfe!.nome || `NF-${r.numero}.pdf`).replace(/[^\w.\- ()À-ÿ]/g, "_").slice(-120);
+        const nome = String(op.danfe?.nome || op.nomeArquivo || `NF-${r.numero}.pdf`).replace(/[^\w.\- ()À-ÿ]/g, "_").slice(-120);
         await enviarDocumento(u, r.id, (t?.id as number) ?? 0, new File([Buffer.from(danfe)], /\.pdf$/i.test(nome) ? nome : `${nome}.pdf`, { type: "application/pdf" }));
       } catch (e) {
-        aviso = `NF cadastrada, mas o PDF da DANFE não foi anexado: ${msg(e)}`;
+        aviso = `NF cadastrada, mas o PDF da DANFE não foi anexado: ${msg(e)}. Anexe-o na página da NF.`;
       }
     }
     revalidatePath("/", "layout");
@@ -222,15 +229,29 @@ async function chavesNoPdf(bytes: Uint8Array) {
 
 export async function acaoCadastrarManual(_: Estado, f: FormData): Promise<Estado> {
   const u = await exigirUsuario();
+  // a NF digitalizada é obrigatória: é o documento que segue no trâmite para as assinaturas
+  const arquivo = f.get("digitalizada");
+  if (!(arquivo instanceof File) || !arquivo.size) return { erro: "Anexe a NF digitalizada (PDF) para cadastrar." };
+  if (!/\.pdf$/i.test(arquivo.name) && arquivo.type !== "application/pdf") return { erro: "A NF digitalizada precisa ser um arquivo PDF." };
+  if (arquivo.size > 4 * 1048576) return { erro: "A NF digitalizada tem mais de 4 MB. Digitalize em resolução menor (ex.: 200 dpi, tons de cinza) e envie de novo." };
   let id: number;
   try {
     const valor = Number(campo(f, "valor").replace(/\./g, "").replace(",", "."));
     id = await cadastrarManual(u, {
       chave: campo(f, "chave"), numero: campo(f, "numero"), cnpj: campo(f, "cnpj"), nome: campo(f, "nome"),
       valor, oc: campo(f, "oc"), sobMedida: f.get("sob_medida") === "on", obs: campo(f, "obs"),
+      tipoNf: campo(f, "tipo_nf") === "servico" ? "servico" : "material",
     });
   } catch (e) {
     return { erro: msg(e) };
+  }
+  try {
+    const [t] = await sql`select id from tipos_documento where nome = ${TIPO_NF} and ativo`;
+    await enviarDocumento(u, id, (t?.id as number) ?? 0, arquivo);
+  } catch (e) {
+    // sem a NF digitalizada a nota não segue: desfaz o cadastro
+    await sql.begin(async (tx) => { await tx`delete from eventos where nota_id = ${id}`; await tx`delete from notas where id = ${id}`; });
+    return { erro: `A NF não foi cadastrada: ${msg(e)}` };
   }
   revalidatePath("/", "layout");
   redirect(`/notas/${id}`);
