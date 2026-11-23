@@ -3,6 +3,13 @@ import * as asn1js from "asn1js";
 import * as pkijs from "pkijs";
 
 /**
+ * Limite de nós ASN.1 na leitura da assinatura. O padrão da biblioteca (10 mil) é pequeno para assinaturas com
+ * validação de longo prazo (LibreOffice/Adobe embutem as listas de revogação do certificado, com dezenas de milhares
+ * de nós). O tamanho já é limitado pelo arquivo (até 4 MB), então um teto maior é seguro.
+ */
+const LEITURA_ASN1 = { maxNodes: 2_000_000 };
+
+/**
  * Leitura e conferência das assinaturas digitais de um PDF (PAdES / adbe.pkcs7.detached / ETSI.CAdES.detached).
  * Confere a integridade (o conteúdo assinado não foi alterado e a assinatura bate com o certificado)
  * e identifica quem assinou, quando e o tipo de certificado (gov.br ou ICP-Brasil).
@@ -61,7 +68,7 @@ function cpfDoSan(cert: pkijs.Certificate): string | null {
 
 /** Titular do certificado de uma assinatura CMS (base64), sem conferir conteúdo: usado para identificar o certificado. */
 export function titularDaAssinatura(base64: string) {
-  const asn = asn1js.fromBER(new Uint8Array(Buffer.from(base64.replace(/\s+/g, ""), "base64")).buffer);
+  const asn = asn1js.fromBER(new Uint8Array(Buffer.from(base64.replace(/\s+/g, ""), "base64")).buffer, LEITURA_ASN1);
   if (asn.offset === -1) throw new Error("Assinatura ilegível.");
   const sd = new pkijs.SignedData({ schema: new pkijs.ContentInfo({ schema: asn.result }).content });
   const certs = (sd.certificates ?? []).filter((x): x is pkijs.Certificate => x instanceof pkijs.Certificate);
@@ -96,7 +103,7 @@ export async function assinaturasDoPdf(pdf: Uint8Array): Promise<Assinatura[]> {
 async function conferir(der: Buffer, assinado: Buffer, cobreTudo: boolean): Promise<Assinatura> {
   const vazio: Assinatura = { nome: "—", cpf: null, email: null, emissor: "—", tipo: "outro", quando: null, integra: false, cobreTudo };
   try {
-    const asn = asn1js.fromBER(new Uint8Array(der).buffer);
+    const asn = asn1js.fromBER(new Uint8Array(der).buffer, LEITURA_ASN1);
     if (asn.offset === -1) return { ...vazio, erro: "Assinatura ilegível." };
     const ci = new pkijs.ContentInfo({ schema: asn.result });
     const sd = new pkijs.SignedData({ schema: ci.content });
