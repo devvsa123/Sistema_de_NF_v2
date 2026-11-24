@@ -116,6 +116,7 @@ export default async function Manual() {
           <li>Gere e assine o documento como de costume (gov.br ou token A3).</li>
           <li>Na NF, escolha o <B>tipo do documento</B>, selecione o arquivo e clique em <B>Anexar à NF</B>. Dá para enviar vários arquivos do mesmo tipo de uma vez (até 4 MB cada).</li>
         </Passos>
+        <p className="mt-2">No quadro <B>Documentos da NF</B>, o <B>Check-list de documentos e assinaturas</B> mostra, etapa por etapa, os documentos obrigatórios (✔ entregue, ✖ falta; a etapa atual fica destacada e o que ficou para trás aparece como “ficou pendente”) e, em cada documento anexado, as assinaturas que ainda faltam (ex.: “Faltam as assinaturas: Fiel de Armazenagem, Gestor de Bens Patrimoniais”, ou “Falta a assinatura: Diretor” no parecer).</p>
         <Lista>
           <li>O sistema confere a assinatura digital do PDF e mostra quem assinou, quando e se foi pelo <B>gov.br</B> ou por <B>certificado ICP-Brasil (token)</B>. Se o arquivo foi alterado depois de assinado, a assinatura aparece como inválida.</li>
           <li>Documentos marcados como “assinados” (TAV, Check-list, relatório de ensaio, Parecer da Divisão Técnica) só são aceitos com assinatura digital íntegra.</li>

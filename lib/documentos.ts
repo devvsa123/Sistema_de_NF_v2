@@ -7,6 +7,7 @@ import { assinaturasDoPdf, sha256, type Assinatura } from "./assinatura";
 import { PDFDocument } from "pdf-lib";
 import { getDocumentProxy } from "unpdf";
 import { nfComCertificado } from "./pdf-recebimento";
+import { camposDeAssinatura, type CampoAssinatura } from "./pdf-assinar";
 
 /** Marcas que o sistema grava nos PDFs que gera (TAV, Check-list): tipo do documento e NF. */
 async function marcasDoPdf(bytes: Uint8Array): Promise<{ doc?: string; nota?: number }> {
@@ -114,6 +115,8 @@ export async function enviarDocumento(u: Usuario, notaId: number, tipoId: number
   const [repetido] = await sql`select t.nome from documentos d join tipos_documento t on t.id = d.tipo_id where d.nota_id = ${notaId} and d.sha256 = ${hash} and d.removido_em is null`;
   if (repetido) throw new Error(`Este mesmo arquivo já está anexado nesta NF (${repetido.nome}).`);
   const assinaturas = ext === "pdf" ? await assinaturasDoPdf(bytes) : [];
+  let campos: CampoAssinatura[] | null = null;
+  if (ext === "pdf") try { campos = await camposDeAssinatura(bytes); } catch { campos = []; }
   if (tipo.exige_assinatura && !assinaturas.length && !opcoes.semAssinatura)
     throw new Error(`O documento “${tipo.nome}” precisa estar assinado digitalmente (gov.br ou token). Assine o PDF e envie de novo.`);
   if (tipo.exige_assinatura && assinaturas.length && !assinaturas.some((a) => a.integra))
@@ -121,9 +124,10 @@ export async function enviarDocumento(u: Usuario, notaId: number, tipoId: number
   const nome = arquivo.name.replace(/[^\w.\- ()À-ÿ]/g, "_").slice(-120);
   const local = await guardar(`notas/${notaId}/${hash.slice(0, 16)}-${nome}`, bytes, mime);
   return sql.begin(async (tx) => {
-    const [d] = await tx`insert into documentos (nota_id, tipo_id, nome_arquivo, mime, tamanho, sha256, armazenamento, chave, conteudo, assinaturas, enviado_por, enviado_por_nome)
+    const [d] = await tx`insert into documentos (nota_id, tipo_id, nome_arquivo, mime, tamanho, sha256, armazenamento, chave, conteudo, assinaturas, enviado_por, enviado_por_nome, campos)
       values (${notaId}, ${tipo.id}, ${nome}, ${mime}, ${bytes.length}, ${hash}, ${local.armazenamento}, ${local.chave},
-              ${local.armazenamento === "banco" ? Buffer.from(bytes) : null}, ${tx.json(assinaturas as never)}, ${u.id}, ${u.nome}) returning id`;
+              ${local.armazenamento === "banco" ? Buffer.from(bytes) : null}, ${tx.json(assinaturas as never)}, ${u.id}, ${u.nome},
+              ${campos ? tx.json(campos as never) : null}) returning id`;
     await registrarEvento(tx, { nota_id: notaId, tipo: "documento", usuario: u, texto: `${tipo.nome} anexado: ${nome}${certificado}${resumoAssinaturas(assinaturas)}` });
     return { id: d.id as number, assinaturas, tipo: tipo.nome };
   });
@@ -166,4 +170,57 @@ export async function usoArmazenamento() {
                                coalesce(sum(tamanho) filter (where armazenamento = 'banco'), 0)::bigint as no_banco
                         from documentos where removido_em is null`;
   return { arquivos: r.arquivos as number, bytes: Number(r.bytes), noBanco: Number(r.no_banco) };
+}
+
+// ------------------------------------------------------------------ check-list geral da NF
+
+export type ChecklistNF = {
+  etapas: { id: number; nome: string; atual: boolean; passada: boolean; itens: { tipo: string; exige_assinatura: boolean; ok: boolean }[] }[];
+  assinaturas: { id: number; tipo: string; nome: string; faltam: string[]; invalida: boolean }[];
+  faltamDocumentos: number; faltamAssinaturas: number;
+};
+
+/** "FIEL DE ARMAZENAGEM" → "Fiel de Armazenagem" (rótulos dos campos do certificado vêm em maiúsculas). */
+export function nomeDoCampo(c: CampoAssinatura) {
+  const r = (c.rotulo || c.nome).trim();
+  if (r !== r.toUpperCase()) return r;
+  const minusc = new Set(["de", "da", "do", "das", "dos", "e", "pelo", "pela"]);
+  return r.toLowerCase().split(/\s+/).map((p, i) => (i && minusc.has(p) ? p : p.charAt(0).toUpperCase() + p.slice(1))).join(" ");
+}
+
+/**
+ * Check-list geral da NF: os documentos obrigatórios de todas as etapas (o que já foi e o que falta) e,
+ * nos documentos anexados, as assinaturas que ainda faltam (campos de assinatura vazios).
+ */
+export async function checklistDaNota(nota: { id: number; status: string; etapa_id: number | null }): Promise<ChecklistNF> {
+  const { etapasAtivas } = await import("./fluxo");
+  const [etapas, { tipos, regras }] = await Promise.all([etapasAtivas(), regrasDocumentos()]);
+  const docs = await sql<{ id: number; tipo_id: number; tipo: string; nome_arquivo: string; mime: string; exige_assinatura: boolean; assinaturas: Assinatura[]; campos: CampoAssinatura[] | null; arquivo_excluido_em: Date | null }[]>`
+    select d.id, d.tipo_id, t.nome as tipo, d.nome_arquivo, d.mime, t.exige_assinatura, d.assinaturas, d.campos, d.arquivo_excluido_em
+    from documentos d join tipos_documento t on t.id = d.tipo_id where d.nota_id = ${nota.id} and d.removido_em is null order by t.ordem, d.criado_em`;
+  // PDFs enviados antes desta função: lê os campos uma vez e guarda
+  for (const d of docs) {
+    if (d.campos || d.mime !== "application/pdf" || d.arquivo_excluido_em) continue;
+    try {
+      const a = await arquivoDoDocumento(d.id);
+      d.campos = a ? await camposDeAssinatura(a.bytes) : [];
+    } catch { d.campos = []; }
+    await sql`update documentos set campos = ${sql.json(d.campos as never)} where id = ${d.id}`;
+  }
+  const entregues = new Set(docs.filter((d) => valido(d)).map((d) => d.tipo_id));
+  const iAtual = etapas.findIndex((e) => e.id === nota.etapa_id);
+  const encerrada = nota.status !== "em_tramite" && nota.status !== "reprovada";
+  const lista = etapas.map((e, i) => ({
+    id: e.id, nome: e.nome, atual: i === iAtual && !encerrada, passada: encerrada || (iAtual >= 0 && i < iAtual),
+    itens: regras.filter((r) => r.etapa_id === e.id).map((r) => tipos.find((t) => t.id === r.tipo_id)).filter((t): t is TipoDocumento => !!t && t.ativo)
+      .sort((a, b) => a.ordem - b.ordem).map((t) => ({ tipo: t.nome, exige_assinatura: t.exige_assinatura, ok: entregues.has(t.id) })),
+  })).filter((e) => e.itens.length);
+  const assinaturas = docs.map((d) => ({
+    id: d.id, tipo: d.tipo, nome: d.nome_arquivo,
+    faltam: (d.campos ?? []).filter((c) => !c.assinado).map(nomeDoCampo),
+    invalida: d.assinaturas.some((a) => !a.integra),
+  })).filter((d) => d.faltam.length || d.invalida);
+  // um documento obrigatório conta uma vez, mesmo exigido em mais de uma etapa
+  const faltamTipos = new Set(lista.flatMap((e) => e.itens.filter((x) => !x.ok).map((x) => x.tipo)));
+  return { etapas: lista, assinaturas, faltamDocumentos: faltamTipos.size, faltamAssinaturas: assinaturas.reduce((t, d) => t + d.faltam.length, 0) };
 }

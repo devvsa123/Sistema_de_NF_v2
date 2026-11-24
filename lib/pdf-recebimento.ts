@@ -300,8 +300,8 @@ export async function pdfChecklist(v: Valores, ids: { registro: number; nota: nu
   garantir(c, 110);
   secao(c, "Assinaturas", 100);
   c.y -= 6;
-  campoAssinatura(c, "Conferente do Recebimento", M, L / 2, "", "Conferente do Recebimento");
-  campoAssinatura(c, "Encarregado da Contagem", M + L / 2, L / 2, "", "Encarregado da Contagem");
+  // assinado somente pelo Encarregado da Contagem
+  campoAssinatura(c, "Encarregado da Contagem", M + L / 4, L / 2, "", "Encarregado da Contagem");
   c.y -= 90;
   return finalizar(c);
 }

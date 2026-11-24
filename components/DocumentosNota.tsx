@@ -1,5 +1,4 @@
-import { sql } from "@/lib/db";
-import { documentosDaNota, pendencias, tiposDocumento, valido, type Documento } from "@/lib/documentos";
+import { checklistDaNota, documentosDaNota, tiposDocumento, valido, type ChecklistNF, type Documento } from "@/lib/documentos";
 import type { Assinatura } from "@/lib/assinatura";
 import { armazenamentoExterno } from "@/lib/arquivos";
 import { dataHora } from "@/lib/format";
@@ -27,9 +26,8 @@ function SeloAssinatura({ a }: { a: Assinatura }) {
 export async function DocumentosNota({ nota, podeAnexar, ehAdmin, usuarioId }: {
   nota: { id: number; numero: string; status: string; etapa_id: number | null; etapa_nome: string | null }; podeAnexar: boolean; ehAdmin: boolean; usuarioId: number;
 }) {
-  const [docs, tipos, regra] = await Promise.all([
-    documentosDaNota(nota.id), tiposDocumento(), nota.status === "em_tramite" ? pendencias(sql, nota.id, nota.etapa_id) : null,
-  ]);
+  const [docs, tipos, check] = await Promise.all([documentosDaNota(nota.id), tiposDocumento(), checklistDaNota(nota)]);
+  const pendentesAtual = new Set(check.etapas.filter((e) => e.atual).flatMap((e) => e.itens.filter((x) => !x.ok).map((x) => x.tipo)));
   const porTipo = new Map<string, Documento[]>();
   for (const d of docs) porTipo.set(d.tipo, [...(porTipo.get(d.tipo) ?? []), d]);
 
@@ -41,18 +39,9 @@ export async function DocumentosNota({ nota, podeAnexar, ehAdmin, usuarioId }: {
           <p className="mt-0.5 text-xs text-slate-500">NF, OC, laudos e os documentos assinados de cada etapa. A assinatura digital dos PDFs é conferida no envio.</p>
           {docs.some((d) => !d.arquivo_excluido_em) && <div className="mt-2"><BotaoDocumentos notaId={nota.id} numero={nota.numero} total={docs.length} rotulo="Ver e assinar documentos" className="botao h-9 px-3 text-sm" /></div>}
         </div>
-        {regra && regra.exigidos.length > 0 && (
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
-            <p className="font-semibold text-slate-700">Para sair de {nota.etapa_nome}:</p>
-            <ul className="mt-1 space-y-0.5">
-              {regra.exigidos.map((t) => {
-                const falta = regra.faltando.some((x) => x.id === t.id);
-                return <li key={t.id} className={falta ? "text-red-700" : "text-emerald-700"}>{falta ? "✖" : "✔"} {t.nome}{t.exige_assinatura ? " (assinado)" : ""}</li>;
-              })}
-            </ul>
-          </div>
-        )}
       </div>
+
+      <ChecklistNota c={check} />
 
       {!docs.length ? <p className="mt-3 text-sm text-slate-500">Nenhum documento anexado.</p> : (
         <div className="mt-3 space-y-4">
@@ -99,10 +88,66 @@ export async function DocumentosNota({ nota, podeAnexar, ehAdmin, usuarioId }: {
 
       {podeAnexar && (
         <div className="mt-4 border-t border-slate-100 pt-4">
-          <EnviarDocumento id={nota.id} tipos={tipos.map((t) => ({ id: t.id, nome: t.nome, exige: t.exige_assinatura, pendente: !!regra?.faltando.some((x) => x.id === t.id) }))} />
+          <EnviarDocumento id={nota.id} tipos={tipos.map((t) => ({ id: t.id, nome: t.nome, exige: t.exige_assinatura, pendente: pendentesAtual.has(t.nome) }))} />
           {!armazenamentoExterno() && <p className="mt-2 text-[11px] text-slate-400">Arquivos guardados no banco de dados (armazenamento externo ainda não configurado).</p>}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Check-list geral: documentos obrigatórios de todas as etapas e as assinaturas que faltam nos documentos anexados. */
+function ChecklistNota({ c }: { c: ChecklistNF }) {
+  if (!c.etapas.length && !c.assinaturas.length) return null;
+  const tudoOk = !c.faltamDocumentos && !c.faltamAssinaturas;
+  return (
+    <div className={`mt-4 rounded-xl border p-4 ${tudoOk ? "border-emerald-200 bg-emerald-50/50" : "border-amber-200 bg-amber-50/40"}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-slate-900">Check-list de documentos e assinaturas</h3>
+        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${tudoOk ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"}`}>
+          {tudoOk ? "✔ Tudo em ordem" : [c.faltamDocumentos && `${c.faltamDocumentos} documento(s)`, c.faltamAssinaturas && `${c.faltamAssinaturas} assinatura(s)`].filter(Boolean).join(" e ") + " pendente(s)"}
+        </span>
+      </div>
+
+      {c.etapas.length > 0 && (
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {c.etapas.map((e) => {
+            const falta = e.itens.some((x) => !x.ok);
+            return (
+              <div key={e.id} className={`rounded-lg border bg-white px-3 py-2 text-xs ${e.atual ? "border-marinha ring-2 ring-marinha/15" : "border-slate-200"}`}>
+                <p className="flex items-center justify-between gap-2 font-semibold text-slate-700">
+                  <span>{e.nome}</span>
+                  {e.atual ? <span className="rounded bg-marinha px-1.5 py-0.5 text-[10px] uppercase text-white">etapa atual</span>
+                    : e.passada ? <span className={`text-[10px] uppercase ${falta ? "text-red-600" : "text-emerald-700"}`}>{falta ? "ficou pendente" : "concluída"}</span>
+                    : <span className="text-[10px] uppercase text-slate-400">próxima</span>}
+                </p>
+                <ul className="mt-1 space-y-0.5">
+                  {e.itens.map((x) => (
+                    <li key={x.tipo} className={x.ok ? "text-emerald-700" : e.atual || e.passada ? "text-red-700" : "text-slate-500"}>
+                      {x.ok ? "✔" : "✖"} {x.tipo}{x.exige_assinatura ? " (assinado)" : ""}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="mt-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Assinaturas nos documentos anexados</p>
+        {c.assinaturas.length === 0 ? <p className="mt-1 text-sm text-emerald-700">✔ Os documentos anexados estão com todas as assinaturas.</p> : (
+          <ul className="mt-1 space-y-1 text-sm">
+            {c.assinaturas.map((d) => (
+              <li key={d.id} className="rounded-lg bg-white px-3 py-1.5 ring-1 ring-slate-200">
+                <span className="font-medium text-slate-800">{d.tipo}</span> <span className="text-xs text-slate-500">{d.nome}</span>
+                {d.faltam.length > 0 && <span className="block text-red-700">✍ {d.faltam.length === 1 ? "Falta a assinatura" : "Faltam as assinaturas"}: <strong>{d.faltam.join(", ")}</strong></span>}
+                {d.invalida && <span className="block text-red-700">✖ Há assinatura que não confere com o arquivo.</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
