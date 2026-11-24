@@ -293,3 +293,33 @@ export async function exemploRecebimento(doc: "tav" | "checklist") {
     : arquivo;
   return { bytes: preencherDocx(modelo, v), ext, mime: MIME[ext] };
 }
+
+// ------------------------------------------------------------------ minuta do TAV (Pré Recebimento)
+
+/** Etapa do Pré Recebimento: a primeira que emite os documentos do Recebimento. */
+export function etapaPreRecebimento(etapas: Etapa[]) {
+  return etapas.find((e) => e.emite_docs_recebimento && /pr[eé].?receb/i.test(`${e.nome} ${e.setor}`)) ?? etapas.find((e) => e.emite_docs_recebimento) ?? null;
+}
+
+/** Só quem atua no Pré Recebimento (ou o administrador geral), com a NF nessa etapa. */
+export function podeMinutaTav(u: Usuario, etapas: Etapa[], nota: { status: string; etapa_id: number | null }) {
+  const pre = etapaPreRecebimento(etapas);
+  if (!pre || nota.status !== "em_tramite" || nota.etapa_id !== pre.id) return false;
+  return u.papel === "admin" || (u.papel === "interno" && etapasDoUsuario(u, etapas).some((e) => e.id === pre.id));
+}
+
+/** Minuta do TAV: dados da NF e a relação de itens para conferir no recebimento. Não registra nada. */
+export async function minutaTav(u: Usuario, notaId: number) {
+  const [n] = await sql`select id, numero, oc, emit_nome, emit_cnpj, id_pa, itens, dados from notas where id = ${notaId}`;
+  if (!n) return null;
+  const vols = ((n.dados as DadosNF | null)?.transp?.volumes ?? []).map((v) => [v.qVol, v.esp].filter(Boolean).join(" ")).filter(Boolean).join(" + ");
+  const valores: Record<string, string> = {
+    numero_nf: n.numero as string, numero_oc: (n.oc as string | null) ?? "", nome_empresa: n.emit_nome as string, cnpj: cnpj(n.emit_cnpj as string),
+    responsavel: u.nome, numero_tav: "MINUTA", ano: "", data_recebimento: "   /   /      ", id_pa: (n.id_pa as string | null) ?? "",
+    volumes: vols ? `${vols} (conforme a NF)` : "", observacao: "", x_contagem: "", x_pesagem: "",
+  };
+  const { linhas } = await correlacionarNota({ emit_cnpj: n.emit_cnpj as string, itens: n.itens as ItemNF[] | null });
+  const tabela = linhas.length ? tabelaContagem(linhas, volumesDaNota(n.dados as DadosNF | null)) : null;
+  const bytes = await pdfTav(valores, tabela, { registro: 0, nota: notaId }, true);
+  return { bytes, nome: `Minuta-TAV-NF${String(n.numero).replace(/\W/g, "")}.pdf` };
+}

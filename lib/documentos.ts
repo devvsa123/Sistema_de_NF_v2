@@ -14,7 +14,7 @@ async function marcasDoPdf(bytes: Uint8Array): Promise<{ doc?: string; nota?: nu
   try {
     const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false, throwOnInvalidObject: false });
     const k = pdf.getKeywords() ?? "";
-    return { doc: /nf-doc:(\w+)/.exec(k)?.[1], nota: Number(/nf-nota:(\d+)/.exec(k)?.[1]) || undefined };
+    return { doc: /nf-doc:([\w-]+)/.exec(k)?.[1], nota: Number(/nf-nota:(\d+)/.exec(k)?.[1]) || undefined };
   } catch {
     return {};
   }
@@ -95,6 +95,7 @@ export async function enviarDocumento(u: Usuario, notaId: number, tipoId: number
     const [outra] = await sql`select numero from notas where id = ${marcas.nota}`;
     throw new Error(`Este documento foi gerado para outra NF${outra ? ` (NF ${outra.numero})` : ""}. Confira o arquivo.`);
   }
+  if (marcas.doc === "tav-minuta") throw new Error("Este arquivo é uma MINUTA do TAV, só para conferência, e não pode ser anexado. Emita o TAV no sistema (Documentos do Recebimento) e anexe ou assine o TAV emitido.");
   const gerado = marcas.doc ? TIPO_GERADO[marcas.doc] : undefined;
   const [tipo] = tipoId
     ? await sql<TipoDocumento[]>`select * from tipos_documento where id = ${tipoId} and ativo`

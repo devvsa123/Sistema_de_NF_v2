@@ -16,7 +16,7 @@ import { AssinarToken } from "@/components/AssinarToken";
 import type { BotaoFila } from "@/components/FilaTabela";
 import { acaoAjusteAdmin, acaoEditarNota } from "@/app/acoes/notas";
 import { laudosDaNota, podeEmitirLaudo } from "@/lib/laudo";
-import { docsDaNota, numeroTav, podeEmitirRecebimento } from "@/lib/recebimento";
+import { docsDaNota, numeroTav, podeEmitirRecebimento, podeMinutaTav } from "@/lib/recebimento";
 import { AlocacaoWms, ItensEstoque } from "@/components/ItensEstoque";
 
 const TIPO = TIPO_EVENTO;
@@ -40,6 +40,7 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
   const [eventos, etapas, prazoReprov, laudos, docsReceb] = await Promise.all([interno ? eventosDaNota(nota.id) : Promise.resolve([] as Evento[]), etapasAtivas(), prazoReprovada(), interno ? laudosDaNota(nota.id) : [], interno ? docsDaNota(nota.id) : []]);
   const perito = podeEmitirLaudo(u, etapas);
   const recebedor = podeEmitirRecebimento(u, etapas, nota);
+  const minuta = podeMinutaTav(u, etapas, nota);
 
   // Tempo em cada etapa, a partir do histórico de movimentações
   const movs = eventos.filter((e) => e.movimento);
@@ -189,6 +190,7 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
           </div>
           {recebedor && (
             <div className="flex flex-wrap gap-2">
+              {minuta && <a href={`/api/recebimento/minuta/${nota.id}`} target="_blank" rel="noopener" className="botao-sec" title="Só para imprimir e conferir no recebimento: não tem número, não é registrada e não segue no trâmite">Imprimir minuta do TAV</a>}
               <Link href={`/notas/${nota.id}/recebimento${volta ? `?volta=${encodeURIComponent(volta.href)}` : ""}#tav`} className="botao">Emitir TAV</Link>
               <Link href={`/notas/${nota.id}/recebimento${volta ? `?volta=${encodeURIComponent(volta.href)}` : ""}#checklist`} className="botao">Emitir Check-list</Link>
             </div>

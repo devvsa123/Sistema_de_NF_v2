@@ -200,6 +200,7 @@ export default async function Manual() {
           <li>No <B>Check-list da Contagem</B> o sistema lista os itens recebidos com o <B>PI</B> do estoque. Se algum PI estiver “a verificar” ou sem correlação, ele precisa ser <B>confirmado</B> ali mesmo antes de seguir. Depois, para cada item, informe o <B>peso dos volumes já sem a tara da caixa</B> e se houve <B>discrepância</B>; havendo, informe a quantidade <B>a maior</B> ou <B>a menor</B>. A observação geral é opcional.</li>
           <li>Os dois documentos são emitidos separadamente, cada um com o seu botão: <B>Emitir TAV</B> no Pré Recebimento e, depois, <B>Emitir Check-list</B> na Contagem. O Check-list usa o número, a data e a identificação do último TAV da NF, por isso só fica disponível depois do TAV.</li>
         </Passos>
+        <Dica>Para conferir a carga na chegada, o <B>Pré Recebimento</B> pode usar <B>Imprimir minuta do TAV</B> (na página da NF, na tela do TAV ou no botão <B>Minuta TAV</B> da fila). A minuta sai com os dados da NF e a relação de itens com PI e caixas, marcada como MINUTA, sem número e sem campo de assinatura: não é registrada, não consome número de TAV e não pode ser anexada à NF. Depois do recebimento, preencha e emita o TAV normalmente.</Dica>
         <Lista>
           <li>Os documentos ficam registrados no histórico da NF e podem ser baixados de novo na página da nota.</li>
           <li>Para corrigir, emita novamente: o formulário já vem preenchido com o registro anterior.</li>

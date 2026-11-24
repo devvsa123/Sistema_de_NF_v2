@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { exigirUsuario } from "@/lib/auth";
 import { etapasAtivas } from "@/lib/fluxo";
 import { obterNota } from "@/lib/notas";
-import { docsDaNota, numeroTav, PERGUNTAS_TAV, podeEmitirRecebimento, proximoTav, type DadosRecebimento } from "@/lib/recebimento";
+import { docsDaNota, numeroTav, PERGUNTAS_TAV, podeEmitirRecebimento, podeMinutaTav, proximoTav, type DadosRecebimento } from "@/lib/recebimento";
 import { cnpj, dataHora, destinoVolta, linkNota, moeda } from "@/lib/format";
 import { Cabecalho, Selo, Voltar } from "@/components/ui";
 import { FormChecklist, FormTav, type ContagemAnterior, type LinhaChecklist } from "@/components/FormRecebimento";
@@ -71,6 +71,12 @@ export default async function DocsRecebimento({ params, searchParams }: PageProp
       </div>
 
       <div className="space-y-6">
+        {podeMinutaTav(u, etapas, nota) && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-slate-300 bg-white px-5 py-3">
+            <p className="text-sm text-slate-600"><strong>Minuta do TAV:</strong> imprima para conferir o que está chegando. Não tem número, não é registrada e não segue no trâmite. Depois do recebimento, preencha e emita o TAV abaixo.</p>
+            <a href={`/api/recebimento/minuta/${id}`} target="_blank" rel="noopener" className="botao-sec">Imprimir minuta do TAV</a>
+          </div>
+        )}
         <div id="tav" className="scroll-mt-20"><FormTav id={id} inicial={inicialTav} perguntas={PERGUNTAS_TAV} numeroTav={proximoNumero} reemissao={reemissao} /></div>
         <div id="checklist" className="scroll-mt-20"><FormChecklist id={id} inicial={inicialChecklist} tav={regTav ? numeroTav(regTav.numero_tav, regTav.ano) : null} linhas={linhasChecklist} anterior={contagemAnterior} catalogoVazio={correl.catalogoVazio} /></div>
       </div>

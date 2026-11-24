@@ -1,7 +1,7 @@
 import "server-only";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { PDFDocument, PDFName, PDFString, StandardFonts, rgb, type PDFFont, type PDFPage, type PDFRef } from "pdf-lib";
+import { PDFDocument, PDFName, PDFString, StandardFonts, degrees, rgb, type PDFFont, type PDFPage, type PDFRef } from "pdf-lib";
 import type { Tabela } from "./tabela-doc";
 import { RODAPE_DECISAO } from "./pdf-assinar";
 
@@ -213,11 +213,18 @@ export const PERGUNTAS = [
 ];
 
 /** TAV em PDF. */
-export async function pdfTav(v: Valores, itens: Tabela | null, ids: { registro: number; nota: number }) {
+/**
+ * TAV em PDF. `minuta`: versão só para imprimir e conferir no recebimento — sem número, sem campo de assinatura,
+ * com a marca MINUTA em todas as páginas; não é registrada nem aceita como documento da NF.
+ */
+export async function pdfTav(v: Valores, itens: Tabela | null, ids: { registro: number; nota: number }, minuta = false) {
   const numero = `${v.numero_tav}/${v.ano}`;
-  const c = await iniciar(`TAV nº ${numero} — NF ${v.numero_nf}`, `Termo de Abertura de Volumes nº ${numero} da NF ${v.numero_nf}`,
-    ["nf-sistema", "nf-doc:tav", `nf-nota:${ids.nota}`, `nf-registro:${ids.registro}`], `TAV nº ${numero} · NF ${v.numero_nf}`);
-  cabecalho(c, "TERMO DE ABERTURA DE VOLUMES", `Nº ${numero}`);
+  const c = minuta
+    ? await iniciar(`Minuta do TAV — NF ${v.numero_nf}`, `Minuta do Termo de Abertura de Volumes da NF ${v.numero_nf} (sem valor, só para conferência)`,
+      ["nf-sistema", "nf-doc:tav-minuta", `nf-nota:${ids.nota}`], `MINUTA para conferência, sem valor (não substitui o TAV) · NF ${v.numero_nf}`)
+    : await iniciar(`TAV nº ${numero} — NF ${v.numero_nf}`, `Termo de Abertura de Volumes nº ${numero} da NF ${v.numero_nf}`,
+      ["nf-sistema", "nf-doc:tav", `nf-nota:${ids.nota}`, `nf-registro:${ids.registro}`], `TAV nº ${numero} · NF ${v.numero_nf}`);
+  cabecalho(c, "TERMO DE ABERTURA DE VOLUMES", minuta ? "MINUTA PARA CONFERÊNCIA" : `Nº ${numero}`);
 
   secao(c, "Identificação");
   grade(c, [
@@ -244,6 +251,21 @@ export async function pdfTav(v: Valores, itens: Tabela | null, ids: { registro: 
   if (itens?.linhas.length) {
     secao(c, "Relação de itens para contagem", 80);
     tabela(c, itens);
+  }
+
+  if (minuta) {
+    // sem campo de assinatura: só a linha para rubrica na conferência, e a marca MINUTA em todas as páginas
+    garantir(c, 34);
+    c.y -= 26;
+    texto(c, "Conferido por: ________________________________________    Data: ____/____/________", M, c.y, { tam: 9 });
+    c.y -= 8;
+    for (const pag of c.paginas) {
+      const marca = "MINUTA";
+      const tam = 110, larg = c.b.widthOfTextAtSize(marca, tam);
+      pag.drawText(marca, { x: (A4[0] - larg * Math.cos(Math.PI / 5)) / 2 + 20, y: A4[1] / 2 - 160, size: tam, font: c.b, color: rgb(0.85, 0.2, 0.2), opacity: 0.13, rotate: degrees(36) });
+      pag.drawText("MINUTA — SEM VALOR, SÓ PARA CONFERÊNCIA. EMITA O TAV NO SISTEMA DEPOIS DO RECEBIMENTO.", { x: M, y: A4[1] - 26, size: 7.5, font: c.b, color: rgb(0.75, 0.1, 0.1) });
+    }
+    return finalizar(c);
   }
 
   garantir(c, 120);

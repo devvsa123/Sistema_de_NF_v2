@@ -18,7 +18,7 @@ export type BotaoFila = { acao: Acao; rotulo: string; estilo?: "principal" | "se
 
 const COR = { verde: "bg-emerald-500", amarelo: "bg-amber-400", vermelho: "bg-red-500" };
 
-export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, docsRecebimento = false, volta }: { linhas: LinhaFila[]; botoes: BotaoFila[]; mostrarArrecadacao: boolean; laudo?: boolean; docsRecebimento?: boolean; volta?: string }) {
+export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, docsRecebimento = false, minutaTav = false, volta }: { linhas: LinhaFila[]; botoes: BotaoFila[]; mostrarArrecadacao: boolean; laudo?: boolean; docsRecebimento?: boolean; minutaTav?: boolean; volta?: string }) {
   const [sel, setSel] = useState<Set<number>>(new Set());
   const [filtro, setFiltro] = useState("");
   const [obs, setObs] = useState("");
@@ -91,6 +91,7 @@ export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, 
                     <ItensRapidos id={l.id} numero={l.numero} volta={volta} />
                     <BotaoDocumentos notaId={l.id} numero={l.numero} total={l.docs} faltando={l.docsFaltando} />
                     {docsRecebimento && <Link href={`/notas/${l.id}/recebimento${volta ? `?volta=${encodeURIComponent(volta)}` : ""}`} className="ml-2 rounded border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 hover:border-marinha hover:text-marinha">TAV / Check-list</Link>}
+                    {minutaTav && <a href={`/api/recebimento/minuta/${l.id}`} target="_blank" rel="noopener" title="Minuta do TAV para imprimir e conferir no recebimento (sem valor, não registrada)" className="ml-2 rounded border border-dashed border-slate-300 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 hover:border-marinha hover:text-marinha">Minuta TAV</a>}
                     {laudo && <Link href={`/notas/${l.id}/laudo${volta ? `?volta=${encodeURIComponent(volta)}` : ""}`} className="ml-2 rounded border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 hover:border-marinha hover:text-marinha">Parecer</Link>}
                     {l.situacao && <span className="block text-xs text-slate-500">{l.situacao}</span>}
                     {mostrarArrecadacao && (
