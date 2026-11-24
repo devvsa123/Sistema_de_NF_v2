@@ -183,9 +183,11 @@ export function caixas(qtd: number, cxp: number | null | undefined) {
 }
 
 /** Chaves usadas para lembrar a correlação confirmada de um fornecedor. */
+/**
+ * Chave do aprendizado da correlação: o nome do item como um todo (descrição + informações adicionais).
+ * O código do fornecedor não serve de chave: muitos fornecedores usam o mesmo código para todos os tamanhos
+ * (ex.: US.02.001.0007 para a camiseta P, M e G), e a correção de um tamanho passava para os outros.
+ */
 export function chavesAprendizado(item: { codigo?: string | null; descricao: string; infAd?: string | null }) {
-  const out: string[] = [];
-  if (item.codigo?.trim()) out.push("cod:" + item.codigo.trim().toUpperCase());
-  out.push("desc:" + normalizar(`${item.descricao} ${item.infAd ?? ""}`).slice(0, 300));
-  return out;
+  return ["desc:" + normalizar(`${item.descricao} ${item.infAd ?? ""}`).slice(0, 300)];
 }
