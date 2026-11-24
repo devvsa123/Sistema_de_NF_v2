@@ -180,6 +180,13 @@ export type ChecklistNF = {
   faltamDocumentos: number; faltamAssinaturas: number;
 };
 
+/**
+ * Campos de assinatura que deixaram de ser exigidos (TAV e Check-list emitidos antes de terem um só signatário):
+ * não contam como assinatura pendente.
+ */
+const CAMPOS_DISPENSADOS = new Set(["Encarregado Secao Recebimento", "Conferente do Recebimento"]);
+export const campoExigido = (c: CampoAssinatura) => !CAMPOS_DISPENSADOS.has(c.nome);
+
 /** "FIEL DE ARMAZENAGEM" → "Fiel de Armazenagem" (rótulos dos campos do certificado vêm em maiúsculas). */
 export function nomeDoCampo(c: CampoAssinatura) {
   const r = (c.rotulo || c.nome).trim();
@@ -217,7 +224,7 @@ export async function checklistDaNota(nota: { id: number; status: string; etapa_
   })).filter((e) => e.itens.length);
   const assinaturas = docs.map((d) => ({
     id: d.id, tipo: d.tipo, nome: d.nome_arquivo,
-    faltam: (d.campos ?? []).filter((c) => !c.assinado).map(nomeDoCampo),
+    faltam: (d.campos ?? []).filter((c) => !c.assinado && campoExigido(c)).map(nomeDoCampo),
     invalida: d.assinaturas.some((a) => !a.integra),
   })).filter((d) => d.faltam.length || d.invalida);
   // um documento obrigatório conta uma vez, mesmo exigido em mais de uma etapa

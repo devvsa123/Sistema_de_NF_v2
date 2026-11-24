@@ -249,8 +249,8 @@ export async function pdfTav(v: Valores, itens: Tabela | null, ids: { registro: 
   garantir(c, 120);
   secao(c, "Assinaturas", 110);
   c.y -= 6;
-  campoAssinatura(c, "Responsavel pre-recebimento", M, L / 2, v.responsavel ?? "", "Responsável pelo pré-recebimento");
-  campoAssinatura(c, "Encarregado Secao Recebimento", M + L / 2, L / 2, "", "Encarregado da Seção de Recebimento");
+  // assinado somente pelo Responsável pelo Pré-Recebimento
+  campoAssinatura(c, "Responsavel pre-recebimento", M + L / 4, L / 2, v.responsavel ?? "", "Responsável pelo Pré-Recebimento");
   c.y -= 90;
   return finalizar(c);
 }
@@ -300,8 +300,8 @@ export async function pdfChecklist(v: Valores, ids: { registro: number; nota: nu
   garantir(c, 110);
   secao(c, "Assinaturas", 100);
   c.y -= 6;
-  // assinado somente pelo Encarregado da Contagem
-  campoAssinatura(c, "Encarregado da Contagem", M + L / 4, L / 2, "", "Encarregado da Contagem");
+  // assinado somente pelo Responsável pela Contagem
+  campoAssinatura(c, "Responsavel pela Contagem", M + L / 4, L / 2, "", "Responsável pela Contagem");
   c.y -= 90;
   return finalizar(c);
 }

@@ -2,7 +2,7 @@ import "server-only";
 import { sql, type Tx } from "./db";
 import type { Usuario } from "./auth";
 import { registrarEvento } from "./fluxo";
-import { arquivoDoDocumento, pendencias } from "./documentos";
+import { arquivoDoDocumento, campoExigido, pendencias } from "./documentos";
 import { camposDeAssinatura } from "./pdf-assinar";
 import { pdfHistorico, type HistoricoNF } from "./pdf-recebimento";
 import { apagar } from "./arquivos";
@@ -40,7 +40,7 @@ export async function verificarPacote(notaId: number): Promise<VerificacaoPacote
     if (d.mime === "application/pdf") {
       try {
         const a = await arquivoDoDocumento(d.id);
-        const vazios = a ? (await camposDeAssinatura(a.bytes)).filter((c) => !c.assinado) : [];
+        const vazios = a ? (await camposDeAssinatura(a.bytes)).filter((c) => !c.assinado && campoExigido(c)) : [];
         if (vazios.length) pend.push(`${d.tipo} (${d.nome_arquivo}): falta assinar ${vazios.map((c) => c.rotulo || c.nome).join(", ")}.`);
       } catch (e) {
         if (e instanceof Error && /excluído|não encontrado/i.test(e.message)) pend.push(`${d.tipo} (${d.nome_arquivo}): ${e.message}`);

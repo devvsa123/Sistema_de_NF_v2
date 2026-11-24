@@ -18,7 +18,7 @@ const SELO = { w: 200, h: 52 }; // tamanho do selo em pontos (igual ao do servid
 // campo sugerido conforme o setor de quem assina
 const PALAVRAS: Record<string, string[]> = {
   estocagem: ["armazenagem"], controle: ["suprimentos"], "perícia": ["perito"], pericia: ["perito"],
-  abastecimento: ["gestor"], recebimento: ["pre-recebimento", "pré-recebimento", "encarregado da contagem"], contagem: ["encarregado da contagem"],
+  abastecimento: ["gestor"], recebimento: ["pre-recebimento", "pré-recebimento", "pela contagem"], contagem: ["pela contagem"],
   "enc. técnica": ["divisao tecnica"], "enc. tecnica": ["divisao tecnica"], diretor: ["diretor"],
 };
 
