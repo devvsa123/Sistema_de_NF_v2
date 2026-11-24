@@ -5,6 +5,7 @@ import { etapasAtivas } from "@/lib/fluxo";
 import { EnvioXml } from "@/components/EnvioXml";
 import { FormAcao } from "@/components/FormAcao";
 import { acaoCadastrarManual } from "@/app/acoes/notas";
+import { ArquivoLimitado } from "@/components/ArquivoLimitado";
 
 export const metadata = { title: "Cadastrar NF — Tramitação de NF" };
 
@@ -29,7 +30,7 @@ export default async function NovaNota() {
         <summary className="cursor-pointer text-sm font-semibold text-slate-700">Não conseguiu o PDF pela chave de acesso? Cadastrar manualmente com a NF digitalizada</summary>
         <FormAcao acao={acaoCadastrarManual} botao="Cadastrar nota" className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="sm:col-span-2"><span className="rotulo">NF digitalizada (PDF) *</span>
-            <input type="file" name="digitalizada" accept=".pdf,application/pdf" required className="campo py-1.5" />
+            <ArquivoLimitado name="digitalizada" accept=".pdf,application/pdf" limiteMb={4} required className="campo py-1.5" />
             <span className="mt-1 block text-xs text-slate-500">Obrigatória para a NF seguir no trâmite. O sistema acrescenta o certificado como última página e a anexa na NF para as assinaturas. Até 4 MB.</span></label>
           <fieldset className="sm:col-span-2"><legend className="rotulo">Tipo da NF *</legend>
             <div className="flex flex-wrap gap-4 text-sm">

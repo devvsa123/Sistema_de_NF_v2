@@ -50,6 +50,15 @@ export async function ler(chave: string): Promise<Uint8Array> {
   return new Uint8Array(await resp.arrayBuffer());
 }
 
+/** Lê o arquivo do R2 como fluxo (para downloads grandes, sem passar do limite de resposta da Vercel). */
+export async function lerFluxo(chave: string): Promise<ReadableStream<Uint8Array>> {
+  const r = r2();
+  if (!r) throw new Error("O armazenamento de arquivos (R2) não está configurado.");
+  const resp = await r.cliente.fetch(`${r.base}/${caminho(chave)}`);
+  if (!resp.ok || !resp.body) throw new Error(`Arquivo não encontrado no armazenamento (${resp.status}).`);
+  return resp.body;
+}
+
 /** Exclui o arquivo do armazenamento (R2). */
 export async function apagar(chave: string): Promise<void> {
   const r = r2();

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { exigirAdmin, exigirUsuario } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { obterNota } from "@/lib/notas";
-import { enviarDocumento, removerDocumento } from "@/lib/documentos";
+import { enviarDocumento, guardarParte, montarEnvio, removerDocumento, TAMANHO_MAX } from "@/lib/documentos";
 import { testarArmazenamento } from "@/lib/arquivos";
 import type { Estado } from "@/components/FormAcao";
 
@@ -93,4 +93,44 @@ export async function acaoSalvarExigenciaPacote(_: Estado, f: FormData): Promise
   await salvarExigenciaPacote(ligar);
   revalidatePath("/", "layout");
   return { ok: ligar ? "Exigência ligada: a NF só finaliza com o pacote final baixado e conferido." : "Exigência desligada: a NF finaliza como antes (o pacote continua disponível, opcional)." };
+}
+
+// ------------------------------------------------------------------ envio em partes (arquivos acima de ~3 MB)
+
+async function podeAnexar(notaId: number) {
+  const u = await exigirUsuario();
+  if (u.papel !== "admin" && u.papel !== "interno") throw new Error("Seu perfil não permite anexar documentos.");
+  const nota = await obterNota(u, notaId);
+  if (!nota) throw new Error("NF não encontrada.");
+  return { u, nota };
+}
+
+/** Recebe uma parte do arquivo (cada requisição fica abaixo do limite da Vercel). */
+export async function acaoEnviarParte(f: FormData): Promise<{ erro?: string }> {
+  try {
+    const { u } = await podeAnexar(Number(f.get("nota")));
+    const dados = f.get("dados");
+    if (!(dados instanceof Blob)) return { erro: "Parte do arquivo não recebida." };
+    await guardarParte(u, String(f.get("envio")), Number(f.get("parte")), new Uint8Array(await dados.arrayBuffer()));
+    return {};
+  } catch (e) {
+    return { erro: msg(e) };
+  }
+}
+
+/** Junta as partes, confere e anexa o documento à NF (mesmas regras do envio normal). */
+export async function acaoConcluirEnvio(p: { envio: string; nota: number; tipo: number; nome: string; mime: string; total: number; tamanho: number }): Promise<{ erro?: string; ok?: string }> {
+  try {
+    const { u, nota } = await podeAnexar(Number(p.nota));
+    if (!(p.tamanho > 0) || p.tamanho > TAMANHO_MAX) return { erro: `O arquivo tem ${(p.tamanho / 1048576).toFixed(1)} MB; o limite é ${TAMANHO_MAX / 1048576} MB.` };
+    const bytes = await montarEnvio(u, String(p.envio), Number(p.total), Number(p.tamanho));
+    const arquivo = new File([Buffer.from(bytes)], String(p.nome).slice(-200), { type: String(p.mime || "application/octet-stream") });
+    const r = await enviarDocumento(u, nota.id, Number(p.tipo) || 0, arquivo);
+    const ok = r.assinaturas.filter((x) => x.integra);
+    revalidatePath(`/notas/${nota.id}`);
+    revalidatePath("/");
+    return { ok: ok.length ? `${p.nome}: assinado por ${[...new Set(ok.map((x) => x.nome))].join(", ")}` : `${p.nome}: anexado` };
+  } catch (e) {
+    return { erro: `${p.nome}: ${msg(e)}` };
+  }
 }

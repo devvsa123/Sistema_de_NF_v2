@@ -2,7 +2,7 @@ import "server-only";
 import { sql, type Tx } from "./db";
 import type { Usuario } from "./auth";
 import { registrarEvento } from "./fluxo";
-import { guardar, ler } from "./arquivos";
+import { guardar, ler, lerFluxo } from "./arquivos";
 import { assinaturasDoPdf, sha256, type Assinatura } from "./assinatura";
 import { PDFDocument } from "pdf-lib";
 import { getDocumentProxy } from "unpdf";
@@ -37,7 +37,10 @@ async function temCertificado(bytes: Uint8Array) {
 
 /** Documentos da NF: envio, conferência das assinaturas, download e regras de tramitação. */
 
-export const TAMANHO_MAX = 4 * 1024 * 1024; // limite de envio pela Vercel (~4,5 MB por requisição)
+/** Tamanho máximo de um documento. Arquivos grandes sobem em partes (a Vercel limita cada requisição a ~4,5 MB). */
+export const TAMANHO_MAX = 25 * 1024 * 1024;
+/** Tamanho de cada parte no envio em partes. */
+export const TAMANHO_PARTE = 3 * 1024 * 1024;
 const TIPOS_ARQUIVO: Record<string, string> = { pdf: "application/pdf", jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", xml: "application/xml" };
 
 export type TipoDocumento = { id: number; nome: string; exige_assinatura: boolean; ordem: number; ativo: boolean };
@@ -87,7 +90,7 @@ export async function enviarDocumento(u: Usuario, notaId: number, tipoId: number
   const mime = TIPOS_ARQUIVO[ext];
   if (!mime) throw new Error("Envie um arquivo PDF (ou imagem JPG/PNG, ou XML).");
   if (!arquivo.size) throw new Error("O arquivo está vazio.");
-  if (arquivo.size > TAMANHO_MAX) throw new Error(`O arquivo tem ${(arquivo.size / 1048576).toFixed(1)} MB; o limite é 4 MB. Reduza o PDF (ex.: “Reduzir tamanho” no leitor de PDF) e envie de novo.`);
+  if (arquivo.size > TAMANHO_MAX) throw new Error(`O arquivo tem ${(arquivo.size / 1048576).toFixed(1)} MB; o limite é 25 MB. Reduza o PDF (ex.: “Reduzir tamanho” no leitor de PDF) e envie de novo.`);
   let bytes = new Uint8Array(await arquivo.arrayBuffer());
   if (ext === "pdf" && Buffer.from(bytes.subarray(0, 1024)).toString("latin1").indexOf("%PDF") < 0) throw new Error("O arquivo não é um PDF válido.");
   const marcas = ext === "pdf" ? await marcasDoPdf(bytes) : {};
@@ -231,4 +234,36 @@ export async function checklistDaNota(nota: { id: number; status: string; etapa_
   // um documento obrigatório conta uma vez, mesmo exigido em mais de uma etapa
   const faltamTipos = new Set(lista.flatMap((e) => e.itens.filter((x) => !x.ok).map((x) => x.tipo)));
   return { etapas: lista, assinaturas, faltamDocumentos: faltamTipos.size, faltamAssinaturas: assinaturas.reduce((t, d) => t + d.faltam.length, 0) };
+}
+
+// ------------------------------------------------------------------ envio em partes (arquivos grandes)
+
+/** Guarda uma parte de um envio. As partes de envios abandonados são apagadas depois de 1 dia. */
+export async function guardarParte(u: Usuario, envio: string, parte: number, dados: Uint8Array) {
+  if (!/^[0-9a-f-]{36}$/i.test(envio) || !Number.isInteger(parte) || parte < 0 || parte > 20) throw new Error("Envio inválido.");
+  if (!dados.length || dados.length > TAMANHO_PARTE + 1024) throw new Error("Parte do arquivo com tamanho inválido.");
+  await sql`delete from envios_partes where criado_em < now() - interval '1 day'`;
+  await sql`insert into envios_partes (envio, parte, usuario_id, dados) values (${envio}, ${parte}, ${u.id}, ${Buffer.from(dados)})
+            on conflict (envio, parte) do update set dados = excluded.dados, criado_em = now()`;
+}
+
+/** Junta as partes do envio (na ordem) e apaga as partes. */
+export async function montarEnvio(u: Usuario, envio: string, total: number, tamanho: number) {
+  const partes = await sql<{ parte: number; dados: Buffer }[]>`
+    select parte, dados from envios_partes where envio = ${envio} and usuario_id = ${u.id} order by parte`;
+  await sql`delete from envios_partes where envio = ${envio}`;
+  if (partes.length !== total || partes.some((p, i) => p.parte !== i)) throw new Error("O arquivo não chegou completo. Envie de novo.");
+  const bytes = new Uint8Array(Buffer.concat(partes.map((p) => p.dados)));
+  if (bytes.length !== tamanho) throw new Error("O arquivo chegou com tamanho diferente do original. Envie de novo.");
+  return bytes;
+}
+
+/** Arquivo para download: do R2 em fluxo contínuo (sem carregar tudo na memória), ou do banco. */
+export async function fluxoDoDocumento(id: number) {
+  const [d] = await sql`select d.nome_arquivo, d.mime, d.armazenamento, d.chave, d.conteudo, d.arquivo_excluido_em, d.tamanho
+                        from documentos d where d.id = ${id} and d.removido_em is null`;
+  if (!d) return null;
+  if (d.arquivo_excluido_em) throw new Error("O arquivo deste documento foi excluído do sistema na finalização da NF (está no pacote final baixado pelo Controle).");
+  const corpo = d.armazenamento === "banco" ? new Uint8Array(d.conteudo as Buffer) : await lerFluxo(d.chave as string);
+  return { nome: d.nome_arquivo as string, mime: d.mime as string, tamanho: d.tamanho as number, corpo };
 }
