@@ -277,7 +277,7 @@ export async function pdfTav(v: Valores, itens: Tabela | null, ids: { registro: 
   return finalizar(c);
 }
 
-type LinhaContagem = { n: number; pi: string | null; item: string; qtd: number; un: string; peso: string; discrepancia: string; diferenca: string };
+type LinhaContagem = { n: number; pi: string | null; item: string; qtd: number; un: string; peso: string; discrepancia: string; diferenca: string; contada?: string };
 const num = (v: number, casas = 0) => v.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas === 0 ? 3 : casas });
 
 /** Check-list da Contagem em PDF: itens com PI, peso dos volumes (sem tara), discrepância e diferença por item. */
@@ -298,7 +298,25 @@ export async function pdfChecklist(v: Valores, ids: { registro: number; nota: nu
   const pesoTotal = contagem.reduce((t, l) => t + (Number(l.peso) || 0), 0);
   const difTotal = contagem.reduce((t, l) => t + (l.discrepancia === "Sim" ? Number(l.diferenca) || 0 : 0), 0);
   const sinal = (d: number) => (d > 0 ? `+${num(d)}` : num(d));
-  tabela(c, {
+  // contagem manual: quantidade contada no lugar do peso
+  const manual = contagem.length > 0 && contagem.every((l) => l.contada !== undefined && l.contada !== "");
+  if (manual) {
+    const contadaTotal = contagem.reduce((t, l) => t + (Number(l.contada) || 0), 0);
+    tabela(c, {
+      titulo: "",
+      colunas: [
+        { titulo: "#", cm: 0.7, alinhar: "centro" }, { titulo: "PI", cm: 1.9, alinhar: "centro" }, { titulo: "ITEM", cm: 7.4 },
+        { titulo: "QTD. NF", cm: 2, alinhar: "dir" }, { titulo: "QTD. CONTADA", cm: 2.2, alinhar: "dir" },
+        { titulo: "DIFERENÇA", cm: 1.9, alinhar: "dir" }, { titulo: "DISCREP.", cm: 1.9, alinhar: "centro" },
+      ],
+      linhas: contagem.map((l) => {
+        const dif = Number(l.diferenca) || 0;
+        return [String(l.n), l.pi ?? "—", l.item, `${num(l.qtd)} ${l.un}`.trim(), num(Number(l.contada) || 0), dif ? sinal(dif) : "—", dif ? "SIM" : "NÃO"];
+      }),
+      rodape: ["", "", "TOTAL", num(qtdTotal), num(contadaTotal), difTotal ? sinal(difTotal) : "—", ""],
+      nota: "Conferência por contagem manual: quantidade contada de cada item. Diferença: quantidade recebida a maior (+) ou a menor (-) que a da NF.",
+    });
+  } else tabela(c, {
     titulo: "",
     colunas: [
       { titulo: "#", cm: 0.7, alinhar: "centro" }, { titulo: "PI", cm: 1.8, alinhar: "centro" }, { titulo: "ITEM", cm: 6.0 },

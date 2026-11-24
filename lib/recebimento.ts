@@ -62,9 +62,13 @@ export const MARCADORES_CHECKLIST: Marcador[] = [
 export type ItemContagem = {
   ref: string; n: number; pi: string | null; item: string; qtd: number; un: string;
   peso: string; discrepancia: "Sim" | "Não"; diferenca: string;
+  contada?: string;                  // contagem manual: quantidade contada (a diferença sai dela)
 };
 /** O que vem do formulário do Check-list para cada linha. */
-export type ContagemInformada = { ref: string; peso: string; discrepancia: string; diferenca: string };
+export type ContagemInformada = { ref: string; peso: string; discrepancia: string; diferenca: string; contada?: string };
+/** Como a conferência foi feita (vem do TAV): contagem manual pede a quantidade contada; pesagem, o peso. */
+export type ModoConferencia = "contagem" | "pesagem";
+export const modoDaConferencia = (conferencia: string | undefined): ModoConferencia => (conferencia === "Contagem manual" ? "contagem" : "pesagem");
 
 export type DadosRecebimento = {
   numero_tav: string; data_recebimento: string; id_pa: string; lote: string; fabricacao: string; volumes: string;
@@ -107,7 +111,7 @@ const numeroBR = (s: string) => {
  * Monta as linhas do Check-list da Contagem a partir dos itens da NF ligados ao estoque.
  * Todos os PIs precisam estar confirmados (PI na nota, confirmado ou automático) antes de emitir.
  */
-async function montarContagem(nota: { emit_cnpj: string; itens: ItemNF[] | null }, informada: ContagemInformada[]): Promise<ItemContagem[]> {
+async function montarContagem(nota: { emit_cnpj: string; itens: ItemNF[] | null }, informada: ContagemInformada[], modo: ModoConferencia = "pesagem"): Promise<ItemContagem[]> {
   const { linhas, catalogoVazio } = await correlacionarNota(nota);
   if (catalogoVazio) throw new Error("O catálogo do estoque não está disponível agora: tente de novo em instantes.");
   if (!linhas.length) throw new Error("Esta NF não tem itens lidos do XML para a contagem.");
@@ -118,6 +122,14 @@ async function montarContagem(nota: { emit_cnpj: string; itens: ItemNF[] | null 
   return linhas.map((l) => {
     const c = porRef.get(l.ref);
     const rot = `item ${l.n}${l.tamanho ? ` (tam. ${l.tamanho})` : ""}`;
+    const base = { ref: l.ref, n: l.n, pi: l.item?.pi ?? null, item: l.item?.descricao ?? l.descricao, qtd: Number(l.qtd) || 0, un: l.un };
+    if (modo === "contagem") {
+      // contagem manual: a pessoa informa quanto contou; a diferença para a NF sai sozinha
+      const contada = numeroBR(c?.contada ?? "");
+      if (!c?.contada?.trim() || !Number.isFinite(contada) || contada < 0) throw new Error(`Informe a quantidade contada do ${rot}.`);
+      const dif = Math.round((contada - base.qtd) * 1000) / 1000;
+      return { ...base, peso: "", contada: String(contada), discrepancia: dif ? "Sim" : "Não", diferenca: dif ? String(dif) : "" } as ItemContagem;
+    }
     const peso = numeroBR(c?.peso ?? "");
     if (!c?.peso?.trim() || !(peso > 0)) throw new Error(`Informe o peso dos volumes do ${rot} (em kg, sem a tara da caixa).`);
     if (c.discrepancia !== "Sim" && c.discrepancia !== "Não") throw new Error(`Informe se houve discrepância na contagem do ${rot}.`);
@@ -173,7 +185,8 @@ export async function emitirDocRecebimento(u: Usuario, notaId: number, doc: DocR
   if (doc === "checklist") {
     const tav = await ultimoTav(notaId);
     if (!tav) throw new Error("Emita primeiro o TAV desta NF: o Check-list usa o número e a data do TAV.");
-    const contagem = await montarContagem({ emit_cnpj: n.emit_cnpj as string, itens: n.itens as ItemNF[] | null }, (d.contagem ?? []) as unknown as ContagemInformada[]);
+    const contagem = await montarContagem({ emit_cnpj: n.emit_cnpj as string, itens: n.itens as ItemNF[] | null }, (d.contagem ?? []) as unknown as ContagemInformada[],
+      modoDaConferencia(tav.dados.formulario.conferencia));
     d = { ...tav.dados.formulario, contagem, obs_contagem: d.obs_contagem };
   }
   const ano = Number(d.data_recebimento.slice(0, 4));

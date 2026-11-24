@@ -42,7 +42,7 @@ export default async function DocsRecebimento({ params, searchParams }: PageProp
     pi: l.item?.pi ?? null, itemEstoque: l.item?.descricao ?? null, pendente: l.confianca === "media" || l.confianca === "nenhuma" || !l.item,
     candidatos: l.candidatos.map(({ pi, descricao, cxp }) => ({ pi, descricao, cxp })), confirmada: l.confianca === "confirmada",
   }));
-  const contagemAnterior: ContagemAnterior = Object.fromEntries((regChecklist?.dados.formulario.contagem ?? []).map((c) => [c.ref, { peso: c.peso, discrepancia: c.discrepancia, diferenca: c.diferenca }]));
+  const contagemAnterior: ContagemAnterior = Object.fromEntries((regChecklist?.dados.formulario.contagem ?? []).map((c) => [c.ref, { peso: c.peso, discrepancia: c.discrepancia, diferenca: c.diferenca, contada: c.contada }]));
   const docEmitido = sp.doc === "checklist" ? "checklist" : "tav";
   const NOME = { tav: "TAV", checklist: "Check-list da Contagem" } as const;
 
@@ -78,7 +78,8 @@ export default async function DocsRecebimento({ params, searchParams }: PageProp
           </div>
         )}
         <div id="tav" className="scroll-mt-20"><FormTav id={id} inicial={inicialTav} perguntas={PERGUNTAS_TAV} numeroTav={proximoNumero} reemissao={reemissao} /></div>
-        <div id="checklist" className="scroll-mt-20"><FormChecklist id={id} inicial={inicialChecklist} tav={regTav ? numeroTav(regTav.numero_tav, regTav.ano) : null} linhas={linhasChecklist} anterior={contagemAnterior} catalogoVazio={correl.catalogoVazio} /></div>
+        <div id="checklist" className="scroll-mt-20"><FormChecklist id={id} inicial={inicialChecklist} tav={regTav ? numeroTav(regTav.numero_tav, regTav.ano) : null} linhas={linhasChecklist} anterior={contagemAnterior} catalogoVazio={correl.catalogoVazio}
+          modo={regTav?.dados.formulario.conferencia === "Contagem manual" ? "contagem" : "pesagem"} /></div>
       </div>
 
       {registros.length > 0 && (

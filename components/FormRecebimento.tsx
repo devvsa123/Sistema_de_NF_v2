@@ -65,9 +65,36 @@ export type LinhaChecklist = {
   pi: string | null; itemEstoque: string | null; pendente: boolean;
   candidatos: { pi: string; descricao: string; cxp: number | null }[]; confirmada: boolean;
 };
-export type ContagemAnterior = Record<string, { peso: string; discrepancia: string; diferenca: string }>;
+export type ContagemAnterior = Record<string, { peso: string; discrepancia: string; diferenca: string; contada?: string }>;
 
 const fmtQtd = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 3 });
+
+/** Contagem manual: a pessoa informa quanto contou e a diferença para a NF aparece na hora. */
+function LinhaContagemManual({ l, anterior }: { l: LinhaChecklist; anterior?: ContagemAnterior[string] }) {
+  const [txt, setTxt] = useState(anterior?.contada ? String(anterior.contada).replace(".", ",") : "");
+  const n = txt.trim() ? Number(txt.trim().replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".")) : NaN;
+  const dif = Number.isFinite(n) ? Math.round((n - l.qtd) * 1000) / 1000 : null;
+  return (
+    <tr className="align-top">
+      <td className="py-2.5 pr-2 text-xs text-slate-500 tabular-nums">{l.n}{l.tamanho ? <span className="block">tam. {l.tamanho}</span> : null}
+        <input type="hidden" name="ref" value={l.ref} /></td>
+      <td className="py-2.5 pr-3">
+        <span className="font-mono text-xs text-slate-500">{l.pi}</span>
+        <span className="block text-sm text-slate-800">{l.itemEstoque ?? l.descricao}</span>
+      </td>
+      <td className="whitespace-nowrap py-2.5 pr-3 text-right text-sm tabular-nums text-slate-700">{fmtQtd(l.qtd)} {l.un}</td>
+      <td className="py-2.5 pr-3">
+        <input name={`contada_${l.ref}`} value={txt} onChange={(e) => setTxt(e.target.value)} className="campo w-28 text-right tabular-nums" inputMode="decimal" maxLength={15} required
+          placeholder="contada" aria-label={`Quantidade contada do item ${l.n}`} />
+      </td>
+      <td className="py-2.5 text-sm">
+        {dif === null ? <span className="text-slate-400">—</span>
+          : dif === 0 ? <span className="font-medium text-emerald-700">✔ confere</span>
+          : <span className="font-semibold text-red-700">{dif > 0 ? `+${fmtQtd(dif)} a maior` : `${fmtQtd(dif)} a menor`}</span>}
+      </td>
+    </tr>
+  );
+}
 
 function LinhaContagem({ l, anterior }: { l: LinhaChecklist; anterior?: ContagemAnterior[string] }) {
   const [disc, setDisc] = useState(anterior?.discrepancia ?? "");
@@ -112,8 +139,8 @@ function LinhaContagem({ l, anterior }: { l: LinhaChecklist; anterior?: Contagem
   );
 }
 
-export function FormChecklist({ id, inicial, tav, linhas, anterior, catalogoVazio }: {
-  id: number; inicial: DadosRecebimento; tav: string | null; linhas: LinhaChecklist[]; anterior: ContagemAnterior; catalogoVazio: boolean;
+export function FormChecklist({ id, inicial, tav, linhas, anterior, catalogoVazio, modo = "pesagem" }: {
+  id: number; inicial: DadosRecebimento; tav: string | null; linhas: LinhaChecklist[]; anterior: ContagemAnterior; catalogoVazio: boolean; modo?: "contagem" | "pesagem";
 }) {
   const titulo = <h2 className="text-[15px] font-semibold text-slate-900">Check-list da Contagem</h2>;
   if (!tav)
@@ -160,7 +187,9 @@ export function FormChecklist({ id, inicial, tav, linhas, anterior, catalogoVazi
       <section className="cartao space-y-4 p-5">
         <div>
           {titulo}
-          <p className="mt-0.5 text-xs text-slate-500">Usa os dados do TAV nº {tav}. Para cada item, informe o peso encontrado na contagem (já sem a tara da caixa) e se houve discrepância.</p>
+          <p className="mt-0.5 text-xs text-slate-500">Usa os dados do TAV nº {tav}. {modo === "contagem"
+            ? <>Conferência por <strong>contagem manual</strong> (conforme o TAV): informe a quantidade contada de cada item; a diferença para a NF é calculada na hora.</>
+            : <>Conferência por <strong>pesagem</strong> (conforme o TAV): para cada item, informe o peso encontrado (já sem a tara da caixa) e se houve discrepância.</>}</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -168,12 +197,20 @@ export function FormChecklist({ id, inicial, tav, linhas, anterior, catalogoVazi
               <tr className="border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 <th className="pb-2 pr-2">#</th>
                 <th className="pb-2 pr-3">PI · Item</th>
-                <th className="pb-2 pr-3">Peso líq. (kg) *</th>
-                <th className="pb-2">Discrepância? *</th>
+                {modo === "contagem" ? <>
+                  <th className="pb-2 pr-3 text-right">Qtd. NF</th>
+                  <th className="pb-2 pr-3">Qtd. contada *</th>
+                  <th className="pb-2">Diferença</th>
+                </> : <>
+                  <th className="pb-2 pr-3">Peso líq. (kg) *</th>
+                  <th className="pb-2">Discrepância? *</th>
+                </>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {linhas.map((l) => <LinhaContagem key={l.ref} l={l} anterior={anterior[l.ref]} />)}
+              {linhas.map((l) => modo === "contagem"
+                ? <LinhaContagemManual key={l.ref} l={l} anterior={anterior[l.ref]} />
+                : <LinhaContagem key={l.ref} l={l} anterior={anterior[l.ref]} />)}
             </tbody>
           </table>
         </div>
