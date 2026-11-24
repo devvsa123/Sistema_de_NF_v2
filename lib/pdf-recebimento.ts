@@ -331,7 +331,7 @@ export async function pdfChecklist(v: Valores, ids: { registro: number; nota: nu
 // ------------------------------------------------------------------ Certificado de Recebimento de Bens
 
 /** Valores fixos do certificado (padrão do Depósito); podem ser trocados aqui se mudarem. */
-export const CERTIFICADO_FIXOS = { codigoOm: "71100/71260", cPatrimonial: "EFO", cContabil: "1.5.5.8.1.02.01", nd: "339030-23" };
+export const CERTIFICADO_FIXOS = { codigoOm: "71100/71260", cPatrimonial: "EFO", cContabil: "1.1.5.8.1.02.01", nd: "339030-23" };
 
 /** Campo de assinatura num retângulo qualquer (x, y = canto inferior esquerdo). */
 function campoEm(c: Ctx, nomeCampo: string, rotulo: string, x: number, y: number, w: number, h: number) {
