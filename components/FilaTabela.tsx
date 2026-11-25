@@ -12,7 +12,7 @@ import { BotaoDocumentos } from "./DocumentosProcesso";
 
 export type LinhaFila = {
   id: number; numero: string; empresa: string; valor: string; oc: string; dias: string; farol: "verde" | "amarelo" | "vermelho" | null;
-  obs: string; comentarios: number; docs: number; docsFaltando: string; faltaDocs?: string[]; faltaAssinaturas?: string[]; sobMedida: boolean; servico: boolean; reprovacao: string; idPa: string; editaIdPa: boolean; exigeIdPa: boolean; obsOc: string; arrecadada: boolean; recebida: string; total: string; situacao?: string;
+  obs: string; comentarios: number; docs: number; docsFaltando: string; faltaDocs?: string[]; faltaAssinaturas?: string[]; sobMedida: boolean; servico: boolean; parcial?: boolean; parcialMotivo?: string; reprovacao: string; idPa: string; editaIdPa: boolean; exigeIdPa: boolean; obsOc: string; arrecadada: boolean; recebida: string; total: string; situacao?: string;
 };
 export type BotaoFila = { acao: Acao; rotulo: string; estilo?: "principal" | "sec" | "perigo" };
 
@@ -81,11 +81,12 @@ export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, 
             </thead>
             <tbody>
               {visiveis.map((l) => (
-                <tr key={l.id} className={sel.has(l.id) ? "!bg-blue-50" : l.reprovacao ? "bg-red-50 shadow-[inset_4px_0_0_#dc2626]" : l.sobMedida ? "bg-violet-50/70 shadow-[inset_3px_0_0_#7c3aed]" : ""}>
+                <tr key={l.id} className={sel.has(l.id) ? "!bg-blue-50" : l.reprovacao ? "bg-red-50 shadow-[inset_4px_0_0_#dc2626]" : l.parcial ? "bg-orange-50/70 shadow-[inset_3px_0_0_#f97316]" : l.sobMedida ? "bg-violet-50/70 shadow-[inset_3px_0_0_#7c3aed]" : ""}>
                   <td><input type="checkbox" aria-label={`Selecionar NF ${l.numero}`} checked={sel.has(l.id)} onChange={() => alternar(l.id)} /></td>
                   <td className="whitespace-nowrap">
                     <Link href={linkNota(l.id, volta)} className="font-semibold text-marinha hover:underline">{l.numero}</Link>
                     {l.reprovacao && <span title="A perícia indicou reprovação; aguarda a resolução do Diretor" className="ml-2 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">{l.reprovacao === "tecnica" ? "Reprovação indicada" : "Reprovada na perícia"}</span>}
+                    {l.parcial && <span title={`NF Parcial: recebida a menor${l.parcialMotivo ? ` — ${l.parcialMotivo}` : ""}`} className="ml-2 rounded bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">NF Parcial</span>}
                     {l.sobMedida && <span title="Material sob medida" className="ml-2 rounded bg-violet-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Sob medida</span>}
                     {l.servico && <span title="NF de serviço: Certificado de Prestação de Serviços, assinado só pela Estocagem" className="ml-2 rounded bg-teal-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Serviço</span>}
                     <ItensRapidos id={l.id} numero={l.numero} volta={volta} />

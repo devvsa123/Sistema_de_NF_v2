@@ -217,7 +217,8 @@ export const PERGUNTAS = [
  * TAV em PDF. `minuta`: versão só para imprimir e conferir no recebimento — sem número, sem campo de assinatura,
  * com a marca MINUTA em todas as páginas; não é registrada nem aceita como documento da NF.
  */
-export async function pdfTav(v: Valores, itens: Tabela | null, ids: { registro: number; nota: number }, minuta = false) {
+export async function pdfTav(v: Valores, itens: Tabela | null, ids: { registro: number; nota: number }, minuta = false,
+  recebidos?: { ref: string; n: number; item: string; esperado: number | null; recebidos: number }[]) {
   const numero = `${v.numero_tav}/${v.ano}`;
   const c = minuta
     ? await iniciar(`Minuta do TAV — NF ${v.numero_nf}`, `Minuta do Termo de Abertura de Volumes da NF ${v.numero_nf} (sem valor, só para conferência)`,
@@ -247,6 +248,24 @@ export async function pdfTav(v: Valores, itens: Tabela | null, ids: { registro: 
 
   secao(c, "Observações");
   quadro(c, sem(v.observacao), 52);
+
+  if (!minuta && recebidos?.length) {
+    // pergunta 1 = Não: volumes de fato recebidos de cada item
+    secao(c, "Volumes recebidos (em desacordo com a NF)", 80);
+    const tot = recebidos.reduce((a, r) => ({ esp: a.esp + (r.esperado ?? 0), rec: a.rec + r.recebidos }), { esp: 0, rec: 0 });
+    tabela(c, {
+      titulo: "",
+      colunas: [{ titulo: "#", cm: 0.8, alinhar: "centro" }, { titulo: "ITEM", cm: 10.2 }, { titulo: "ESPERADO", cm: 2.2, alinhar: "dir" },
+        { titulo: "RECEBIDOS", cm: 2.2, alinhar: "dir" }, { titulo: "DIFERENÇA", cm: 2.6, alinhar: "dir" }],
+      linhas: recebidos.map((r) => {
+        const dif = r.esperado === null ? null : r.recebidos - r.esperado;
+        return [r.ref === "total" ? "—" : String(r.n), r.item, r.esperado === null ? "—" : String(r.esperado), String(r.recebidos),
+          dif === null ? "—" : dif === 0 ? "confere" : dif > 0 ? `+${dif} a maior` : `${dif} a menor`];
+      }),
+      rodape: recebidos.length > 1 ? ["", "TOTAL", String(tot.esp), String(tot.rec), ""] : undefined,
+      nota: "Esperado: volumes (caixas) pelo padrão do estoque ou informados na NF. Volumes a menor marcam a NF como PARCIAL.",
+    });
+  }
 
   if (itens?.linhas.length) {
     secao(c, "Relação de itens para contagem", 80);

@@ -21,7 +21,43 @@ function Opcoes({ nome, opcoes, valor }: { nome: string; opcoes: string[]; valor
   );
 }
 
-export function FormTav({ id, inicial, perguntas, numeroTav, reemissao }: { id: number; inicial: DadosRecebimento; perguntas: string[]; numeroTav: string; reemissao: boolean }) {
+export type VolumeEsperado = { ref: string; n: number; item: string; esperado: number | null };
+
+/** Volumes recebidos de cada item, quando a pergunta 1 do TAV ("volumes em conformidade") é Não. */
+function VolumesRecebidos({ linhas, inicial }: { linhas: VolumeEsperado[]; inicial: Record<string, number> }) {
+  const [valores, setValores] = useState<Record<string, string>>(Object.fromEntries(linhas.map((l) => [l.ref, inicial[l.ref] !== undefined ? String(inicial[l.ref]) : ""])));
+  return (
+    <div className="rounded-lg border border-amber-300 bg-amber-50/60 p-3">
+      <p className="text-sm font-semibold text-amber-900">Volumes recebidos de cada item</p>
+      <p className="mb-2 text-xs text-amber-900/80">Informe quantos volumes (caixas) chegaram. Recebido a menor, a NF fica marcada como <strong>NF Parcial</strong>. Descreva a discrepância na observação (obrigatória).</p>
+      <table className="w-full text-left text-sm">
+        <thead><tr className="text-[11px] font-semibold uppercase tracking-wide text-slate-500"><th className="pb-1 pr-2">#</th><th className="pb-1 pr-2">Item</th><th className="pb-1 pr-2 text-right">Esperado</th><th className="pb-1 pr-2">Recebidos *</th><th className="pb-1">Diferença</th></tr></thead>
+        <tbody className="divide-y divide-amber-200/70">
+          {linhas.map((l) => {
+            const v = valores[l.ref] ?? "";
+            const n = v.trim() === "" ? null : Number(v.replace(/\./g, "").replace(",", "."));
+            const dif = n !== null && Number.isFinite(n) && l.esperado !== null ? n - l.esperado : null;
+            return (
+              <tr key={l.ref}>
+                <td className="py-1.5 pr-2 text-xs text-slate-500">{l.ref === "total" ? "—" : l.n}<input type="hidden" name="volref" value={l.ref} /></td>
+                <td className="py-1.5 pr-2 text-slate-800">{l.item}</td>
+                <td className="py-1.5 pr-2 text-right tabular-nums text-slate-600">{l.esperado ?? "—"}</td>
+                <td className="py-1.5 pr-2"><input name={`vol_${l.ref}`} value={v} onChange={(e) => setValores((x) => ({ ...x, [l.ref]: e.target.value }))} required inputMode="numeric" maxLength={8}
+                  className="campo h-8 w-24 text-right tabular-nums" aria-label={`Volumes recebidos ${l.ref === "total" ? "(total)" : `do item ${l.n}`}`} /></td>
+                <td className="py-1.5 text-xs">{dif === null ? <span className="text-slate-400">—</span> : dif === 0 ? <span className="text-emerald-700">✔ confere</span>
+                  : <span className={`font-semibold ${dif < 0 ? "text-red-700" : "text-amber-800"}`}>{dif > 0 ? `+${dif} a maior` : `${dif} a menor`}</span>}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function FormTav({ id, inicial, perguntas, numeroTav, reemissao, volumes = [] }: { id: number; inicial: DadosRecebimento; perguntas: string[]; numeroTav: string; reemissao: boolean; volumes?: VolumeEsperado[] }) {
+  const [q1, setQ1] = useState(inicial.respostas[0] ?? "");
+  const recebidosAntes = Object.fromEntries((inicial.volumes_recebidos ?? []).map((v) => [v.ref, v.recebidos]));
   return (
     <FormAcao acao={acaoEmitirRecebimento} botao="Emitir TAV" className="space-y-5">
       <input type="hidden" name="id" value={id} />
@@ -43,7 +79,7 @@ export function FormTav({ id, inicial, perguntas, numeroTav, reemissao }: { id: 
           <span className="text-sm text-slate-700">Conferência feita por *</span>
           <Opcoes nome="conferencia" opcoes={["Contagem manual", "Pesagem"]} valor={inicial.conferencia} />
         </div>
-        <ol className="divide-y divide-slate-100">
+        <ol className="divide-y divide-slate-100" onChange={(e) => { const t = e.target as unknown as HTMLInputElement; if (t.name === "q1") setQ1(t.value); }}>
           {perguntas.map((p, i) => (
             <li key={i} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
               <span className="text-sm text-slate-700">{i + 1}. {p} *</span>
@@ -51,9 +87,10 @@ export function FormTav({ id, inicial, perguntas, numeroTav, reemissao }: { id: 
             </li>
           ))}
         </ol>
+        {q1 === "Não" && <VolumesRecebidos linhas={volumes} inicial={recebidosAntes} />}
         <p className="text-xs text-slate-500">Caso confirmada discrepância em algum item acima, relate na observação.</p>
-        <label className="block"><span className="rotulo">Observação do TAV</span>
-          <textarea name="observacao" defaultValue={inicial.observacao} rows={3} maxLength={600} className="campo" /></label>
+        <label className="block"><span className="rotulo">Observação do TAV{q1 === "Não" ? " * (obrigatória: volumes em desacordo)" : ""}</span>
+          <textarea name="observacao" defaultValue={inicial.observacao} rows={3} maxLength={600} className="campo" required={q1 === "Não"} minLength={q1 === "Não" ? 3 : undefined} /></label>
       </section>
     </FormAcao>
   );

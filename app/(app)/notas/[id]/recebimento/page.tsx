@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { exigirUsuario } from "@/lib/auth";
 import { etapasAtivas } from "@/lib/fluxo";
 import { obterNota } from "@/lib/notas";
-import { docsDaNota, numeroTav, PERGUNTAS_TAV, podeEmitirRecebimento, podeMinutaTav, proximoTav, type DadosRecebimento } from "@/lib/recebimento";
+import { docsDaNota, numeroTav, PERGUNTAS_TAV, podeEmitirRecebimento, podeMinutaTav, proximoTav, volumesEsperados, type DadosRecebimento } from "@/lib/recebimento";
 import { cnpj, dataHora, destinoVolta, linkNota, moeda } from "@/lib/format";
 import { Cabecalho, Selo, Voltar } from "@/components/ui";
 import { FormChecklist, FormTav, type ContagemAnterior, type LinhaChecklist } from "@/components/FormRecebimento";
@@ -36,7 +36,8 @@ export default async function DocsRecebimento({ params, searchParams }: PageProp
   const proximoNumero = reemissao ? numeroTav(regTav.numero_tav, regTav.ano) : numeroTav(await proximoTav(anoAtual), anoAtual);
   const inicialChecklist = regChecklist?.dados.formulario ?? vazio;
   // itens para a contagem, com o PI do estoque (os que estão "a verificar" ou sem correlação precisam ser confirmados antes)
-  const correl = regTav ? await correlacionarNota(nota) : { linhas: [], catalogoVazio: false };
+  const correl = await correlacionarNota(nota);
+  const volumesTav = await volumesEsperados({ emit_cnpj: nota.emit_cnpj, itens: nota.itens, dados: nota.dados });
   const linhasChecklist: LinhaChecklist[] = correl.linhas.map((l) => ({
     ref: l.ref, n: l.n, descricao: l.descricao, tamanho: l.tamanho, qtd: Number(l.qtd) || 0, un: l.un,
     pi: l.item?.pi ?? null, itemEstoque: l.item?.descricao ?? null, pendente: l.confianca === "media" || l.confianca === "nenhuma" || !l.item,
@@ -77,7 +78,7 @@ export default async function DocsRecebimento({ params, searchParams }: PageProp
             <a href={`/api/recebimento/minuta/${id}`} target="_blank" rel="noopener" className="botao-sec">Imprimir minuta do TAV</a>
           </div>
         )}
-        <div id="tav" className="scroll-mt-20"><FormTav id={id} inicial={inicialTav} perguntas={PERGUNTAS_TAV} numeroTav={proximoNumero} reemissao={reemissao} /></div>
+        <div id="tav" className="scroll-mt-20"><FormTav id={id} inicial={inicialTav} perguntas={PERGUNTAS_TAV} numeroTav={proximoNumero} reemissao={reemissao} volumes={volumesTav} /></div>
         <div id="checklist" className="scroll-mt-20"><FormChecklist id={id} inicial={inicialChecklist} tav={regTav ? numeroTav(regTav.numero_tav, regTav.ano) : null} linhas={linhasChecklist} anterior={contagemAnterior} catalogoVazio={correl.catalogoVazio}
           modo={regTav?.dados.formulario.conferencia === "Contagem manual" ? "contagem" : "pesagem"} /></div>
       </div>

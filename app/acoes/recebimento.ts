@@ -25,6 +25,11 @@ export async function acaoEmitirRecebimento(_: Estado, f: FormData): Promise<Est
     obs_recebimento: campo(f, "obs_recebimento"), discrepancia: campo(f, "discrepancia"), obs_contagem: campo(f, "obs_contagem"),
   };
   const doc = campo(f, "doc") === "checklist" ? "checklist" : "tav";
+  if (doc === "tav" && d.respostas[0] === "Não")
+    d.volumes_recebidos = f.getAll("volref").map(String).map((ref) => {
+      const t = campo(f, `vol_${ref}`).replace(/\./g, "").replace(",", ".");
+      return { ref, n: 0, item: "", esperado: null, recebidos: t === "" ? NaN : Number(t) };
+    });
   if (doc === "checklist")
     d.contagem = f.getAll("ref").map(String).map((ref) => {
       const discrepancia = campo(f, `disc_${ref}`);

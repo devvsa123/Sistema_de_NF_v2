@@ -85,6 +85,7 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
               <h1 className="text-2xl font-bold text-slate-800">NF {nota.numero}{nota.serie ? <span className="text-base font-medium text-slate-400"> / série {nota.serie}</span> : null}</h1>
               <Selo nota={nota} paraEmpresa={!interno} />
               {interno && nota.status === "em_tramite" && nota.indicacao_reprovacao && <span className="rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-bold uppercase text-white">{nota.indicacao_reprovacao === "tecnica" ? "Reprovação indicada pela Técnica" : "Reprovada na perícia — aguarda resolução do Diretor"}</span>}
+              {interno && nota.parcial && <span title={nota.parcial_motivo ?? undefined} className="rounded-full bg-orange-500 px-2.5 py-0.5 text-xs font-bold uppercase text-white">NF Parcial — recebida a menor</span>}
               {nota.sob_medida && <span className="rounded-full bg-violet-50 px-2.5 py-0.5 text-xs font-semibold text-violet-700 ring-1 ring-inset ring-violet-200">Sob medida</span>}
               {interno && <span title={descreverMotivo(nota.tipo_nf_motivo) || undefined} className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${nota.tipo_nf === "servico" ? "bg-teal-50 text-teal-800 ring-teal-200" : "bg-slate-50 text-slate-600 ring-slate-200"}`}>NF de {nota.tipo_nf === "servico" ? "serviço" : "material"}</span>}
             </div>

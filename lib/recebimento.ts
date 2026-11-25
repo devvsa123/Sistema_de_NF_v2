@@ -1,5 +1,5 @@
 import "server-only";
-import { sql } from "./db";
+import { sql, type Tx } from "./db";
 import type { Usuario } from "./auth";
 import { definirIdPa, etapasDoUsuario, type Etapa } from "./fluxo";
 import { cnpj } from "./format";
@@ -75,7 +75,10 @@ export type DadosRecebimento = {
   conferencia: string; respostas: string[]; observacao: string;
   peso_kg: string; itens_caixa: string; data_envio_amostra: string; obs_recebimento: string; discrepancia: string; obs_contagem: string;
   contagem?: ItemContagem[];
+  /** TAV com a pergunta 1 ("volumes em conformidade") = Não: volumes recebidos de cada item (ref "total" = NF sem itens). */
+  volumes_recebidos?: VolumeRecebido[];
 };
+export type VolumeRecebido = { ref: string; n: number; item: string; esperado: number | null; recebidos: number };
 
 /** Usuários das etapas marcadas (Pré Recebimento e Contagem), somente enquanto a NF está numa delas. */
 /** Usuários das etapas marcadas e o administrador geral, sempre com a NF numa dessas etapas. */
@@ -92,7 +95,47 @@ export function validarTav(d: DadosRecebimento): string | null {
   if (d.respostas.length !== PERGUNTAS_TAV.length || d.respostas.some((r) => r !== "Sim" && r !== "Não"))
     return "Responda SIM ou NÃO para todas as perguntas do TAV.";
   if (d.observacao.length > 600) return "Observação longa demais para o espaço do documento.";
+  if (d.respostas[0] === "Não") {
+    if (d.observacao.trim().length < 3) return "Volumes em desacordo com a NF: descreva a discrepância na observação do TAV (obrigatória).";
+    if (!d.volumes_recebidos?.length || d.volumes_recebidos.some((v) => !Number.isFinite(v.recebidos) || v.recebidos < 0))
+      return "Volumes em desacordo com a NF: informe quantos volumes foram recebidos de cada item.";
+  }
   return null;
+}
+
+/** Volumes esperados por item (caixas pelo padrão do estoque) para o TAV; ref "total" quando a NF não tem itens. */
+export async function volumesEsperados(nota: { emit_cnpj: string; itens: ItemNF[] | null; dados: DadosNF | null }) {
+  const { linhas } = await correlacionarNota(nota);
+  if (!linhas.length) return [{ ref: "total", n: 0, item: "Total de volumes da NF", esperado: volumesDaNota(nota.dados) || null }];
+  return linhas.map((l) => ({ ref: l.ref, n: l.n, item: l.item?.descricao ?? l.descricao, esperado: l.caixas?.total ?? null }));
+}
+
+/** Itens recebidos a menor no TAV (volumes) e no Check-list (quantidade). */
+function faltasDaNota(tav: DadosRecebimento | null, checklist: DadosRecebimento | null) {
+  const faltas: string[] = [];
+  if (tav?.respostas?.[0] === "Não" && tav.volumes_recebidos?.length) {
+    for (const v of tav.volumes_recebidos)
+      if (v.esperado !== null && v.recebidos < v.esperado)
+        faltas.push(`TAV: ${v.ref === "total" ? "" : `item ${v.n} — `}${v.recebidos} de ${v.esperado} volume(s)`);
+  }
+  for (const c of checklist?.contagem ?? []) {
+    const dif = Number(c.diferenca) || 0;
+    if (dif < 0) faltas.push(`Check-list: item ${c.n} com ${Math.abs(dif).toLocaleString("pt-BR")} ${c.un || "un."} a menor`);
+  }
+  return faltas;
+}
+
+/** Marca ou desmarca a NF como PARCIAL conforme o último TAV e o último Check-list; registra a mudança no histórico. */
+async function recalcularParcial(tx: Tx, u: Usuario, notaId: number) {
+  const ult = async (docs: string[]) => (await tx`select dados from docs_recebimento where nota_id = ${notaId} and doc in ${tx(docs)} order by criado_em desc limit 1`)[0]?.dados?.formulario as DadosRecebimento | undefined;
+  const faltas = faltasDaNota((await ult(["tav", "ambos"])) ?? null, (await ult(["checklist", "ambos"])) ?? null);
+  const [n] = await tx`select parcial from notas where id = ${notaId}`;
+  const parcial = faltas.length > 0;
+  const motivo = faltas.join("; ").slice(0, 1000) || null;
+  await tx`update notas set parcial = ${parcial}, parcial_motivo = ${motivo} where id = ${notaId}`;
+  if (!!n?.parcial !== parcial)
+    await tx`insert into eventos (nota_id, tipo, usuario_id, usuario_nome, texto) values (${notaId}, 'docs_recebimento', ${u.id}, ${u.nome},
+             ${parcial ? `NF marcada como PARCIAL (recebida a menor): ${motivo}` : "Marcação de NF PARCIAL retirada: o último TAV/Check-list não tem itens a menor."})`;
 }
 
 export function validarChecklist(d: DadosRecebimento): string | null {
@@ -180,8 +223,20 @@ export async function ultimoTav(notaId: number) {
 
 /** Emite o TAV (Pré Recebimento) ou o Check-list (Contagem), cada um no seu momento. */
 export async function emitirDocRecebimento(u: Usuario, notaId: number, doc: DocRecebimento, d: DadosRecebimento) {
-  const [n] = await sql`select id, numero, oc, emit_cnpj, emit_nome, itens from notas where id = ${notaId}`;
+  const [n] = await sql`select id, numero, oc, emit_cnpj, emit_nome, itens, dados from notas where id = ${notaId}`;
   if (!n) throw new Error("NF não encontrada.");
+  if (doc === "tav") {
+    // volumes recebidos por item (só quando a pergunta 1 é Não): o esperado vem do sistema, não do formulário
+    if (d.respostas[0] === "Não") {
+      const esperados = await volumesEsperados({ emit_cnpj: n.emit_cnpj as string, itens: n.itens as ItemNF[] | null, dados: n.dados as DadosNF | null });
+      const informados = new Map((d.volumes_recebidos ?? []).map((v) => [v.ref, v.recebidos]));
+      d = { ...d, volumes_recebidos: esperados.map((e) => {
+        const r = informados.get(e.ref);
+        if (r === undefined || !Number.isFinite(r) || r < 0) throw new Error(`Informe quantos volumes foram recebidos${e.ref === "total" ? "" : ` do item ${e.n}`}.`);
+        return { ...e, recebidos: r };
+      }) };
+    } else d = { ...d, volumes_recebidos: undefined };
+  }
   if (doc === "checklist") {
     const tav = await ultimoTav(notaId);
     if (!tav) throw new Error("Emita primeiro o TAV desta NF: o Check-list usa o número e a data do TAV.");
@@ -201,11 +256,12 @@ export async function emitirDocRecebimento(u: Usuario, notaId: number, doc: DocR
       d = { ...d, numero_tav: String(numero) };
     }
     const valores = await valoresDoc(u, n as never, d);
-    const texto = doc === "tav" ? `TAV nº ${numeroTav(numero, ano)} emitido` : `Check-list da Contagem emitido (TAV nº ${numeroTav(numero, ano)})${(d.contagem ?? []).some((c) => c.discrepancia === "Sim") ? " · com discrepância" : ""}`;
+    const texto = doc === "tav" ? `TAV nº ${numeroTav(numero, ano)} emitido${d.respostas[0] === "Não" ? " · volumes em desacordo com a NF" : ""}` : `Check-list da Contagem emitido (TAV nº ${numeroTav(numero, ano)})${(d.contagem ?? []).some((c) => c.discrepancia === "Sim") ? " · com discrepância" : ""}`;
     const [r] = await tx`insert into docs_recebimento (nota_id, numero_tav, ano, doc, dados, criado_por, criado_por_nome)
                          values (${notaId}, ${numero}, ${ano}, ${doc}, ${tx.json({ formulario: d, valores } as never)}, ${u.id}, ${u.nome}) returning id`;
     if (doc === "tav" && d.id_pa.trim()) await definirIdPa(tx, u, notaId, d.id_pa, `TAV nº ${numeroTav(numero, ano)}`);
     await tx`insert into eventos (nota_id, tipo, usuario_id, usuario_nome, texto) values (${notaId}, 'docs_recebimento', ${u.id}, ${u.nome}, ${texto})`;
+    await recalcularParcial(tx, u, notaId);
     return r.id as number;
   });
 }
@@ -275,7 +331,8 @@ export async function documentoRecebimento(id: number, doc: "tav" | "checklist",
   if (formato === "pdf") {
     const ids = { registro: id, nota: r.nota_id as number };
     const contagem = (r.dados as { formulario: DadosRecebimento }).formulario.contagem ?? [];
-    const bytes = doc === "tav" ? await pdfTav(valores, tabela, ids) : await pdfChecklist(valores, ids, contagem);
+    const form = (r.dados as { formulario: DadosRecebimento }).formulario;
+    const bytes = doc === "tav" ? await pdfTav(valores, tabela, ids, false, form.respostas?.[0] === "Não" ? form.volumes_recebidos : undefined) : await pdfChecklist(valores, ids, contagem);
     return { bytes, nome: `${base}.pdf`, mime: "application/pdf" };
   }
   const { arquivo, nome } = await modeloAtual(doc);
