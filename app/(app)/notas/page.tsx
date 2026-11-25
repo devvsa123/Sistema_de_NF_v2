@@ -100,7 +100,7 @@ export default async function Notas({ searchParams }: PageProps<"/notas">) {
             <thead>
               <tr>
                 <th>NF</th>{interno && <th>Empresa</th>}<th className="text-right">Valor</th><th>OC</th><th>Situação</th>
-                <th>Recebida</th><th>{interno ? "Na etapa há" : "Última movimentação"}</th><th>Tempo total</th>
+                <th>Recebida</th><th>{interno ? "Na etapa há" : "Última movimentação"}</th>{interno && <th>Tempo total</th>}
               </tr>
             </thead>
             <tbody>
@@ -132,7 +132,7 @@ export default async function Notas({ searchParams }: PageProps<"/notas">) {
                       </span>
                     ) : "—"}
                   </td>
-                  <td className="whitespace-nowrap">{dias(n.dias_total)}</td>
+                  {interno && <td className="whitespace-nowrap">{dias(n.dias_total)}</td>}
                 </tr>
               ))}
             </tbody>

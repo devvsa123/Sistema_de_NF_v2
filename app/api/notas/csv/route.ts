@@ -18,14 +18,14 @@ export async function GET(req: Request) {
   const interno = ehInterno(u);
   const cab = interno
     ? ["Nº NF", "Série", "Chave de acesso", "CNPJ", "Empresa", "Valor", "OC", "Situação", "Recebida em", "Concluída em", "Tempo total (dias)", "Arrecadada em", "Armazenada em"]
-    : ["Nº NF", "Série", "Chave de acesso", "Valor", "OC", "Situação", "Recebida em", "Última movimentação", "Tempo total (dias)"];
+    : ["Nº NF", "Série", "Chave de acesso", "Valor", "OC", "Situação", "Recebida em", "Última movimentação"];
   const corpo = linhas.map((n) =>
     (interno
       ? [n.numero, n.serie, n.chave, cnpj(n.emit_cnpj), n.emit_nome, Number(n.valor).toFixed(2).replace(".", ","), n.oc, situacao(n, false),
          data(n.recebida_em), n.concluida_em ? data(n.concluida_em) : "", Math.round(Number(n.dias_total)),
          n.arrecadada_em ? data(n.arrecadada_em) : "", n.armazenada_em ? data(n.armazenada_em) : ""]
       : [n.numero, n.serie, n.chave, Number(n.valor).toFixed(2).replace(".", ","), n.oc, situacao(n, true),
-         data(n.recebida_em), data(n.etapa_desde), Math.round(Number(n.dias_total))]
+         data(n.recebida_em), data(n.etapa_desde)]
     ).map(cel).join(";"),
   );
   return new Response("﻿" + [cab.map(cel).join(";"), ...corpo].join("\r\n"), {

@@ -414,7 +414,7 @@ export default async function Manual() {
     {
       id: "fornecedor", titulo: "Para fornecedores", para: ["empresa"], conteudo: <>
         <Lista>
-          <li>Em <Ir href="/notas">Minhas notas</Ir> você acompanha a situação de cada NF emitida pela sua empresa.</li>
+          <li>Em <Ir href="/notas">Minhas notas</Ir> você acompanha as NF emitidas pela sua empresa: os dados da nota, a <B>situação atual</B> e a <B>data da última movimentação</B>.</li>
           <li><B>Enviada para o COMRJ</B> significa que a tramitação no Depósito foi concluída.</li>
           <li><B>Reprovada</B> indica que o material não foi aceito; entre em contato com o Depósito para as providências de retirada e reposição.</li>
         </Lista>

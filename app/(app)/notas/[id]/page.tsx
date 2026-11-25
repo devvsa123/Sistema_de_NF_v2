@@ -101,8 +101,8 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
           <Campo rotulo="Empenho">{nota.empenho}</Campo>
           <Campo rotulo="Emissão">{nota.data_emissao && data(nota.data_emissao)}</Campo>
           <Campo rotulo="Recebida em">{data(nota.recebida_em)}</Campo>
-          <Campo rotulo={emAberto ? "Tempo em trâmite" : "Tempo total"}>{dias(nota.dias_total)}</Campo>
-          <Campo rotulo="Concluída em">{nota.concluida_em && data(nota.concluida_em)}</Campo>
+          {interno && <Campo rotulo={emAberto ? "Tempo em trâmite" : "Tempo total"}>{dias(nota.dias_total)}</Campo>}
+          {interno && <Campo rotulo="Concluída em">{nota.concluida_em && data(nota.concluida_em)}</Campo>}
           {interno && <Campo rotulo="Arrecadada em">{nota.arrecadada_em && data(nota.arrecadada_em)}</Campo>}
           {interno && <Campo rotulo="Armazenada em">{nota.armazenada_em && data(nota.armazenada_em)}</Campo>}
           {interno && nota.status === "reprovada" && <Campo rotulo="Perícia visual">{nota.reprov_visual}</Campo>}
@@ -112,8 +112,8 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
         {interno && nota.obs_oc && <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900"><strong>Observações da OC:</strong> {nota.obs_oc}</p>}
       </div>
 
-      {/* Caminho da tramitação */}
-      <div className="cartao overflow-x-auto p-5">
+      {/* Caminho da tramitação (só para os usuários internos: o fornecedor vê apenas a situação atual e a última movimentação) */}
+      {interno && <div className="cartao overflow-x-auto p-5">
         <h2 className="mb-4 text-[15px] font-semibold text-slate-900">Caminho da tramitação</h2>
         <ol className="flex min-w-max items-start">
           {etapas.map((e, i) => {
@@ -157,7 +157,7 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
             Reprovada há {dias(nota.dias_etapa)} (prazo para retirada: {prazoReprov} dias).
           </p>
         )}
-      </div>
+      </div>}
 
       {botoes.length > 0 && (
         <div className="cartao border-marinha/30 p-5">
