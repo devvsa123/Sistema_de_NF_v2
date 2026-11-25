@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { pendenciasAteAgora } from "@/lib/documentos";
 import { etapaPreRecebimento } from "@/lib/recebimento";
 import { redirect } from "next/navigation";
 import { exigirUsuario } from "@/lib/auth";
@@ -43,11 +44,14 @@ export default async function MinhaFila({ searchParams }: PageProps<"/">) {
     botoes.push({ acao: "reabrir", rotulo: `← Voltar para ${destino}`, estilo: "sec" }, { acao: "retirar", rotulo: "Retirada pelo fornecedor" });
   } else botoes.push({ acao: "armazenar", rotulo: "Marcar como armazenada" });
 
+  // o que falta até a etapa atual (documentos e assinaturas), acumulado das etapas anteriores
+  const pend = await pendenciasAteAgora(notas);
   const linhas: LinhaFila[] = notas.map((n) => ({
     id: n.id, numero: n.numero, empresa: n.emit_nome, valor: moeda(n.valor), oc: n.oc ?? "", recebida: data(n.recebida_em), total: dias(n.dias_total),
     dias: aba.chave === "armazenar" ? dias(n.dias_arrecadada) : dias(n.dias_etapa),
     farol: prazo !== null ? farol(Number(n.dias_etapa), prazo) : null,
-    obs: n.ultima_obs ?? "", comentarios: n.n_comentarios ?? 0, docs: n.n_docs ?? 0, docsFaltando: n.docs_faltando ?? "", sobMedida: !!n.sob_medida, servico: n.tipo_nf === "servico", reprovacao: n.status === "em_tramite" ? (n.indicacao_reprovacao ?? "") : "",
+    obs: n.ultima_obs ?? "", comentarios: n.n_comentarios ?? 0, docs: n.n_docs ?? 0, docsFaltando: [...(pend.get(n.id)?.documentos ?? []), ...(pend.get(n.id)?.assinaturas ?? []).map((a) => `assinatura ${a}`)].join(", "),
+    faltaDocs: pend.get(n.id)?.documentos ?? [], faltaAssinaturas: pend.get(n.id)?.assinaturas ?? [], sobMedida: !!n.sob_medida, servico: n.tipo_nf === "servico", reprovacao: n.status === "em_tramite" ? (n.indicacao_reprovacao ?? "") : "",
     idPa: n.id_pa ?? "", editaIdPa: podeEditarIdPa(u, etapas, n),
     exigeIdPa: !!n.exige_id_pa && n.status === "em_tramite" && !!etapas.find((x) => x.id === n.etapa_id)?.edita_id_pa, obsOc: n.obs_oc ?? "", arrecadada: !!n.arrecadada_em,
     situacao: aba.chave === "reprovadas" ? `Reprovada em ${n.etapa_nome ?? "—"}` : undefined,

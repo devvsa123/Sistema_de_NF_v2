@@ -103,6 +103,7 @@ export default async function Manual() {
           <li>Clique em <B>Confirmar reprovação</B>.</li>
         </Passos>
         <p>As reprovadas ficam na aba <B>Reprovadas</B>, com prazo de {prazoReprov} dias para retirada. Nela você pode:</p>
+        <p className="mt-2">Abaixo do botão <B>Docs</B> de cada NF aparece, em vermelho, <B>só o que falta até a etapa atual</B>: os documentos obrigatórios desta etapa e das anteriores (<B>Falta anexar</B>) e as assinaturas que já deveriam existir (<B>Falta assinar</B>), como o Responsável pelo Pré-Recebimento no TAV, o Perito e o Diretor no parecer, o Fiel de Armazenagem e o Gestor no certificado da NF e a Técnica no relatório. As obrigações se acumulam: o que ficou para trás continua aparecendo nas etapas seguintes. O que é de etapas futuras não aparece aqui (veja o check-list completo na página da NF).</p>
         <Lista>
           <li><B>← Voltar para (etapa)</B>: a NF deixa de ser reprovada e volta para a etapa em que foi reprovada.</li>
           <li><B>Retirada pelo fornecedor</B>: encerra a NF.</li>

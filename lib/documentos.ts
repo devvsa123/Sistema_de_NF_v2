@@ -267,3 +267,95 @@ export async function fluxoDoDocumento(id: number) {
   const corpo = d.armazenamento === "banco" ? new Uint8Array(d.conteudo as Buffer) : await lerFluxo(d.chave as string);
   return { nome: d.nome_arquivo as string, mime: d.mime as string, tamanho: d.tamanho as number, corpo };
 }
+
+// ------------------------------------------------------------------ pendências até a etapa atual (fila)
+
+/** Etapa responsável por cada campo de assinatura (pelo nome/rótulo do campo). */
+const RESPONSAVEL_CAMPO: [RegExp, RegExp][] = [
+  [/pr[eé].?recebimento/i, /pr[eé].?receb/i],
+  [/contagem/i, /contagem/i],
+  [/divis[aã]o t[eé]cnica/i, /t[eé]cnica/i],
+  [/diretor/i, /diretor/i],
+  [/perito/i, /per[ií]cia/i],
+  [/armazenagem|servidor respons/i, /estocagem|armazen/i],
+  [/suprimentos/i, /controle/i],
+  [/gestor/i, /abastecimento/i],
+];
+
+type EtapaBasica = { id: number; nome: string; setor: string };
+
+function etapaDoCampo(c: CampoAssinatura, etapas: EtapaBasica[]) {
+  const texto = `${c.nome} ${c.rotulo}`;
+  const regra = RESPONSAVEL_CAMPO.find(([campo]) => campo.test(texto));
+  if (!regra) return -1;
+  return etapas.findIndex((e) => regra[1].test(`${e.nome} ${e.setor}`));
+}
+
+const NOME_CURTO: Record<string, string> = {
+  "Nota fiscal (DANFE)": "NF", "Parecer da Divisão Técnica": "Parecer", "Relatório de ensaio visual": "Relatório", "Check-list da Contagem": "Check-list",
+};
+const curto = (tipo: string) => NOME_CURTO[tipo] ?? tipo;
+
+export type PendenciaFila = { documentos: string[]; assinaturas: string[] };
+
+/**
+ * O que falta até a etapa atual (as obrigações se acumulam): documentos obrigatórios da etapa atual e das anteriores
+ * e assinaturas cuja etapa responsável já chegou (ex.: o TAV sem a assinatura do Pré-Recebimento continua aparecendo
+ * no Diretor). Relatórios sem campo de assinatura (Word/Adobe) precisam da assinatura da Técnica quando a NF chega lá.
+ */
+export async function pendenciasAteAgora(notas: { id: number; status: string; etapa_id: number | null }[]): Promise<Map<number, PendenciaFila>> {
+  const saida = new Map<number, PendenciaFila>();
+  const ativas = notas.filter((n) => n.status === "em_tramite" && n.etapa_id);
+  if (!ativas.length) return saida;
+  const { etapasAtivas } = await import("./fluxo");
+  const [etapas, { tipos, regras }] = await Promise.all([etapasAtivas(), regrasDocumentos()]);
+  const ids = ativas.map((n) => n.id);
+  const docs = await sql<{ id: number; nota_id: number; tipo_id: number; tipo: string; mime: string; exige_assinatura: boolean; assinaturas: Assinatura[]; campos: CampoAssinatura[] | null; arquivo_excluido_em: Date | null }[]>`
+    select d.id, d.nota_id, d.tipo_id, t.nome as tipo, d.mime, t.exige_assinatura, d.assinaturas, d.campos, d.arquivo_excluido_em
+    from documentos d join tipos_documento t on t.id = d.tipo_id where d.nota_id in ${sql(ids)} and d.removido_em is null`;
+  // PDFs antigos sem os campos lidos: lê alguns por vez (os demais nas próximas aberturas da fila)
+  let lidos = 0;
+  for (const d of docs) {
+    if (d.campos || d.mime !== "application/pdf" || d.arquivo_excluido_em || lidos >= 12) continue;
+    lidos++;
+    try {
+      const a = await arquivoDoDocumento(d.id);
+      d.campos = a ? await camposDeAssinatura(a.bytes) : [];
+    } catch { d.campos = []; }
+    await sql`update documentos set campos = ${sql.json(d.campos as never)} where id = ${d.id}`;
+  }
+  // quem assina pela Técnica (nome do certificado), para os relatórios assinados fora do sistema
+  const iTec = etapas.findIndex((e) => /t[eé]cnica/i.test(`${e.nome} ${e.setor}`));
+  const tecnicos = iTec < 0 ? new Set<string>() : new Set((await sql`
+    select distinct u.cert_nome from usuarios u join usuario_etapas ue on ue.usuario_id = u.id
+    where ue.etapa_id = ${etapas[iTec].id} and u.cert_nome is not null`).map((r) => String(r.cert_nome).toUpperCase()));
+
+  for (const n of ativas) {
+    const iAtual = etapas.findIndex((e) => e.id === n.etapa_id);
+    if (iAtual < 0) continue;
+    const devidas = new Set(etapas.slice(0, iAtual + 1).map((e) => e.id));
+    const meus = docs.filter((d) => d.nota_id === n.id);
+    const entregues = new Set(meus.filter((d) => valido(d)).map((d) => d.tipo_id));
+    const faltaDocs = [...new Set(regras.filter((r) => devidas.has(r.etapa_id) && !entregues.has(r.tipo_id))
+      .map((r) => tipos.find((t) => t.id === r.tipo_id)).filter((t): t is TipoDocumento => !!t && t.ativo)
+      .sort((a, b) => a.ordem - b.ordem).map((t) => curto(t.nome)))];
+    const faltaAss: string[] = [];
+    for (const d of meus) {
+      if (d.assinaturas.some((a) => !a.integra)) faltaAss.push(`assinatura que não confere (${curto(d.tipo)})`);
+      const campos = d.campos ?? [];
+      for (const c of campos) {
+        if (c.assinado || !campoExigido(c)) continue;
+        const i = etapaDoCampo(c, etapas);
+        if (i >= 0 && i <= iAtual) faltaAss.push(`${nomeDoCampo(c)} (${curto(d.tipo)})`);
+      }
+      // relatório (feito e assinado fora do sistema): a Técnica também precisa assinar quando a NF chega nela
+      if (/relat[oó]rio/i.test(d.tipo) && iTec >= 0 && iAtual >= iTec) {
+        const validas = d.assinaturas.filter((a) => a.integra);
+        const temTecnica = tecnicos.size ? validas.some((a) => tecnicos.has(a.nome.toUpperCase())) : validas.length >= 2;
+        if (!temTecnica) faltaAss.push(`${etapas[iTec].nome} (${curto(d.tipo)})`);
+      }
+    }
+    if (faltaDocs.length || faltaAss.length) saida.set(n.id, { documentos: faltaDocs, assinaturas: [...new Set(faltaAss)] });
+  }
+  return saida;
+}

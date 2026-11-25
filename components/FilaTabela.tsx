@@ -12,7 +12,7 @@ import { BotaoDocumentos } from "./DocumentosProcesso";
 
 export type LinhaFila = {
   id: number; numero: string; empresa: string; valor: string; oc: string; dias: string; farol: "verde" | "amarelo" | "vermelho" | null;
-  obs: string; comentarios: number; docs: number; docsFaltando: string; sobMedida: boolean; servico: boolean; reprovacao: string; idPa: string; editaIdPa: boolean; exigeIdPa: boolean; obsOc: string; arrecadada: boolean; recebida: string; total: string; situacao?: string;
+  obs: string; comentarios: number; docs: number; docsFaltando: string; faltaDocs?: string[]; faltaAssinaturas?: string[]; sobMedida: boolean; servico: boolean; reprovacao: string; idPa: string; editaIdPa: boolean; exigeIdPa: boolean; obsOc: string; arrecadada: boolean; recebida: string; total: string; situacao?: string;
 };
 export type BotaoFila = { acao: Acao; rotulo: string; estilo?: "principal" | "sec" | "perigo" };
 
@@ -94,11 +94,18 @@ export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, 
                     {minutaTav && <a href={`/api/recebimento/minuta/${l.id}`} target="_blank" rel="noopener" title="Minuta do TAV para imprimir e conferir no recebimento (sem valor, não registrada)" className="ml-2 rounded border border-dashed border-slate-300 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 hover:border-marinha hover:text-marinha">Minuta TAV</a>}
                     {laudo && <Link href={`/notas/${l.id}/laudo${volta ? `?volta=${encodeURIComponent(volta)}` : ""}`} className="ml-2 rounded border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 hover:border-marinha hover:text-marinha">Parecer</Link>}
                     {l.situacao && <span className="block text-xs text-slate-500">{l.situacao}</span>}
+                    {(l.faltaDocs?.length || l.faltaAssinaturas?.length) ? (
+                      <span className="mt-1 block w-60 whitespace-normal text-[11px] leading-snug text-red-700" title={`Falta até esta etapa: ${l.docsFaltando}`}>
+                        {l.faltaDocs?.length ? <><strong>Falta anexar:</strong> {l.faltaDocs.join(", ")}</> : null}
+                        {l.faltaDocs?.length && l.faltaAssinaturas?.length ? <br /> : null}
+                        {l.faltaAssinaturas?.length ? <><strong>Falta assinar:</strong> {l.faltaAssinaturas.join(", ")}</> : null}
+                      </span>
+                    ) : null}
                     {mostrarArrecadacao && (
                       <span className={`block text-xs ${l.arrecadada ? "text-emerald-700" : "text-amber-700"}`}>{l.arrecadada ? "Arrecadada" : "Não arrecadada"}</span>
                     )}
                   </td>
-                  <td className="max-w-56">{l.empresa}</td>
+                  <td className="min-w-40 max-w-56">{l.empresa}</td>
                   <td className="whitespace-nowrap text-right tabular-nums">{l.valor}</td>
                   <td className="whitespace-nowrap">{l.oc}</td>
                   <td className="whitespace-nowrap"><CampoIdPa id={l.id} numero={l.numero} valor={l.idPa} editavel={l.editaIdPa} exigido={l.exigeIdPa} /></td>
