@@ -11,6 +11,7 @@ import { FormAcao } from "@/components/FormAcao";
 import { FormObservacao } from "@/components/FormObservacao";
 import { DocumentosNota } from "@/components/DocumentosNota";
 import { PacoteFinal } from "@/components/PacoteFinal";
+import { AmostragemPericia } from "@/components/AmostragemPericia";
 import { exigePacoteFinal } from "@/lib/pacote";
 import { AssinarToken } from "@/components/AssinarToken";
 import type { BotaoFila } from "@/components/FilaTabela";
@@ -200,6 +201,9 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
           )}
         </div>
       )}
+
+      {/* amostragem da perícia: aberta para quem é da Perícia com a NF na etapa dela; recolhida para os demais */}
+      {interno && <AmostragemPericia nota={nota} aberto={perito && /per[ií]cia/i.test(`${etapaAtual?.nome ?? ""} ${etapaAtual?.setor ?? ""}`)} />}
 
       {(perito || laudos.length > 0) && (
         <div className="cartao flex flex-wrap items-start justify-between gap-4 p-5">

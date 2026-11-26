@@ -30,6 +30,7 @@ export default async function LayoutApp({ children }: LayoutProps<"/">) {
             { href: "/admin/usuarios", rotulo: "Usuários", icone: "usuarios" },
             { href: "/admin/laudo", rotulo: "Modelos de documentos", icone: "relatorio" },
             { href: "/admin/documentos", rotulo: "Documentos da NF", icone: "notas" },
+            { href: "/admin/amostragem", rotulo: "Contagem por pesagem", icone: "notas" },
             { href: "/admin/estoque", rotulo: "Estoque (WMS)", icone: "importar" },
             { href: "/admin/importar", rotulo: "Importar planilha", icone: "importar" },
           ],

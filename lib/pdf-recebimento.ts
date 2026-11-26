@@ -626,3 +626,69 @@ export async function pdfHistorico(h: HistoricoNF, tipoEvento: Record<string, st
   } as Tabela);
   return finalizar(c);
 }
+
+// ------------------------------------------------------------------ Plano de contagem por pesagem por amostragem
+
+export type PlanoPesagemPdf = {
+  geradoPor: string; geradoEm: Date; tolerancia: number; etapas: string;
+  nfs: { numero: string; empresa: string; etapa: string; linhas: { n: number; item: string; pi: string | null; qtd: number; un: string; cxp: number | null; volumes: number | null; pesar: number | null; ac: number; re: number }[] }[];
+  excluidas: { numero: string; empresa: string; volumes: number }[];
+};
+
+/** Plano de contagem por pesagem por amostragem, para aprovação do Diretor. */
+export async function pdfPlanoPesagem(p: PlanoPesagemPdf) {
+  const c = await iniciar("Plano de contagem por pesagem por amostragem", "Proposta de contagem por pesagem por amostragem (ABNT NBR 5426)",
+    ["nf-sistema", "nf-doc:plano-pesagem"], `Plano de contagem por pesagem · gerado em ${p.geradoEm.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })} por ${p.geradoPor}`);
+  cabecalho(c, "PLANO DE CONTAGEM POR PESAGEM POR AMOSTRAGEM", "PROPOSTA PARA APROVAÇÃO DO DIRETOR", "SEÇÃO DE RECEBIMENTO");
+  const linhas = p.nfs.flatMap((n) => n.linhas);
+  const vol = linhas.reduce((s, l) => s + (l.volumes ?? 0), 0), pesar = linhas.reduce((s, l) => s + (l.pesar ?? 0), 0);
+  const semCxp = linhas.filter((l) => !l.volumes).length;
+  const volExcl = p.excluidas.reduce((s, n) => s + n.volumes, 0);
+  const pct = (a: number, b: number) => (b ? `${((a / b) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` : "—");
+
+  secao(c, "Resumo");
+  grade(c, [
+    [{ rotulo: "NF no plano", valor: String(p.nfs.length), cm: 4.5, negrito: true }, { rotulo: "Volumes (caixas) no plano", valor: vol.toLocaleString("pt-BR"), cm: 4.5 },
+      { rotulo: "Volumes a pesar (amostra)", valor: pesar.toLocaleString("pt-BR"), cm: 4.5, negrito: true }, { rotulo: "Deixam de ser contados 1 a 1", valor: `${(vol - pesar).toLocaleString("pt-BR")} (${pct(vol - pesar, vol)})`, cm: 4.5 }],
+    [{ rotulo: "NF mantidas em contagem 100%", valor: `${p.excluidas.length} (${volExcl.toLocaleString("pt-BR")} volumes)`, cm: 6 }, { rotulo: "Itens sem CXP (contagem 100%)", valor: String(semCxp), cm: 4 },
+      { rotulo: "Tolerância de peso", valor: `± ${p.tolerancia.toLocaleString("pt-BR")}%`, cm: 3 }, { rotulo: "Etapas consideradas", valor: p.etapas, cm: 5 }],
+  ]);
+
+  secao(c, "Metodologia proposta", 140);
+  const passos = [
+    "1. Para cada item de cada NF do plano, o lote é o número de volumes (caixas) do item pelo padrão do estoque (CXP). A amostra de volumes a pesar segue a Tabela 1 da MAR 71000/021D (ABNT NBR 5426, nível I, inspeção simples normal).",
+    "2. Abrir e contar um volume completo do item para obter o peso líquido de referência (já sem a tara da caixa).",
+    "3. Pesar os volumes da amostra, escolhidos ao acaso entre todos os volumes do item. Volume com peso fora da tolerância em relação à referência é divergente e deve ser contado unidade a unidade.",
+    "4. Divergentes até o número de aceitação (Ac): o item é aceito pela quantidade da NF (volumes × CXP), contando-se a caixa fracionada. A partir do número de rejeição (Re): o item passa para contagem 100%.",
+    "5. NF retiradas do plano e itens sem CXP cadastrado seguem com contagem 100%. O resultado de cada item é registrado no Check-list da Contagem (conferência por pesagem).",
+  ];
+  for (const t of passos) { const ls = quebrar(c.f, t, 8.5, L); garantir(c, ls.length * 11 + 4); ls.forEach((l) => { c.y -= 11; texto(c, l, M, c.y, { tam: 8.5 }); }); c.y -= 3; }
+
+  secao(c, "Plano por NF e item", 90);
+  tabela(c, {
+    titulo: "",
+    colunas: [{ titulo: "NF", cm: 1.6 }, { titulo: "ITEM", cm: 5.9 }, { titulo: "PI", cm: 1.8, alinhar: "centro" }, { titulo: "QTD. NF", cm: 1.9, alinhar: "dir" },
+      { titulo: "CXP", cm: 1.1, alinhar: "dir" }, { titulo: "VOLUMES", cm: 1.5, alinhar: "dir" }, { titulo: "PESAR", cm: 1.4, alinhar: "dir" }, { titulo: "AC", cm: 0.9, alinhar: "centro" }, { titulo: "RE", cm: 0.9, alinhar: "centro" }],
+    linhas: p.nfs.flatMap((n) => n.linhas.map((l, i) => [
+      i === 0 ? `${n.numero}\n${n.empresa.slice(0, 22)}` : "", `${l.n}. ${l.item}`, l.pi ?? "—", `${l.qtd.toLocaleString("pt-BR")} ${l.un}`, l.cxp ? String(l.cxp) : "—",
+      l.volumes ? String(l.volumes) : "—", l.pesar ? String(l.pesar) : "100%", l.volumes ? String(l.ac) : "—", l.volumes ? String(l.re) : "—",
+    ])),
+    rodape: ["", "TOTAL", "", "", "", vol.toLocaleString("pt-BR"), pesar.toLocaleString("pt-BR"), "", ""],
+    nota: "PESAR: volumes da amostra a pesar. 100%: item sem CXP, com contagem completa. AC/RE: número de volumes divergentes para aceitar/rejeitar o item.",
+  });
+
+  if (p.excluidas.length) {
+    secao(c, "NF mantidas em contagem 100% (fora do plano)", 60);
+    tabela(c, { titulo: "", colunas: [{ titulo: "NF", cm: 3 }, { titulo: "EMPRESA", cm: 12 }, { titulo: "VOLUMES", cm: 3, alinhar: "dir" }],
+      linhas: p.excluidas.map((n) => [n.numero, n.empresa, n.volumes ? n.volumes.toLocaleString("pt-BR") : "—"]) });
+  }
+
+  garantir(c, 150);
+  secao(c, "Aprovação", 140);
+  texto(c, "(    ) APROVADO          (    ) NÃO APROVADO          (    ) APROVADO COM RESSALVAS", M, c.y - 14, { tam: 9.5, negrito: true });
+  c.y -= 30;
+  campoAssinatura(c, "Elaborado por", M, L / 2, p.geradoPor, "Elaborado por");
+  campoAssinatura(c, "Diretor", M + L / 2, L / 2, "", "Diretor");
+  c.y -= 90;
+  return finalizar(c);
+}

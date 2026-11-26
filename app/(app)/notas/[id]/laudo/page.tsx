@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AmostragemPericia } from "@/components/AmostragemPericia";
 import { notFound, redirect } from "next/navigation";
 import { exigirUsuario } from "@/lib/auth";
 import { etapasAtivas } from "@/lib/fluxo";
@@ -26,6 +27,7 @@ export default async function Laudo({ params, searchParams }: PageProps<"/notas/
     <div className="mx-auto max-w-4xl">
       <div className="mb-3"><Voltar href={linkNota(id, destinoVolta(sp.volta)?.href)}>NF {nota.numero}</Voltar></div>
       <Cabecalho titulo="Parecer da Divisão Técnica" descricao="Preencha o resultado da perícia. O número do parecer, os dados da NF e os campos fixos (Diretor, posto e cargo) entram automaticamente." />
+      <div className="mb-5"><AmostragemPericia nota={nota} /></div>
 
       {emitido && laudos.some((l) => l.id === emitido) && (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4">

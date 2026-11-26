@@ -235,6 +235,7 @@ export default async function Manual() {
     {
       id: "laudo", titulo: "Emitir o Parecer da Divisão Técnica", para: ["admin", "interno"], conteudo: <>
         <p>Somente os usuários da <B>Perícia</B> (e o administrador geral) emitem o parecer, pelo botão <B>Parecer</B> ao lado da NF na fila da Perícia, ou por <B>Emitir Parecer da Divisão Técnica</B> na página da NF.</p>
+        <Dica><B>Amostragem para a perícia</B>: na página da NF (aberta para a Perícia quando a NF está na etapa dela) e na tela do parecer, o sistema mostra quantas unidades periciar em cada item, pela Tabela 1 da MAR 71000/021D (ABNT NBR 5426, nível I, inspeção simples normal). Os tamanhos do mesmo item formam um lote; a amostra é distribuída entre os tamanhos pela participação de cada um (decimais desprezados, mínimo de 1). Itens <B>PED</B> (conjunto camuflado multipropósito, conjunto operativo) têm a amostra <B>dobrada</B>. Ac/Re: número de peças com defeito para aceitar/rejeitar.</Dica>
         <Passos>
           <li>Marque o resultado da perícia visual, se as medidas comuns e básicas foram aferidas e as observações.</li>
           <li>Marque o resultado da perícia laboratorial (ou “Não se aplica”) e, se for o caso, o ofício e as datas de envio e recebimento.</li>
@@ -374,6 +375,7 @@ export default async function Manual() {
       id: "admin", titulo: "Administração", para: ["admin"], conteudo: <>
         <p className="font-semibold text-slate-900">Caminho da tramitação</p>
         <Lista>
+          <li><B>Contagem por pesagem</B> (temporário, só o administrador geral): levantamento das NF que aguardam a contagem (por etapa), item a item, com os volumes pelo CXP e os volumes a pesar por amostragem (mesma tabela). Marque as NF que ficam com contagem 100% e gere o <B>plano em PDF</B> (resumo, metodologia, plano por NF e item e campo de aprovação do Diretor).</li>
           <li>Renomeie etapas, ajuste prazos, defina o <B>setor</B> de cada etapa (etapas com o mesmo setor são atribuídas juntas aos usuários) e use ▲ ▼ para mudar a ordem. As mudanças valem na hora.</li>
           <li>Marque em cada etapa se ela informa o ID de PA (obrigatório para a NF sair dela) ou se os usuários dela podem alterar o ID de PA a qualquer momento (Controle). Marque também se ela pode reprovar, se os usuários dela emitem o Parecer da Divisão Técnica ou o TAV e Check-list, se exige arrecadação, se marca armazenagem e se é a entrada do material sob medida.</li>
           <li>Uma etapa só pode ser removida quando não houver NF nela.</li>
