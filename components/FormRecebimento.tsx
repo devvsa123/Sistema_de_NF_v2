@@ -239,6 +239,34 @@ export function FormChecklist({ id, inicial, tav, linhas, anterior, catalogoVazi
             ))}
           </div>
         </div>
+        {!modo && (
+          <div aria-disabled className="relative select-none">
+            <div className="pointer-events-none opacity-40">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    <th className="pb-2 pr-2">#</th><th className="pb-2 pr-3">PI · Item</th><th className="pb-2 pr-3">Peso ou quantidade</th><th className="pb-2">Discrepância</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {linhas.map((l) => (
+                    <tr key={l.ref}>
+                      <td className="py-2.5 pr-2 text-xs text-slate-500">{l.n}</td>
+                      <td className="py-2.5 pr-3"><span className="font-mono text-xs text-slate-500">{l.pi}</span><span className="block text-sm text-slate-800">{l.itemEstoque ?? l.descricao}</span></td>
+                      <td className="py-2.5 pr-3"><span className="campo inline-block h-9 w-28 bg-slate-100" /></td>
+                      <td className="py-2.5"><span className="campo inline-block h-8 w-28 bg-slate-100" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="absolute inset-0 flex items-start justify-center pt-6">
+              <p className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-medium text-amber-900 shadow-sm">
+                🔒 Escolha acima como a conferência foi feita<br /><span className="font-normal">(<strong>Contagem manual</strong> ou <strong>Pesagem</strong>) para liberar os campos dos itens.</span>
+              </p>
+            </div>
+          </div>
+        )}
         {modo && <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
