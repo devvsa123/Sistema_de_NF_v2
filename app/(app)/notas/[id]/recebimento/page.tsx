@@ -27,10 +27,16 @@ export default async function DocsRecebimento({ params, searchParams }: PageProp
   const recebida = nota.recebida_em ? new Date(nota.recebida_em).toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" }) : hoje;
   const vazio: DadosRecebimento = {
     numero_tav: "", data_recebimento: recebida, id_pa: nota.id_pa ?? "", lote: "", fabricacao: "", volumes: "",
-    conferencia: "", respostas: PERGUNTAS_TAV.map((_, i) => (i < PERGUNTAS_TAV.length - 1 ? "Sim" : "")), observacao: "",
+    // a pergunta 1 (quantidade de volumes) e a do laudo vêm sem resposta: a pessoa precisa responder
+    conferencia: "", respostas: PERGUNTAS_TAV.map((_, i) => (i > 0 && i < PERGUNTAS_TAV.length - 1 ? "Sim" : "")), observacao: "",
     peso_kg: "", itens_caixa: "", data_envio_amostra: "", obs_recebimento: "", discrepancia: "", obs_contagem: "",
   };
-  const inicialTav = regTav ? { ...regTav.dados.formulario, id_pa: nota.id_pa ?? regTav.dados.formulario.id_pa } : vazio;
+  // reemissão: aproveita as respostas anteriores (TAV antigo de 7 perguntas: a 1 e a 2 viraram uma só), menos a 1, que é sempre respondida de novo
+  const respostasAntes = regTav?.dados.formulario.respostas ?? [];
+  const inicialTav = regTav ? {
+    ...regTav.dados.formulario, id_pa: nota.id_pa ?? regTav.dados.formulario.id_pa,
+    respostas: ["", ...(respostasAntes.length === 7 ? respostasAntes.slice(2) : respostasAntes.slice(1))],
+  } : vazio;
   const anoAtual = Number(inicialTav.data_recebimento.slice(0, 4)) || Number(hoje.slice(0, 4));
   const reemissao = !!regTav && regTav.ano === anoAtual;
   const proximoNumero = reemissao ? numeroTav(regTav.numero_tav, regTav.ano) : numeroTav(await proximoTav(anoAtual), anoAtual);

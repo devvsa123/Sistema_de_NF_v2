@@ -13,9 +13,9 @@ import type { DadosNF, ItemNF } from "./nfe";
 
 /** Documentos do Recebimento: TAV e Check-list, gerados a partir de modelos (.odt ou .docx) editáveis. */
 
+/** Perguntas do TAV. A 1 (quantidade de volumes) define se a lista de volumes recebidos por item aparece. */
 export const PERGUNTAS_TAV = [
-  "Volumes entregues em conformidade com a nota fiscal?",
-  "Itens entregues conferem com a quantidade de itens da nota fiscal?",
+  "Quantidade de volumes entregues em conformidade com a nota fiscal?",
   "Itens por volume entregues conferem com a quantidade padrão?",
   "Volumes identificados com código de barras afixados externamente?",
   "Embalagens de acordo com o Manual de Embalagens da Marinha?",

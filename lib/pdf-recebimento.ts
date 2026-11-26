@@ -203,13 +203,18 @@ async function finalizar(c: Ctx) {
 const sem = (v?: string) => (v ?? "").replace(/_{3,}/g, "").replace(/^\s*\/\s*\/\s*$/, "").trim();
 
 export const PERGUNTAS = [
-  "Volumes entregues em conformidade com a nota fiscal?",
-  "Itens entregues conferem com a quantidade de itens da nota fiscal?",
+  "Quantidade de volumes entregues em conformidade com a nota fiscal?",
   "Itens por volume entregues conferem com a quantidade padrão?",
   "Volumes identificados com código de barras afixados externamente?",
   "Embalagens de acordo com o Manual de Embalagens da Marinha?",
   "Etiquetas das embalagens estão em conformidade com a norma de embalagem?",
   "Item acompanha laudo laboratorial?",
+];
+/** Perguntas dos TAV emitidos antes da junção das perguntas 1 e 2 (os PDFs antigos continuam saindo como foram respondidos). */
+const PERGUNTAS_ANTIGAS = [
+  "Volumes entregues em conformidade com a nota fiscal?",
+  "Itens entregues conferem com a quantidade de itens da nota fiscal?",
+  ...PERGUNTAS.slice(1),
 ];
 
 /** TAV em PDF. */
@@ -237,7 +242,7 @@ export async function pdfTav(v: Valores, itens: Tabela | null, ids: { registro: 
   c.y -= 4;
   tabela(c, {
     titulo: "", colunas: [{ titulo: "Nº", cm: 1, alinhar: "centro" }, { titulo: "VERIFICAÇÃO", cm: 13 }, { titulo: "SIM", cm: 2, alinhar: "centro" }, { titulo: "NÃO", cm: 2, alinhar: "centro" }],
-    linhas: PERGUNTAS.map((p, i) => [String(i + 1), p, v[`q${i + 1}_sim`] ? "X" : "", v[`q${i + 1}_nao`] ? "X" : ""]),
+    linhas: ("q7_sim" in v || "q7_nao" in v ? PERGUNTAS_ANTIGAS : PERGUNTAS).map((p, i) => [String(i + 1), p, v[`q${i + 1}_sim`] ? "X" : "", v[`q${i + 1}_nao`] ? "X" : ""]),
     nota: "* Caso confirmada discrepância em algum item acima, relatar no campo Observações.",
   });
 
