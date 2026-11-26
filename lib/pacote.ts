@@ -2,7 +2,7 @@ import "server-only";
 import { sql, type Tx } from "./db";
 import type { Usuario } from "./auth";
 import { registrarEvento } from "./fluxo";
-import { arquivoDoDocumento, campoExigido, pendencias } from "./documentos";
+import { arquivoDoDocumento, campoExigido, dispensadoSobMedida, pendencias } from "./documentos";
 import { camposDeAssinatura } from "./pdf-assinar";
 import { pdfHistorico, type HistoricoNF } from "./pdf-recebimento";
 import { apagar } from "./arquivos";
@@ -32,9 +32,15 @@ export async function verificarPacote(notaId: number): Promise<VerificacaoPacote
   for (const t of faltando) pend.push(`Falta anexar: ${t.nome}${t.exige_assinatura ? " (assinado)" : ""}.`);
   if (!docs.length) pend.push("A NF não tem documentos anexados.");
   const arquivos: ArquivoPacote[] = [];
+  const [sm] = await sql`select sob_medida from notas where id = ${notaId}`;
   for (const d of docs) {
     if (d.arquivo_excluido_em) { pend.push(`${d.tipo} (${d.nome_arquivo}): o arquivo já foi excluído do sistema.`); continue; }
     const validas = d.assinaturas.filter((a) => a.integra);
+    // NF sob medida: TAV, Check-list, Relatório e Parecer vão no pacote se anexados, mas não cobram assinatura
+    if (sm?.sob_medida && dispensadoSobMedida(d.tipo)) {
+      arquivos.push({ id: d.id, tipo: d.tipo, nome: d.nome_arquivo, sha256: d.sha256, tamanho: d.tamanho, mime: d.mime, assinaturas: [...new Set(validas.map((a) => a.nome))] });
+      continue;
+    }
     if (d.assinaturas.some((a) => !a.integra)) pend.push(`${d.tipo} (${d.nome_arquivo}): há assinatura que não confere com o arquivo.`);
     if (d.exige_assinatura && !validas.length) pend.push(`${d.tipo} (${d.nome_arquivo}): precisa estar assinado digitalmente.`);
     if (d.mime === "application/pdf") {

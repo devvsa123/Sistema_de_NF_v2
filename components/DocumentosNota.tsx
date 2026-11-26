@@ -98,12 +98,18 @@ export async function DocumentosNota({ nota, podeAnexar, ehAdmin, usuarioId }: {
 
 /** Check-list geral: documentos obrigatórios de todas as etapas e as assinaturas que faltam nos documentos anexados. */
 function ChecklistNota({ c }: { c: ChecklistNF }) {
-  if (!c.etapas.length && !c.assinaturas.length) return null;
+  const aviso = c.sobMedida && (
+    <p className="mt-2 rounded-lg bg-violet-50 px-3 py-1.5 text-xs text-violet-900 ring-1 ring-violet-200">
+      <strong>NF sob medida:</strong> TAV, Check-list da Contagem, Relatório e Parecer não são obrigatórios (o material é entregue direto ao usuário). Podem ser anexados normalmente.
+    </p>
+  );
+  if (!c.etapas.length && !c.assinaturas.length) return aviso ? <div className="mt-4">{aviso}</div> : null;
   const tudoOk = !c.faltamDocumentos && !c.faltamAssinaturas;
   return (
     <div className={`mt-4 rounded-xl border p-4 ${tudoOk ? "border-emerald-200 bg-emerald-50/50" : "border-amber-200 bg-amber-50/40"}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-slate-900">Check-list de documentos e assinaturas</h3>
+        {aviso && <div className="w-full">{aviso}</div>}
         <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${tudoOk ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"}`}>
           {tudoOk ? "✔ Tudo em ordem" : [c.faltamDocumentos && `${c.faltamDocumentos} documento(s)`, c.faltamAssinaturas && `${c.faltamAssinaturas} assinatura(s)`].filter(Boolean).join(" e ") + " pendente(s)"}
         </span>

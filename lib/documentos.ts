@@ -65,10 +65,19 @@ export async function documentosDaNota(notaId: number) {
 }
 
 /** Tipos obrigatórios para a NF sair da etapa e quais ainda faltam. */
+/**
+ * NF sob medida: o material vai direto ao usuário e só a parte burocrática passa pelo Depósito. TAV, Check-list
+ * da Contagem, Relatório e Parecer não são obrigatórios (podem ser anexados, mas não cobram anexo nem assinatura).
+ */
+const DISPENSADOS_SOB_MEDIDA = [/^TAV$/i, /check-?list/i, /relat[oó]rio/i, /parecer/i, /laudo pericial/i];
+export const dispensadoSobMedida = (tipo: string) => DISPENSADOS_SOB_MEDIDA.some((r) => r.test(tipo.trim()));
+
 export async function pendencias(db: Tx | typeof sql, notaId: number, etapaId: number | null) {
   if (!etapaId) return { exigidos: [] as TipoDocumento[], faltando: [] as TipoDocumento[] };
-  const exigidos = await db<TipoDocumento[]>`select t.* from etapa_documentos ed join tipos_documento t on t.id = ed.tipo_id
-                                              where ed.etapa_id = ${etapaId} and t.ativo order by t.ordem`;
+  const [nota] = await db`select sob_medida from notas where id = ${notaId}`;
+  const exigidos = (await db<TipoDocumento[]>`select t.* from etapa_documentos ed join tipos_documento t on t.id = ed.tipo_id
+                                              where ed.etapa_id = ${etapaId} and t.ativo order by t.ordem`)
+    .filter((t) => !(nota?.sob_medida && dispensadoSobMedida(t.nome)));
   if (!exigidos.length) return { exigidos, faltando: [] };
   const docs = await db<{ tipo_id: number; exige_assinatura: boolean; assinaturas: Assinatura[] }[]>`
     select d.tipo_id, t.exige_assinatura, d.assinaturas from documentos d join tipos_documento t on t.id = d.tipo_id
@@ -181,7 +190,7 @@ export async function usoArmazenamento() {
 export type ChecklistNF = {
   etapas: { id: number; nome: string; atual: boolean; passada: boolean; itens: { tipo: string; exige_assinatura: boolean; ok: boolean }[] }[];
   assinaturas: { id: number; tipo: string; nome: string; faltam: string[]; invalida: boolean }[];
-  faltamDocumentos: number; faltamAssinaturas: number;
+  faltamDocumentos: number; faltamAssinaturas: number; sobMedida: boolean;
 };
 
 /**
@@ -205,7 +214,8 @@ export function nomeDoCampo(c: CampoAssinatura) {
  */
 export async function checklistDaNota(nota: { id: number; status: string; etapa_id: number | null }): Promise<ChecklistNF> {
   const { etapasAtivas } = await import("./fluxo");
-  const [etapas, { tipos, regras }] = await Promise.all([etapasAtivas(), regrasDocumentos()]);
+  const [etapas, { tipos, regras }, [sm]] = await Promise.all([etapasAtivas(), regrasDocumentos(), sql`select sob_medida from notas where id = ${nota.id}`]);
+  const dispensa = (tipo: string) => !!sm?.sob_medida && dispensadoSobMedida(tipo);
   const docs = await sql<{ id: number; tipo_id: number; tipo: string; nome_arquivo: string; mime: string; exige_assinatura: boolean; assinaturas: Assinatura[]; campos: CampoAssinatura[] | null; arquivo_excluido_em: Date | null }[]>`
     select d.id, d.tipo_id, t.nome as tipo, d.nome_arquivo, d.mime, t.exige_assinatura, d.assinaturas, d.campos, d.arquivo_excluido_em
     from documentos d join tipos_documento t on t.id = d.tipo_id where d.nota_id = ${nota.id} and d.removido_em is null order by t.ordem, d.criado_em`;
@@ -223,17 +233,17 @@ export async function checklistDaNota(nota: { id: number; status: string; etapa_
   const encerrada = nota.status !== "em_tramite" && nota.status !== "reprovada";
   const lista = etapas.map((e, i) => ({
     id: e.id, nome: e.nome, atual: i === iAtual && !encerrada, passada: encerrada || (iAtual >= 0 && i < iAtual),
-    itens: regras.filter((r) => r.etapa_id === e.id).map((r) => tipos.find((t) => t.id === r.tipo_id)).filter((t): t is TipoDocumento => !!t && t.ativo)
+    itens: regras.filter((r) => r.etapa_id === e.id).map((r) => tipos.find((t) => t.id === r.tipo_id)).filter((t): t is TipoDocumento => !!t && t.ativo && !dispensa(t.nome))
       .sort((a, b) => a.ordem - b.ordem).map((t) => ({ tipo: t.nome, exige_assinatura: t.exige_assinatura, ok: entregues.has(t.id) })),
   })).filter((e) => e.itens.length);
-  const assinaturas = docs.map((d) => ({
+  const assinaturas = docs.filter((d) => !dispensa(d.tipo)).map((d) => ({
     id: d.id, tipo: d.tipo, nome: d.nome_arquivo,
     faltam: (d.campos ?? []).filter((c) => !c.assinado && campoExigido(c)).map(nomeDoCampo),
     invalida: d.assinaturas.some((a) => !a.integra),
   })).filter((d) => d.faltam.length || d.invalida);
   // um documento obrigatório conta uma vez, mesmo exigido em mais de uma etapa
   const faltamTipos = new Set(lista.flatMap((e) => e.itens.filter((x) => !x.ok).map((x) => x.tipo)));
-  return { etapas: lista, assinaturas, faltamDocumentos: faltamTipos.size, faltamAssinaturas: assinaturas.reduce((t, d) => t + d.faltam.length, 0) };
+  return { etapas: lista, assinaturas, faltamDocumentos: faltamTipos.size, faltamAssinaturas: assinaturas.reduce((t, d) => t + d.faltam.length, 0), sobMedida: !!sm?.sob_medida };
 }
 
 // ------------------------------------------------------------------ envio em partes (arquivos grandes)
@@ -303,7 +313,7 @@ export type PendenciaFila = { documentos: string[]; assinaturas: string[] };
  * e assinaturas cuja etapa responsável já chegou (ex.: o TAV sem a assinatura do Pré-Recebimento continua aparecendo
  * no Diretor). Relatórios sem campo de assinatura (Word/Adobe) precisam da assinatura da Técnica quando a NF chega lá.
  */
-export async function pendenciasAteAgora(notas: { id: number; status: string; etapa_id: number | null }[]): Promise<Map<number, PendenciaFila>> {
+export async function pendenciasAteAgora(notas: { id: number; status: string; etapa_id: number | null; sob_medida?: boolean }[]): Promise<Map<number, PendenciaFila>> {
   const saida = new Map<number, PendenciaFila>();
   const ativas = notas.filter((n) => n.status === "em_tramite" && n.etapa_id);
   if (!ativas.length) return saida;
@@ -334,10 +344,11 @@ export async function pendenciasAteAgora(notas: { id: number; status: string; et
     const iAtual = etapas.findIndex((e) => e.id === n.etapa_id);
     if (iAtual < 0) continue;
     const devidas = new Set(etapas.slice(0, iAtual + 1).map((e) => e.id));
-    const meus = docs.filter((d) => d.nota_id === n.id);
+    const dispensa = (tipo: string) => !!n.sob_medida && dispensadoSobMedida(tipo);
+    const meus = docs.filter((d) => d.nota_id === n.id && !dispensa(d.tipo));
     const entregues = new Set(meus.filter((d) => valido(d)).map((d) => d.tipo_id));
     const faltaDocs = [...new Set(regras.filter((r) => devidas.has(r.etapa_id) && !entregues.has(r.tipo_id))
-      .map((r) => tipos.find((t) => t.id === r.tipo_id)).filter((t): t is TipoDocumento => !!t && t.ativo)
+      .map((r) => tipos.find((t) => t.id === r.tipo_id)).filter((t): t is TipoDocumento => !!t && t.ativo && !dispensa(t.nome))
       .sort((a, b) => a.ordem - b.ordem).map((t) => curto(t.nome)))];
     const faltaAss: string[] = [];
     for (const d of meus) {
