@@ -26,7 +26,7 @@ export async function acaoTramitar(ids: number[], acao: Acao, op: OpcoesAcao = {
   const erros: string[] = [];
   for (const id of ids) {
     try {
-      await executarAcao(u, Number(id), acao, opcoes);
+      await executarAcao(u, Number(id), acao, { ...opcoes, comentario: true });
       feitas++;
     } catch (e) {
       erros.push(msg(e));
@@ -78,7 +78,7 @@ export async function acaoComentarios(id: number): Promise<{ erro?: string; nume
   const nota = await obterNota(u, Number(id));
   if (!nota) return { erro: "NF não encontrada.", itens: [] };
   const linhas = await sql`select id, tipo, movimento, de_nome, para_nome, usuario_nome, texto, criado_em, marcados from eventos
-                           where nota_id = ${nota.id} and texto is not null and btrim(texto) <> '' order by criado_em desc, id desc limit 500`;
+                           where nota_id = ${nota.id} and (comentario or tipo = 'ciente') order by criado_em desc, id desc limit 500`;
   return {
     numero: nota.numero, obsOc: nota.obs_oc ?? undefined,
     itens: linhas.map((e) => ({

@@ -72,6 +72,8 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
   const d = nota.dados?.emit ? nota.dados : null; // só exibe os dados da NF-e quando estão completos
   const itens = nota.itens ?? [];
   const historico = interno ? eventos : movs;
+  // comentários dos usuários (e as confirmações de ciente), do mais recente para o mais antigo
+  const comentarios = eventos.filter((e) => e.comentario || e.tipo === "ciente").reverse();
   const emAberto = nota.status === "em_tramite" || nota.status === "reprovada";
 
   return (
@@ -302,27 +304,33 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
 
       {interno && <div className="grid gap-4 lg:grid-cols-3">
         <div className="cartao p-5 lg:col-span-2">
-          <h2 className="mb-4 text-[15px] font-semibold text-slate-900">{interno ? "Histórico e observações" : "Movimentações"}</h2>
-          <ol className="space-y-3 border-l-2 border-slate-200 pl-4">
-            {historico.map((e) => (
-              <li key={e.id} className="relative">
-                <span className={`absolute -left-[23px] top-1.5 h-2.5 w-2.5 rounded-full ${e.tipo === "reprovacao" ? "bg-red-500" : e.movimento ? "bg-marinha" : "bg-slate-400"}`} />
-                <p className="text-sm text-slate-800">
-                  <strong>{e.movimento ? (e.de_nome ? `${e.de_nome} → ${interno || e.para_status !== "finalizada" ? e.para_nome : "Enviada para o COMRJ"}` : e.para_nome) : TIPO[e.tipo] ?? e.tipo}</strong>
-                  {e.movimento && e.tipo !== "avanco" && e.tipo !== "cadastro" && <span className="ml-2 text-xs text-slate-500">({TIPO[e.tipo] ?? e.tipo})</span>}
-                </p>
-                {interno && e.marcados && <p className="mt-0.5 inline-flex rounded-md bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-900 ring-1 ring-amber-200">Para: {e.marcados}</p>}
-                {interno && e.texto && <p className="whitespace-pre-wrap text-sm text-slate-600">{e.texto}</p>}
-                <p className="text-xs text-slate-400">{dataHora(e.criado_em)}{interno && e.usuario_nome ? ` · ${e.usuario_nome}` : ""}</p>
-              </li>
-            ))}
-          </ol>
+          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-[15px] font-semibold text-slate-900">Comentários <span className="font-normal text-slate-400">({comentarios.length})</span></h2>
+            <span className="text-xs text-slate-500">Escritos pelos usuários. As mensagens automáticas do sistema ficam no histórico, abaixo.</span>
+          </div>
+          {comentarios.length === 0 ? <p className="text-sm text-slate-500">Nenhum comentário ainda.</p> : (
+            <ul className="space-y-3">
+              {comentarios.map((e) => (
+                <li key={e.id} className={`rounded-xl border px-4 py-3 ${e.tipo === "ciente" ? "border-emerald-100 bg-emerald-50/50" : "border-slate-200 bg-slate-50/60"}`}>
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <p className="text-sm font-semibold text-slate-900">{e.usuario_nome ?? "—"}
+                      {!(e.tipo === "observacao" || e.tipo === "ciente") && <span className="ml-2 rounded bg-marinha/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-marinha">
+                        {e.movimento ? (e.de_nome ? `${e.de_nome} → ${e.para_nome}` : e.para_nome) : TIPO[e.tipo] ?? e.tipo}</span>}
+                    </p>
+                    <span className="text-xs text-slate-400">{dataHora(e.criado_em)}</span>
+                  </div>
+                  {e.marcados && <p className="mt-1 inline-flex rounded-md bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-900 ring-1 ring-amber-200">Para: {e.marcados}</p>}
+                  {e.texto && <p className={`mt-1 whitespace-pre-wrap text-sm ${e.tipo === "ciente" ? "text-emerald-800" : "text-slate-800"}`}>{e.tipo === "ciente" ? "✔ " : ""}{e.texto}</p>}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {(u.papel === "admin" || u.papel === "interno") && (
           <div className="space-y-4">
             <div className="cartao p-5">
-              <h2 className="mb-3 text-[15px] font-semibold text-slate-900">Nova observação</h2>
+              <h2 className="mb-3 text-[15px] font-semibold text-slate-900">Novo comentário</h2>
               <FormObservacao id={nota.id} />
             </div>
 
@@ -364,6 +372,31 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
           </div>
         )}
       </div>}
+
+      {interno && (
+        <details className="cartao group p-5">
+          <summary className="flex cursor-pointer list-none flex-wrap items-baseline justify-between gap-2 [&::-webkit-details-marker]:hidden">
+            <span className="text-[15px] font-semibold text-slate-900">Histórico do sistema <span className="font-normal text-slate-400">(auditoria · {historico.length} registros)</span></span>
+            <span className="text-xs font-medium text-marinha group-open:hidden">Mostrar</span>
+          </summary>
+          <p className="mt-1 text-xs text-slate-500">Tudo o que aconteceu com a NF, em ordem: tramitações, documentos, assinaturas, pareceres e alterações (gerados pelo sistema) e os comentários.</p>
+          <ol className="mt-4 space-y-3 border-l-2 border-slate-200 pl-4">
+            {historico.map((e) => (
+              <li key={e.id} className="relative">
+                <span className={`absolute -left-[23px] top-1.5 h-2.5 w-2.5 rounded-full ${e.tipo === "reprovacao" ? "bg-red-500" : e.movimento ? "bg-marinha" : e.comentario ? "bg-amber-400" : "bg-slate-300"}`} />
+                <p className="text-sm text-slate-800">
+                  <strong>{e.movimento ? (e.de_nome ? `${e.de_nome} → ${e.para_nome}` : e.para_nome) : TIPO[e.tipo] ?? e.tipo}</strong>
+                  {e.movimento && e.tipo !== "avanco" && e.tipo !== "cadastro" && <span className="ml-2 text-xs text-slate-500">({TIPO[e.tipo] ?? e.tipo})</span>}
+                  <span className={`ml-2 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${e.comentario ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-500"}`}>{e.comentario ? "Comentário" : "Sistema"}</span>
+                </p>
+                {e.marcados && <p className="mt-0.5 inline-flex rounded-md bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-900 ring-1 ring-amber-200">Para: {e.marcados}</p>}
+                {e.texto && <p className={`whitespace-pre-wrap text-sm ${e.comentario ? "text-slate-700" : "text-slate-500"}`}>{e.texto}</p>}
+                <p className="text-xs text-slate-400">{dataHora(e.criado_em)}{e.usuario_nome ? ` · ${e.usuario_nome}` : ""}</p>
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
     </div>
   );
 }

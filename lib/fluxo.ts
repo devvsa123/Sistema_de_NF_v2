@@ -118,16 +118,18 @@ export async function registrarEvento(
     nota_id: number; tipo: string; movimento?: boolean; de_nome?: string | null; para_etapa_id?: number | null;
     para_status?: string | null; para_nome?: string | null; usuario?: Usuario | null; usuario_nome?: string | null;
     texto?: string | null; criado_em?: Date | null; marcados?: string | null;
+    comentario?: boolean; // texto escrito por um usuário (comentário), e não mensagem automática do sistema
   },
 ): Promise<number> {
-  const [r] = await db`insert into eventos (nota_id, tipo, movimento, de_nome, para_etapa_id, para_status, para_nome, usuario_id, usuario_nome, texto, criado_em, marcados)
+  const [r] = await db`insert into eventos (nota_id, tipo, movimento, de_nome, para_etapa_id, para_status, para_nome, usuario_id, usuario_nome, texto, criado_em, marcados, comentario)
            values (${e.nota_id}, ${e.tipo}, ${e.movimento ?? false}, ${e.de_nome ?? null}, ${e.para_etapa_id ?? null}, ${e.para_status ?? null},
                    ${e.para_nome ?? null}, ${e.usuario?.id ?? null}, ${e.usuario?.nome ?? e.usuario_nome ?? null}, ${e.texto?.trim() || null},
-                   coalesce(${e.criado_em ?? null}::timestamptz, now()), ${e.marcados ?? null}) returning id`;
+                   coalesce(${e.criado_em ?? null}::timestamptz, now()), ${e.marcados ?? null}, ${!!e.comentario && !!e.texto?.trim()}) returning id`;
   return r.id as number;
 }
 
-export type OpcoesAcao = { obs?: string; visual?: string; laboratorial?: string };
+/** comentario: a observação foi digitada pela pessoa (aparece em Comentários); sem ela, é mensagem do sistema. */
+export type OpcoesAcao = { obs?: string; visual?: string; laboratorial?: string; comentario?: boolean };
 
 /** Executa uma ação de tramitação em uma NF, validando perfil e caminho dentro de uma transação. */
 export async function executarAcao(u: Usuario, notaId: number, acao: Acao, op: OpcoesAcao = {}): Promise<void> {
@@ -145,7 +147,7 @@ export async function executarAcao(u: Usuario, notaId: number, acao: Acao, op: O
     const { anterior, proxima, atual } = vizinhos(etapas, nota.etapa_id);
     // NF fora de uma etapa ativa (finalizada, importada da planilha antiga ou etapa removida): usa a situação
     const de = nota.status === "reprovada" ? "Reprovada" : atual?.nome ?? NOME_STATUS_FINAL[nota.status] ?? "—";
-    const base = { nota_id: nota.id, usuario: u, de_nome: de, texto: op.obs };
+    const base = { nota_id: nota.id, usuario: u, de_nome: de, texto: op.obs, comentario: !!op.comentario };
 
     if (acao === "avancar" && atual?.edita_id_pa && nota.exige_id_pa && !nota.id_pa)
       throw new Error(`NF ${nota.numero}: informe o ID de PA antes de enviar para a próxima etapa.`);

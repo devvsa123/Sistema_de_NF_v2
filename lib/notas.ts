@@ -32,7 +32,8 @@ const COLUNAS = sql`
   extract(epoch from (now() - n.arrecadada_em)) / 86400 as dias_arrecadada,
   extract(epoch from (coalesce(n.concluida_em, now()) - n.recebida_em)) / 86400 as dias_total`;
 
-const ULTIMA_OBS = sql`(select ev.texto from eventos ev where ev.nota_id = n.id and ev.texto is not null and ev.tipo <> 'ciente' order by ev.criado_em desc, ev.id desc limit 1) as ultima_obs`;
+// último comentário de usuário (as mensagens automáticas do sistema ficam só no histórico)
+const ULTIMA_OBS = sql`(select ev.texto from eventos ev where ev.nota_id = n.id and ev.comentario order by ev.criado_em desc, ev.id desc limit 1) as ultima_obs`;
 
 export type Filtros = {
   q?: string; situacao?: string; cnpj?: string; de?: string; ate?: string; vmin?: string; vmax?: string;
@@ -88,7 +89,7 @@ export async function fila(tipo: { etapa: number } | "reprovadas" | "armazenar")
     : tipo === "armazenar" ? sql`n.arrecadada_em is not null and n.armazenada_em is null and n.status in ('em_tramite','finalizada')`
     : sql`n.status = 'em_tramite' and n.etapa_id = ${tipo.etapa}`;
   return sql<NotaLista[]>`select ${COLUNAS}, ${ULTIMA_OBS},
-      (select count(*)::int from eventos ev where ev.nota_id = n.id and ev.texto is not null and ev.tipo <> 'ciente') as n_comentarios,
+      (select count(*)::int from eventos ev where ev.nota_id = n.id and ev.comentario) as n_comentarios,
       (select count(*)::int from documentos d where d.nota_id = n.id and d.removido_em is null) as n_docs,
       (select string_agg(t.nome, ', ' order by t.ordem) from etapa_documentos ed join tipos_documento t on t.id = ed.tipo_id and t.ativo
         where n.status = 'em_tramite' and ed.etapa_id = n.etapa_id and not exists (
@@ -116,11 +117,11 @@ export async function obterNota(u: Usuario, id: number): Promise<Nota | null> {
 
 export type Evento = {
   id: number; tipo: string; movimento: boolean; de_nome: string | null; para_nome: string | null; para_status: string | null;
-  para_etapa_id: number | null; usuario_nome: string | null; texto: string | null; criado_em: Date; marcados: string | null;
+  para_etapa_id: number | null; usuario_nome: string | null; texto: string | null; criado_em: Date; marcados: string | null; comentario: boolean;
 };
 
 export async function eventosDaNota(notaId: number) {
-  return sql<Evento[]>`select id, tipo, movimento, de_nome, para_nome, para_status, para_etapa_id, usuario_nome, texto, criado_em, marcados
+  return sql<Evento[]>`select id, tipo, movimento, de_nome, para_nome, para_status, para_etapa_id, usuario_nome, texto, criado_em, marcados, comentario
                        from eventos where nota_id = ${notaId} order by criado_em, id`;
 }
 
@@ -213,7 +214,7 @@ export async function cadastrarPorDocumento(u: Usuario, doc: Documento, op: { oc
                 ${tipoNf}, ${motivo})
         returning id`;
     if (xml) await tx`insert into nota_xml (nota_id, xml, enviado_por) values (${n.id}, ${xml}, ${u.id})`;
-    await registrarEvento(tx, { nota_id: n.id, tipo: "cadastro", movimento: true, de_nome: "Cadastro", para_etapa_id: etapa.id, para_status: "em_tramite", para_nome: etapa.nome, usuario: u, texto: op.obs });
+    await registrarEvento(tx, { nota_id: n.id, tipo: "cadastro", movimento: true, de_nome: "Cadastro", para_etapa_id: etapa.id, para_status: "em_tramite", para_nome: etapa.nome, usuario: u, texto: op.obs, comentario: true });
     return n.id as number;
   });
   return { id, numero: nf.numero, anexado: false, chave: nf.chave, origem };
@@ -242,7 +243,7 @@ export async function cadastrarManual(
         values (${chave}, ${nota.numero}, ${cnpj}, ${nota.emit_nome}, ${d.valor}, ${nota.oc}, ${!!d.sobMedida}, 'em_tramite', ${etapa.id}, ${textoBusca(nota)}, ${u.id},
                 ${d.tipoNf ?? "material"}, ${`definido no cadastro manual por ${u.nome}`})
         returning id`;
-    await registrarEvento(tx, { nota_id: n.id, tipo: "cadastro", movimento: true, de_nome: "Cadastro", para_etapa_id: etapa.id, para_status: "em_tramite", para_nome: etapa.nome, usuario: u, texto: d.obs });
+    await registrarEvento(tx, { nota_id: n.id, tipo: "cadastro", movimento: true, de_nome: "Cadastro", para_etapa_id: etapa.id, para_status: "em_tramite", para_nome: etapa.nome, usuario: u, texto: d.obs, comentario: true });
     return n.id as number;
   });
 }

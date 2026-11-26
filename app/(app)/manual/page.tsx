@@ -337,11 +337,14 @@ export default async function Manual() {
     {
       id: "detalhe", titulo: "Página da NF", para: TODOS, conteudo: <>
         <Lista>
-          <li><B>Caminho da tramitação</B>: em que etapa a NF está{u.papel === "empresa" ? "" : ", quando passou por cada uma e quanto tempo ficou"}.</li>
+          {u.papel !== "empresa" && <li><B>Caminho da tramitação</B>: em que etapa a NF está, quando passou por cada uma e quanto tempo ficou.</li>}
           <li><B>Dados da NF-e</B> e <B>Itens da nota</B>, quando há XML ou PDF anexado. <B>Baixar XML</B> aparece quando o XML foi enviado.</li>
           {u.papel === "empresa"
             ? <li><B>Situação atual</B> e data da <B>última movimentação</B> da NF.</li>
-            : <li><B>Histórico e observações</B>: todas as movimentações, com usuário e observações.</li>}
+            : <>
+              <li><B>Comentários</B>: o que os usuários escreveram (observações, o texto digitado ao tramitar e as observações das decisões do parecer), do mais recente para o mais antigo, com as menções e os “ciente”. É o mesmo conteúdo do botão <B>Comentários</B> da fila, e o último comentário aparece na coluna Observações.</li>
+              <li><B>Histórico do sistema (auditoria)</B>: tudo o que aconteceu com a NF, em ordem, com data, hora e usuário. Cada registro é marcado como <B>Sistema</B> (mensagens automáticas: tramitações, documentos, assinaturas, pareceres, alterações) ou <B>Comentário</B>.</li>
+            </>}
           {u.papel !== "empresa" && u.papel !== "consulta" && <li><B>Nova observação</B>: registra um comentário no histórico sem movimentar a NF.</li>}
         </Lista>
       </>,

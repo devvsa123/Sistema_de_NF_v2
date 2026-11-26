@@ -27,7 +27,8 @@ export async function aplicarDecisao(u: Usuario, notaId: number, d: DecisaoGrava
   const tecnica = d.campo === "Encarregado da Divisao Tecnica";
   const rotulo = tecnica ? "Parecer do Encarregado da Divisão Técnica" : `Resolução do Sr. Diretor${substituicao ? ` (assinada pelo ${substituicao})` : ""}`;
   const texto = `${rotulo}: ${opcao}${d.observacao.trim() ? ` — ${d.observacao.trim()}` : ""}`;
-  await registrarEvento(sql, { nota_id: notaId, tipo: "parecer", usuario: u, texto });
+  // com observação escrita por quem decidiu, a decisão também aparece entre os comentários
+  await registrarEvento(sql, { nota_id: notaId, tipo: "parecer", usuario: u, texto, comentario: !!d.observacao.trim() });
 
   const [n] = await sql`select n.status, n.etapa_id, coalesce(e.setor, '') || ' ' || coalesce(e.nome, '') as etapa from notas n left join etapas e on e.id = n.etapa_id where n.id = ${notaId}`;
   const naEtapa = n?.status === "em_tramite" && casa(def, n.etapa as string);

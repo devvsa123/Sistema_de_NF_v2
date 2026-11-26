@@ -45,7 +45,7 @@ export async function observarComMarcacao(db: Tx, u: Usuario, notaId: number, te
         where e.ativo and e.setor in ${db(setores)} and u.ativo and u.papel in ('interno', 'admin') order by u.id, e.ordem`
     : [];
   const rotulo = [...setores.map((s) => `@${s}`), ...pessoas.map((p) => `@${p.nome}`)].join(", ") || null;
-  const eventoId = await registrarEvento(db, { nota_id: notaId, tipo, usuario: u, texto, marcados: rotulo });
+  const eventoId = await registrarEvento(db, { nota_id: notaId, tipo, usuario: u, texto, marcados: rotulo, comentario: tipo === "observacao" });
   const recebe = new Map<number, string | null>();
   for (const p of doSetor) recebe.set(p.id, p.setor);
   for (const p of pessoas) recebe.set(p.id, null); // marcado pelo nome: vale mais que pelo setor
