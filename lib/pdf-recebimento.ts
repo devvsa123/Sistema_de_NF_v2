@@ -522,7 +522,9 @@ function quadroDecisao(c: Ctx, campo: string, rotulo: string, opcoes: string[], 
 }
 
 /** Parecer da Divisão Técnica em PDF, com campos para o Perito, o Encarregado da Divisão Técnica e o Diretor. */
-export async function pdfParecer(v: Valores, ids: { nota: number; laudo: number }) {
+export type AmostraParecer = { nome: string; ped: boolean; qtd: number; un: string; amostras: number; ac: number; re: number; faixa: string; tamanhos: { tamanho: string; amostra: number }[] };
+
+export async function pdfParecer(v: Valores, ids: { nota: number; laudo: number }, amostragem: AmostraParecer[] = []) {
   const { CAMPO_PERITO, DECISOES } = await import("./parecer-campos");
   const prot = v.protocolo || String(ids.laudo);
   const c = await iniciar(`Parecer ${prot} — NF ${v.numero_nf}`, `Parecer da Divisão Técnica nº ${prot}, NF ${v.numero_nf}`,
@@ -534,6 +536,23 @@ export async function pdfParecer(v: Valores, ids: { nota: number; laudo: number 
     [{ rotulo: "Nº do parecer", valor: prot, cm: 4.5, negrito: true }, { rotulo: "Número da NF", valor: v.numero_nf, cm: 4.5, negrito: true }, { rotulo: "Número da OC", valor: v.numero_oc, cm: 4.5 }, { rotulo: "Entrada na perícia", valor: v.data_pericia, cm: 4.5 }],
     [{ rotulo: "Empresa", valor: v.nome_empresa, cm: 10, negrito: true }, { rotulo: "CNPJ", valor: v.cnpj, cm: 4 }, { rotulo: "Valor da NF", valor: v.valor_nf, cm: 4 }],
   ]);
+
+  if (amostragem.length) {
+    // amostra periciada por item, calculada pelo sistema no momento da emissão
+    secao(c, "Amostragem (MAR 71000/021D, Tabela 1 — ABNT NBR 5426, nível I)", 80);
+    const qtd = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 3 });
+    tabela(c, {
+      titulo: "",
+      colunas: [{ titulo: "ITEM (LOTE)", cm: 6.6 }, { titulo: "QTD. NF", cm: 2.2, alinhar: "dir" }, { titulo: "FAIXA DO LOTE", cm: 2.4, alinhar: "centro" },
+        { titulo: "AMOSTRA", cm: 1.7, alinhar: "dir" }, { titulo: "AC", cm: 0.9, alinhar: "centro" }, { titulo: "RE", cm: 0.9, alinhar: "centro" }, { titulo: "POR TAMANHO", cm: 3.3 }],
+      linhas: amostragem.map((l) => [
+        `${l.nome}${l.ped ? (/\bPED\b/i.test(l.nome) ? " - amostra dobrada" : " (PED - amostra dobrada)") : ""}`, `${qtd(l.qtd)} ${l.un}`.trim(), l.faixa, String(l.amostras), String(l.ac), String(l.re),
+        l.tamanhos.length > 1 || (l.tamanhos[0] && l.tamanhos[0].tamanho !== "—") ? l.tamanhos.map((t) => `${t.tamanho}: ${t.amostra}`).join(" · ") : "—",
+      ]),
+      rodape: amostragem.length > 1 ? ["TOTAL", "", "", String(amostragem.reduce((s, l) => s + l.amostras, 0)), "", "", ""] : undefined,
+      nota: "Amostra distribuída entre os tamanhos pela participação de cada um no lote (decimais desprezados, mínimo 1). Ac: aceita com até esse número de peças com defeito; Re: rejeita a partir desse número.",
+    });
+  }
 
   secao(c, `Análise visual: ${v.resultado_visual}`, 120);
   grade(c, [[{ rotulo: "Foram aferidas todas as medidas comuns e básicas?", valor: v.medidas, cm: 18 }]]);

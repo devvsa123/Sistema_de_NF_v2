@@ -1,4 +1,6 @@
 import "server-only";
+import type { ItemNF } from "./nfe";
+import type { AmostraParecer } from "./pdf-recebimento";
 import { sql } from "./db";
 import type { Usuario } from "./auth";
 import { etapasDoUsuario, type Etapa } from "./fluxo";
@@ -117,11 +119,11 @@ export function validarDados(d: DadosLaudo): string | null {
 /** Dados da NF usados no laudo. */
 export async function nfDoLaudo(notaId: number) {
   const [n] = await sql`
-    select n.id, n.numero, n.oc, n.emit_cnpj, n.emit_nome, n.valor, n.chave, n.status, n.etapa_id,
+    select n.id, n.numero, n.oc, n.emit_cnpj, n.emit_nome, n.valor, n.chave, n.status, n.etapa_id, n.itens,
            (select max(ev.criado_em) from eventos ev join etapas e on e.id = ev.para_etapa_id
              where ev.nota_id = n.id and ev.movimento and ev.para_status = 'em_tramite' and e.emite_laudo) as entrada_pericia
     from notas n where n.id = ${notaId}`;
-  return n as { id: number; numero: string; oc: string | null; emit_cnpj: string; emit_nome: string; valor: string; chave: string | null; entrada_pericia: Date | null } | undefined;
+  return n as { id: number; numero: string; oc: string | null; emit_cnpj: string; emit_nome: string; valor: string; chave: string | null; entrada_pericia: Date | null; itens: ItemNF[] | null } | undefined;
 }
 
 const dataBR = (iso: string) => (/^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso.split("-").reverse().join("/") : iso);
@@ -153,14 +155,18 @@ export async function emitirLaudo(u: Usuario, notaId: number, d: DadosLaudo) {
     obs_laboratorial: d.obs_laboratorial.trim(),
     ...Object.fromEntries(fixos.map((f) => [f.chave, f.valor])),
   };
+  // amostragem da perícia (Tabela 1 da norma) no momento da emissão: vai no PDF e fica guardada com o laudo
+  const { amostragemPericia } = await import("./amostragem-nf");
+  const amostragem = nf.itens?.length ? (await amostragemPericia({ emit_cnpj: nf.emit_cnpj, itens: nf.itens }))
+    .map(({ nome, ped, qtd, un, amostras, ac, re, faixa, tamanhos }) => ({ nome, ped, qtd, un, amostras, ac, re, faixa, tamanhos: tamanhos.map((t) => ({ tamanho: t.tamanho, amostra: t.amostra })) })) : [];
   const laudoId = await sql.begin(async (tx) => {
     const [l] = await tx`insert into laudos (nota_id, numero, ano, protocolo, dados, criado_por, criado_por_nome) values (${notaId}, ${numero}, ${ano}, ${valores.protocolo},
-                          ${tx.json({ formulario: d, valores } as never)}, ${u.id}, ${u.nome}) returning id`;
+                          ${tx.json({ formulario: d, valores, amostragem } as never)}, ${u.id}, ${u.nome}) returning id`;
     await tx`insert into eventos (nota_id, tipo, usuario_id, usuario_nome, texto)
              values (${notaId}, 'laudo', ${u.id}, ${u.nome}, ${`Parecer da Divisão Técnica nº ${numeroParecer} emitido · visual: ${d.resultado_visual} · laboratorial: ${d.resultado_laboratorial}`})`;
     return l.id as number;
   });
-  await anexarParecer(u, notaId, laudoId, valores, d);
+  await anexarParecer(u, notaId, laudoId, valores, d, amostragem);
   return laudoId;
 }
 
@@ -168,7 +174,7 @@ export async function emitirLaudo(u: Usuario, notaId: number, d: DadosLaudo) {
  * Gera o Parecer da Divisão Técnica em PDF (com os campos de assinatura do Perito, do Enc. Técnica e do Diretor),
  * anexa na NF (substituindo o parecer de um laudo anterior) e marca a NF como "reprovada na perícia" se for o caso.
  */
-async function anexarParecer(u: Usuario, notaId: number, laudoId: number, valores: Record<string, string>, d: DadosLaudo) {
+async function anexarParecer(u: Usuario, notaId: number, laudoId: number, valores: Record<string, string>, d: DadosLaudo, amostragem: AmostraParecer[] = []) {
   const { pdfParecer } = await import("./pdf-recebimento");
   const { enviarDocumento } = await import("./documentos");
   const reprovada = d.resultado_visual === "Reprovado" || d.resultado_laboratorial === "Reprovado";
@@ -176,7 +182,7 @@ async function anexarParecer(u: Usuario, notaId: number, laudoId: number, valore
   // pareceres anteriores desta NF (inclusive versões já assinadas) saem da lista; ficam guardados
   const anteriores = await sql`select d.id as documento_id from documentos d join tipos_documento t on t.id = d.tipo_id
                                where d.nota_id = ${notaId} and d.removido_em is null and t.nome = 'Parecer da Divisão Técnica'`;
-  const bytes = await pdfParecer(valores, { nota: notaId, laudo: laudoId });
+  const bytes = await pdfParecer(valores, { nota: notaId, laudo: laudoId }, amostragem);
   const nome = `Parecer-${(valores.protocolo || String(laudoId)).replace(/[^\w]/g, "-")}-NF${String(valores.numero_nf).replace(/\W/g, "")}.pdf`;
   const r = await enviarDocumento(u, notaId, 0, new File([Buffer.from(bytes)], nome, { type: "application/pdf" }), { semAssinatura: true });
   await sql`update laudos set documento_id = ${r.id} where id = ${laudoId}`;
