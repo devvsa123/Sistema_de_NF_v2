@@ -231,7 +231,6 @@ export async function pdfTav(v: Valores, itens: Tabela | null, ids: { registro: 
   grade(c, [
     [{ rotulo: "Fornecedor", valor: v.nome_empresa, cm: 14, negrito: true }, { rotulo: "CNPJ", valor: v.cnpj, cm: 4 }],
     [{ rotulo: "Nota fiscal", valor: v.numero_nf, cm: 7, negrito: true }, { rotulo: "Ordem de compra", valor: v.numero_oc, cm: 3.6 }, { rotulo: "ID do PA", valor: v.id_pa, cm: 3.4 }, { rotulo: "Data do recebimento", valor: v.data_recebimento, cm: 4 }],
-    [{ rotulo: "Volumes", valor: v.volumes, cm: 18 }],
   ]);
 
   secao(c, "Conferência", 200);

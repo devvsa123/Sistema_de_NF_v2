@@ -43,7 +43,6 @@ export const MARCADORES_TAV: Marcador[] = [
     { chave: `q${i + 1}_sim`, descricao: `X se SIM — ${p}`, origem: "Recebimento" as const },
     { chave: `q${i + 1}_nao`, descricao: `X se NÃO — ${p}`, origem: "Recebimento" as const },
   ]),
-  { chave: "volumes", descricao: "Volumes", origem: "Recebimento" },
   { chave: "observacao", descricao: "Observação do TAV", origem: "Recebimento" },
   { chave: "tabela_itens", descricao: "Tabela de itens para a contagem (item da NF × estoque, CXP e caixas). Sozinho num parágrafo; sem ele, a tabela vai para o fim do TAV", origem: "Recebimento" },
 ];
@@ -91,6 +90,8 @@ export type DocRecebimento = "tav" | "checklist";
 
 export function validarTav(d: DadosRecebimento): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d.data_recebimento)) return "Informe a data do recebimento.";
+  if (!d.id_pa.trim()) return "Informe o ID do PA: ele é obrigatório para emitir o TAV.";
+  if (!/^[A-Za-z0-9./-]+$/.test(d.id_pa.trim())) return "O ID do PA deve ter apenas letras e números.";
   if (d.conferencia !== "Contagem manual" && d.conferencia !== "Pesagem") return "Escolha se a conferência foi por contagem manual ou pesagem.";
   if (d.respostas.length !== PERGUNTAS_TAV.length || d.respostas.some((r) => r !== "Sim" && r !== "Não"))
     return "Responda SIM ou NÃO para todas as perguntas do TAV.";
