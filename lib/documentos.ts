@@ -296,7 +296,7 @@ const RESPONSAVEL_CAMPO: [RegExp, RegExp][] = [
 
 type EtapaBasica = { id: number; nome: string; setor: string };
 
-function etapaDoCampo(c: CampoAssinatura, etapas: EtapaBasica[]) {
+export function etapaDoCampo(c: CampoAssinatura, etapas: EtapaBasica[]) {
   const texto = `${c.nome} ${c.rotulo}`;
   const regra = RESPONSAVEL_CAMPO.find(([campo]) => campo.test(texto));
   if (!regra) return -1;
@@ -355,7 +355,8 @@ export async function pendenciasAteAgora(notas: { id: number; status: string; et
     const faltaAss: string[] = [];
     for (const d of meus) {
       if (d.assinaturas.some((a) => !a.integra)) faltaAss.push(`assinatura que não confere (${curto(d.tipo)})`);
-      const campos = d.campos ?? [];
+      // NF sob medida: o certificado segue a ordem própria (quadro de assinaturas no topo da fila)
+      const campos = n.sob_medida && d.tipo === TIPO_NF ? [] : d.campos ?? [];
       for (const c of campos) {
         if (c.assinado || !campoExigido(c)) continue;
         const i = etapaDoCampo(c, etapas);
@@ -371,4 +372,68 @@ export async function pendenciasAteAgora(notas: { id: number; status: string; et
     if (faltaDocs.length || faltaAss.length) saida.set(n.id, { documentos: faltaDocs, assinaturas: [...new Set(faltaAss)] });
   }
   return saida;
+}
+
+// ------------------------------------------------------------------ NF sob medida: assinaturas do certificado em ordem
+
+/**
+ * Ordem das assinaturas do certificado nas NF sob medida (o material não passa pelas etapas: a NF fica no Controle
+ * e o certificado vai de setor em setor): Estocagem → Perícia → Fiel de Suprimentos → Gestor. Serviço: só a Estocagem.
+ */
+const ORDEM_CERTIFICADO = [/armazenagem|servidor respons/i, /perito/i, /suprimentos/i, /gestor/i];
+const posicaoNaOrdem = (c: CampoAssinatura) => ORDEM_CERTIFICADO.findIndex((r) => r.test(`${c.nome} ${c.rotulo}`));
+
+export type FilaAssinaturaSobMedida = {
+  notaId: number; numero: string; empresa: string; etapa: string | null; servico: boolean; documentoId: number;
+  ordem: { rotulo: string; assinado: boolean; vez: boolean }[]; vez: CampoAssinatura | null;
+};
+
+/** Campos do certificado na ordem, com quem é a vez (o primeiro ainda sem assinatura). */
+function ordemDoCertificado(campos: CampoAssinatura[]) {
+  const doCert = campos.filter((c) => posicaoNaOrdem(c) >= 0).sort((a, b) => posicaoNaOrdem(a) - posicaoNaOrdem(b));
+  const vez = doCert.find((c) => !c.assinado) ?? null;
+  return { vez, ordem: doCert.map((c) => ({ rotulo: nomeDoCampo(c), assinado: c.assinado, vez: c === vez })) };
+}
+
+/** NF sob medida em trâmite com o certificado (PDF da NF) e a ordem das assinaturas. */
+export async function assinaturasSobMedida(): Promise<FilaAssinaturaSobMedida[]> {
+  const docs = await sql<{ id: number; nota_id: number; numero: string; emit_nome: string; tipo_nf: string; etapa: string | null; campos: CampoAssinatura[] | null; mime: string }[]>`
+    select d.id, d.nota_id, n.numero, n.emit_nome, n.tipo_nf, e.nome as etapa, d.campos, d.mime
+    from documentos d join tipos_documento t on t.id = d.tipo_id and t.nome = ${TIPO_NF}
+    join notas n on n.id = d.nota_id and n.sob_medida and n.status = 'em_tramite' and n.categoria = 'nf'
+    left join etapas e on e.id = n.etapa_id
+    where d.removido_em is null and d.arquivo_excluido_em is null and d.mime = 'application/pdf'
+    order by n.recebida_em, n.id, d.criado_em desc`;
+  const vistos = new Set<number>();
+  const saida: FilaAssinaturaSobMedida[] = [];
+  for (const d of docs) {
+    if (vistos.has(d.nota_id)) continue; // a versão mais recente do PDF da NF
+    vistos.add(d.nota_id);
+    if (!d.campos) {
+      try { const a = await arquivoDoDocumento(d.id); d.campos = a ? await camposDeAssinatura(a.bytes) : []; } catch { d.campos = []; }
+      await sql`update documentos set campos = ${sql.json(d.campos as never)} where id = ${d.id}`;
+    }
+    const { vez, ordem } = ordemDoCertificado(d.campos);
+    if (!ordem.length) continue;
+    saida.push({ notaId: d.nota_id, numero: d.numero, empresa: d.emit_nome, etapa: d.etapa, servico: d.tipo_nf === "servico", documentoId: d.id, ordem, vez });
+  }
+  return saida;
+}
+
+/** As NF sob medida cuja vez de assinar o certificado é desta etapa. */
+export async function sobMedidaParaAssinar(etapaId: number) {
+  const { etapasAtivas } = await import("./fluxo");
+  const etapas = await etapasAtivas();
+  return (await assinaturasSobMedida()).filter((s) => s.vez && etapas[etapaDoCampo(s.vez, etapas)]?.id === etapaId);
+}
+
+/** Bloqueia assinar o certificado de uma NF sob medida fora da ordem (Estocagem → Perícia → Fiel de Suprimentos → Gestor). */
+export async function ordemSobMedida(documentoId: number, campo: string, campos: CampoAssinatura[]) {
+  const [d] = await sql`select n.sob_medida, t.nome as tipo from documentos d join notas n on n.id = d.nota_id join tipos_documento t on t.id = d.tipo_id where d.id = ${documentoId}`;
+  if (!d?.sob_medida || d.tipo !== TIPO_NF) return null;
+  const alvo = campos.find((c) => c.nome === campo);
+  if (!alvo || posicaoNaOrdem(alvo) < 0) return null;
+  const { vez } = ordemDoCertificado(campos);
+  if (vez && vez.nome !== alvo.nome) return `NF sob medida: as assinaturas do certificado seguem a ordem Estocagem → Perícia → Fiel de Suprimentos → Gestor. Agora é a vez de ${nomeDoCampo(vez)}.`;
+  return null;
 }

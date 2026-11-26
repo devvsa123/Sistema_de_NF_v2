@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { pendenciasAteAgora, type PendenciaFila } from "@/lib/documentos";
+import { assinaturasSobMedida, etapaDoCampo, pendenciasAteAgora, type PendenciaFila } from "@/lib/documentos";
+import { SobMedidaAssinaturas } from "@/components/SobMedidaAssinaturas";
 import { etapaPreRecebimento } from "@/lib/recebimento";
 import { redirect } from "next/navigation";
 import { exigirUsuario } from "@/lib/auth";
@@ -34,6 +35,13 @@ export default async function MinhaFila({ searchParams }: PageProps<"/">) {
   const etapa = aba.chave.startsWith("e") ? etapas.find((e) => `e${e.id}` === aba.chave)! : null;
   const notas = await fila(etapa ? { etapa: etapa.id } : (aba.chave as "reprovadas" | "armazenar"), categoria);
   const totalOutra = abas.reduce((s, a) => s + (contagemOutra[a.chave] ?? 0), 0);
+  // NF sob medida: o certificado passa de setor em setor; quem está na vez vê a NF no topo, e o Controle acompanha todas
+  const sobMedida = !mapa ? await assinaturasSobMedida() : [];
+  // quantas NF sob medida aguardam a assinatura de cada etapa (aparece nas abas)
+  const vezPorEtapa = new Map<string, number>();
+  for (const s of sobMedida) { const e = s.vez ? etapas[etapaDoCampo(s.vez, etapas)] : null; if (e) vezPorEtapa.set(`e${e.id}`, (vezPorEtapa.get(`e${e.id}`) ?? 0) + 1); }
+  const daVez = (s: (typeof sobMedida)[number]) => !!s.vez && etapas[etapaDoCampo(s.vez, etapas)]?.id === etapa?.id;
+  const ehControle = !!etapa && /controle/i.test(`${etapa.nome} ${etapa.setor}`);
   const prazo = etapa ? etapa.prazo_dias : aba.chave === "reprovadas" ? prazoReprov : null;
 
   const botoes: BotaoFila[] = [];
@@ -92,6 +100,7 @@ export default async function MinhaFila({ searchParams }: PageProps<"/">) {
             <span className={`ml-2 rounded-full px-1.5 text-xs ${a.chave === aba.chave ? "bg-white/20" : "bg-slate-100 text-slate-600"}`}>
               {contagem[a.chave] ?? 0}
             </span>
+            {!!vezPorEtapa.get(a.chave) && <span title="NF sob medida aguardando a assinatura deste setor no certificado" className="ml-1 rounded-full bg-violet-600 px-1.5 text-xs text-white">✍ {vezPorEtapa.get(a.chave)}</span>}
           </Link>
         ))}
       </div>
@@ -109,6 +118,10 @@ export default async function MinhaFila({ searchParams }: PageProps<"/">) {
           </>
         )}
       </div>
+
+      {etapa && (ehControle
+        ? <SobMedidaAssinaturas itens={sobMedida} modo="acompanhar" minhaVez={daVez} />
+        : <SobMedidaAssinaturas itens={sobMedida.filter(daVez)} modo="assinar" minhaVez={daVez} />)}
 
       {notas.length === 0 ? (
         <Vazio>{mapa ? "Nenhum mapa de devolução nesta fila." : "Nenhuma nota fiscal nesta fila."} 🎉</Vazio>

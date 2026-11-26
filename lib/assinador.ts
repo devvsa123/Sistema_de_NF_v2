@@ -146,6 +146,12 @@ export async function prepararDocumento(u: Usuario, documentoId: number, alvo: A
   if (!d) throw new Error("Documento não encontrado (talvez já tenha sido substituído por uma versão mais nova). Atualize a página.");
   const a = await arquivoDoDocumento(d.id as number);
   if (!a) throw new Error("Arquivo não encontrado.");
+  if ("campo" in alvo) {
+    // NF sob medida: o certificado é assinado em ordem
+    const { ordemSobMedida } = await import("./documentos");
+    const fora = await ordemSobMedida(d.id as number, alvo.campo, await camposDeAssinatura(a.bytes));
+    if (fora) throw new Error(fora);
+  }
   let gravada: DecisaoGravada | null = null;
   const def = "campo" in alvo ? DECISOES[alvo.campo] : undefined;
   if (def && "campo" in alvo) {
