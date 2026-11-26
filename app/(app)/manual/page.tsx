@@ -257,6 +257,7 @@ export default async function Manual() {
           <li>Abra o ZIP no computador, confira os documentos, guarde o pacote para os autos do processo de pagamento, marque a confirmação e clique em <B>Confirmar conferência</B>.</li>
           <li>Clique em <B>Finalizar NF</B> (ou finalize pela fila). Na finalização, os <B>arquivos</B> dos documentos são excluídos do sistema; o histórico, os dados da NF e o registro de quem assinou continuam no sistema.</li>
         </Passos>
+        <Dica><B>NF do trâmite antigo</B> (documentos nas pastas da rede): o administrador geral pode selecionar as NF na fila e usar <B>Finalizar (trâmite antigo)</B>. A finalização não exige documentos, assinaturas nem pacote final e não exclui arquivos; a observação digitada ao lado vira o motivo no histórico (sem ela, fica “Documentos arquivados nas pastas da rede.”).</Dica>
         <Dica tipo="atencao">Se algum documento mudar depois da conferência (nova assinatura, documento novo ou removido), é preciso baixar e conferir o pacote de novo. Depois de finalizada, os arquivos só existem no pacote baixado.</Dica>
       </>,
     },

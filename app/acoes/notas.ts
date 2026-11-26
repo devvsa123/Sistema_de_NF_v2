@@ -36,6 +36,33 @@ export async function acaoTramitar(ids: number[], acao: Acao, op: OpcoesAcao = {
   return { feitas, erros };
 }
 
+/**
+ * Finalização direta pelo administrador geral (NF do trâmite antigo, com os documentos nas pastas da rede):
+ * não exige documentos, assinaturas nem pacote final, e não exclui arquivos. Fica registrada no histórico com o motivo.
+ */
+export async function acaoFinalizarAdmin(ids: number[], motivo: string) {
+  const u = await exigirUsuario();
+  if (u.papel !== "admin") return { feitas: 0, erros: ["Somente o administrador geral pode finalizar dessa forma."] };
+  const m = String(motivo ?? "").trim().slice(0, 1000);
+  if (!m) return { feitas: 0, erros: ["Informe o motivo (ex.: trâmite antigo, documentos nas pastas da rede)."] };
+  if (!Array.isArray(ids) || !ids.length || ids.length > 500) return { feitas: 0, erros: ["Selecione as NF."] };
+  let feitas = 0;
+  const erros: string[] = [];
+  for (const id of ids) {
+    try {
+      const [n] = await sql`select numero, status from notas where id = ${Number(id)}`;
+      if (!n) throw new Error("NF não encontrada.");
+      if (n.status !== "em_tramite") throw new Error(`NF ${n.numero}: não está em trâmite.`);
+      await ajustarComoAdmin(u, Number(id), "finalizada", `Finalizada pelo administrador geral (trâmite antigo): ${m}`);
+      feitas++;
+    } catch (e) {
+      erros.push(msg(e));
+    }
+  }
+  revalidatePath("/", "layout");
+  return { feitas, erros };
+}
+
 export async function acaoObservacao(_: Estado, f: FormData): Promise<Estado> {
   const u = await exigirUsuario();
   if (u.papel !== "admin" && u.papel !== "interno") return { erro: "Seu perfil não permite registrar observações." };

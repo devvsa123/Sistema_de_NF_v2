@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
-import { acaoTramitar } from "@/app/acoes/notas";
+import { acaoFinalizarAdmin, acaoTramitar } from "@/app/acoes/notas";
 import { linkNota } from "@/lib/format";
 import type { Acao } from "@/lib/fluxo";
 import { ComentariosNota } from "./ComentariosNota";
@@ -18,7 +18,7 @@ export type BotaoFila = { acao: Acao; rotulo: string; estilo?: "principal" | "se
 
 const COR = { verde: "bg-emerald-500", amarelo: "bg-amber-400", vermelho: "bg-red-500" };
 
-export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, docsRecebimento = false, minutaTav = false, volta }: { linhas: LinhaFila[]; botoes: BotaoFila[]; mostrarArrecadacao: boolean; laudo?: boolean; docsRecebimento?: boolean; minutaTav?: boolean; volta?: string }) {
+export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, docsRecebimento = false, minutaTav = false, finalizarAdmin = false, volta }: { linhas: LinhaFila[]; botoes: BotaoFila[]; mostrarArrecadacao: boolean; laudo?: boolean; docsRecebimento?: boolean; minutaTav?: boolean; finalizarAdmin?: boolean; volta?: string }) {
   const [sel, setSel] = useState<Set<number>>(new Set());
   const [filtro, setFiltro] = useState("");
   const [obs, setObs] = useState("");
@@ -56,6 +56,18 @@ export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, 
         setVisual("");
         setLab("");
       }
+    });
+  }
+
+  function finalizarDireto() {
+    const ids = linhas.filter((l) => sel.has(l.id)).map((l) => l.id);
+    if (!ids.length) return;
+    const motivo = obs.trim() || "Documentos arquivados nas pastas da rede.";
+    if (!window.confirm(`Finalizar ${ids.length} NF sem exigir documentos, assinaturas nem pacote final?\n\nMotivo que vai para o histórico:\n"${motivo}"`)) return;
+    iniciar(async () => {
+      const r = await acaoFinalizarAdmin(ids, motivo);
+      setRetorno(r);
+      if (r.feitas) { setSel(new Set()); setObs(""); }
     });
   }
 
@@ -171,6 +183,12 @@ export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, 
                 {pendente ? "Aguarde…" : b.rotulo}
               </button>
             ))
+          )}
+          {finalizarAdmin && !reprovando && (
+            <button className="botao-perigo" onClick={finalizarDireto} disabled={pendente || !sel.size}
+              title="Somente o administrador geral: finaliza as NF selecionadas sem exigir documentos, assinaturas nem pacote final (NF do trâmite antigo, com os documentos nas pastas da rede). A observação ao lado vira o motivo no histórico.">
+              Finalizar (trâmite antigo)
+            </button>
           )}
         </div>
         {retorno && (

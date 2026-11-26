@@ -98,6 +98,7 @@ export default async function MinhaFila({ searchParams }: PageProps<"/">) {
         <Vazio>Nenhuma nota fiscal nesta fila. 🎉</Vazio>
       ) : (
         <FilaTabela key={aba.chave} linhas={linhas} botoes={botoes} mostrarArrecadacao={!!etapa?.exige_arrecadacao} laudo={perito && (!!etapa?.emite_laudo || aba.chave === "reprovadas")} docsRecebimento={(u.papel === "interno" || u.papel === "admin") && !!etapa?.emite_docs_recebimento}
+          finalizarAdmin={u.papel === "admin" && !!etapa}
           minutaTav={!!etapa && etapa.id === etapaPreRecebimento(etapas)?.id && (u.papel === "admin" || (u.papel === "interno" && u.etapas.includes(etapa.id)))} volta={`/?aba=${aba.chave}`} />
       )}
     </div>
