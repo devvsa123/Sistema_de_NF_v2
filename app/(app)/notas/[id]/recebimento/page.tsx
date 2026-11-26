@@ -80,7 +80,7 @@ export default async function DocsRecebimento({ params, searchParams }: PageProp
         )}
         <div id="tav" className="scroll-mt-20"><FormTav id={id} inicial={inicialTav} perguntas={PERGUNTAS_TAV} numeroTav={proximoNumero} reemissao={reemissao} volumes={volumesTav} /></div>
         <div id="checklist" className="scroll-mt-20"><FormChecklist id={id} inicial={inicialChecklist} tav={regTav ? numeroTav(regTav.numero_tav, regTav.ano) : null} linhas={linhasChecklist} anterior={contagemAnterior} catalogoVazio={correl.catalogoVazio}
-          modo={regTav?.dados.formulario.conferencia === "Contagem manual" ? "contagem" : "pesagem"} /></div>
+          conferenciaInicial={regChecklist?.dados.formulario.conferencia || regTav?.dados.formulario.conferencia || ""} /></div>
       </div>
 
       {registros.length > 0 && (

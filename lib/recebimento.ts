@@ -92,7 +92,6 @@ export function validarTav(d: DadosRecebimento): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d.data_recebimento)) return "Informe a data do recebimento.";
   if (!d.id_pa.trim()) return "Informe o ID do PA: ele é obrigatório para emitir o TAV.";
   if (!/^[A-Za-z0-9./-]+$/.test(d.id_pa.trim())) return "O ID do PA deve ter apenas letras e números.";
-  if (d.conferencia !== "Contagem manual" && d.conferencia !== "Pesagem") return "Escolha se a conferência foi por contagem manual ou pesagem.";
   if (d.respostas.length !== PERGUNTAS_TAV.length || d.respostas.some((r) => r !== "Sim" && r !== "Não"))
     return "Responda SIM ou NÃO para todas as perguntas do TAV.";
   if (d.observacao.length > 600) return "Observação longa demais para o espaço do documento.";
@@ -140,6 +139,7 @@ async function recalcularParcial(tx: Tx, u: Usuario, notaId: number) {
 }
 
 export function validarChecklist(d: DadosRecebimento): string | null {
+  if (d.conferencia !== "Contagem manual" && d.conferencia !== "Pesagem") return "Escolha se a conferência foi por contagem manual ou pesagem.";
   if (d.obs_contagem.length > 1500) return "A observação geral tem no máximo 1.500 caracteres.";
   return null;
 }
@@ -242,8 +242,9 @@ export async function emitirDocRecebimento(u: Usuario, notaId: number, doc: DocR
     const tav = await ultimoTav(notaId);
     if (!tav) throw new Error("Emita primeiro o TAV desta NF: o Check-list usa o número e a data do TAV.");
     const contagem = await montarContagem({ emit_cnpj: n.emit_cnpj as string, itens: n.itens as ItemNF[] | null }, (d.contagem ?? []) as unknown as ContagemInformada[],
-      modoDaConferencia(tav.dados.formulario.conferencia));
-    d = { ...tav.dados.formulario, contagem, obs_contagem: d.obs_contagem };
+      modoDaConferencia(d.conferencia));
+    // a forma de conferência é respondida no Check-list (não mais no TAV)
+    d = { ...tav.dados.formulario, contagem, obs_contagem: d.obs_contagem, conferencia: d.conferencia };
   }
   const ano = Number(d.data_recebimento.slice(0, 4));
   return sql.begin(async (tx) => {

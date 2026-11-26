@@ -76,11 +76,7 @@ export function FormTav({ id, inicial, perguntas, numeroTav, reemissao, volumes 
             title="Apenas letras, números, ponto, barra ou hífen" />
             <span className="mt-1 block text-xs text-slate-500">{inicial.id_pa ? "Já lançado no trâmite. Altere se precisar." : "Obrigatório para emitir o TAV."}</span></label>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-y border-slate-100 py-3">
-          <span className="text-sm text-slate-700">Conferência feita por *</span>
-          <Opcoes nome="conferencia" opcoes={["Contagem manual", "Pesagem"]} valor={inicial.conferencia} />
-        </div>
-        <ol className="divide-y divide-slate-100" onChange={(e) => { const t = e.target as unknown as HTMLInputElement; if (t.name === "q1") setQ1(t.value); }}>
+        <ol className="divide-y divide-slate-100 border-t border-slate-100" onChange={(e) => { const t = e.target as unknown as HTMLInputElement; if (t.name === "q1") setQ1(t.value); }}>
           {perguntas.map((p, i) => (
             <li key={i} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
               <span className="text-sm text-slate-700">{i + 1}. {p} *</span>
@@ -177,9 +173,11 @@ function LinhaContagem({ l, anterior }: { l: LinhaChecklist; anterior?: Contagem
   );
 }
 
-export function FormChecklist({ id, inicial, tav, linhas, anterior, catalogoVazio, modo = "pesagem" }: {
-  id: number; inicial: DadosRecebimento; tav: string | null; linhas: LinhaChecklist[]; anterior: ContagemAnterior; catalogoVazio: boolean; modo?: "contagem" | "pesagem";
+export function FormChecklist({ id, inicial, tav, linhas, anterior, catalogoVazio, conferenciaInicial = "" }: {
+  id: number; inicial: DadosRecebimento; tav: string | null; linhas: LinhaChecklist[]; anterior: ContagemAnterior; catalogoVazio: boolean; conferenciaInicial?: string;
 }) {
+  const [conferencia, setConferencia] = useState(conferenciaInicial);
+  const modo = conferencia === "Contagem manual" ? "contagem" : conferencia === "Pesagem" ? "pesagem" : null;
   const titulo = <h2 className="text-[15px] font-semibold text-slate-900">Check-list da Contagem</h2>;
   if (!tav)
     return (
@@ -226,10 +224,22 @@ export function FormChecklist({ id, inicial, tav, linhas, anterior, catalogoVazi
         <div>
           {titulo}
           <p className="mt-0.5 text-xs text-slate-500">Usa os dados do TAV nº {tav}. {modo === "contagem"
-            ? <>Conferência por <strong>contagem manual</strong> (conforme o TAV): informe a quantidade contada de cada item; a diferença para a NF é calculada na hora.</>
-            : <>Conferência por <strong>pesagem</strong> (conforme o TAV): para cada item, informe o peso encontrado (já sem a tara da caixa) e se houve discrepância.</>}</p>
+            ? <>Conferência por <strong>contagem manual</strong>: informe a quantidade contada de cada item; a diferença para a NF é calculada na hora.</>
+            : modo === "pesagem" ? <>Conferência por <strong>pesagem</strong>: para cada item, informe o peso encontrado (já sem a tara da caixa) e se houve discrepância.</>
+            : "Escolha como a conferência foi feita."}</p>
         </div>
-        <div className="overflow-x-auto">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-y border-slate-100 py-3">
+          <span className="text-sm text-slate-700">Conferência feita por *</span>
+          <div className="flex shrink-0 gap-1.5">
+            {["Contagem manual", "Pesagem"].map((o) => (
+              <label key={o} className="cursor-pointer">
+                <input type="radio" name="conferencia" value={o} checked={conferencia === o} onChange={() => setConferencia(o)} className="peer sr-only" required />
+                <span className={`inline-flex h-8 min-w-14 items-center justify-center rounded-lg border px-3 text-sm font-medium transition peer-focus-visible:ring-4 peer-focus-visible:ring-marinha/20 ${conferencia === o ? "border-marinha bg-marinha text-white" : "border-slate-300 bg-white text-slate-700"}`}>{o}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+        {modo && <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
@@ -251,7 +261,7 @@ export function FormChecklist({ id, inicial, tav, linhas, anterior, catalogoVazi
                 : <LinhaContagem key={l.ref} l={l} anterior={anterior[l.ref]} />)}
             </tbody>
           </table>
-        </div>
+        </div>}
         <label className="block"><span className="rotulo">Observações gerais da contagem (opcional)</span>
           <textarea name="obs_contagem" defaultValue={inicial.obs_contagem} rows={3} maxLength={1500} className="campo" /></label>
       </section>

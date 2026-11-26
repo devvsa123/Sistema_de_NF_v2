@@ -234,11 +234,7 @@ export async function pdfTav(v: Valores, itens: Tabela | null, ids: { registro: 
   ]);
 
   secao(c, "Conferência", 200);
-  texto(c, "FORMA DE CONFERÊNCIA", M, c.y - 8, { tam: 6.5, negrito: true, cor: CINZA });
-  c.y -= 24;
-  caixa(c, M, c.y, !!v.x_contagem); texto(c, "Contagem manual", M + 17, c.y, { tam: 9 });
-  caixa(c, M + L / 2, c.y, !!v.x_pesagem); texto(c, "Pesagem", M + L / 2 + 17, c.y, { tam: 9 });
-  c.y -= 12;
+  c.y -= 4;
   tabela(c, {
     titulo: "", colunas: [{ titulo: "Nº", cm: 1, alinhar: "centro" }, { titulo: "VERIFICAÇÃO", cm: 13 }, { titulo: "SIM", cm: 2, alinhar: "centro" }, { titulo: "NÃO", cm: 2, alinhar: "centro" }],
     linhas: PERGUNTAS.map((p, i) => [String(i + 1), p, v[`q${i + 1}_sim`] ? "X" : "", v[`q${i + 1}_nao`] ? "X" : ""]),
@@ -310,6 +306,13 @@ export async function pdfChecklist(v: Valores, ids: { registro: number; nota: nu
     [{ rotulo: "Empresa", valor: v.nome_empresa, cm: 14, negrito: true }, { rotulo: "CNPJ", valor: v.cnpj, cm: 4 }],
     [{ rotulo: "Número da nota fiscal", valor: v.numero_nf, cm: 5, negrito: true }, { rotulo: "Ordem de compra", valor: v.numero_oc, cm: 4 }, { rotulo: "TAV", valor: numero, cm: 4.5 }, { rotulo: "Data do recebimento", valor: v.data_recebimento, cm: 4.5 }],
   ]);
+
+  secao(c, "Conferência", 50);
+  texto(c, "FORMA DE CONFERÊNCIA", M, c.y - 8, { tam: 6.5, negrito: true, cor: CINZA });
+  c.y -= 24;
+  caixa(c, M, c.y, !!v.x_contagem); texto(c, "Contagem manual", M + 17, c.y, { tam: 9 });
+  caixa(c, M + L / 2, c.y, !!v.x_pesagem); texto(c, "Pesagem", M + L / 2 + 17, c.y, { tam: 9 });
+  c.y -= 8;
 
   secao(c, "Itens contados", 90);
   const qtdTotal = contagem.reduce((t, l) => t + l.qtd, 0);
