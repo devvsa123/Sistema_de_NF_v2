@@ -214,7 +214,9 @@ export function nomeDoCampo(c: CampoAssinatura) {
  */
 export async function checklistDaNota(nota: { id: number; status: string; etapa_id: number | null }): Promise<ChecklistNF> {
   const { etapasAtivas } = await import("./fluxo");
-  const [etapas, { tipos, regras }, [sm]] = await Promise.all([etapasAtivas(), regrasDocumentos(), sql`select sob_medida from notas where id = ${nota.id}`]);
+  const [etapas, { tipos, regras }, [sm]] = await Promise.all([etapasAtivas(), regrasDocumentos(), sql`select sob_medida, categoria from notas where id = ${nota.id}`]);
+  // Mapa de devolução: nenhum documento é obrigatório
+  if (sm?.categoria === "mapa") return { etapas: [], assinaturas: [], faltamDocumentos: 0, faltamAssinaturas: 0, sobMedida: false };
   const dispensa = (tipo: string) => !!sm?.sob_medida && dispensadoSobMedida(tipo);
   const docs = await sql<{ id: number; tipo_id: number; tipo: string; nome_arquivo: string; mime: string; exige_assinatura: boolean; assinaturas: Assinatura[]; campos: CampoAssinatura[] | null; arquivo_excluido_em: Date | null }[]>`
     select d.id, d.tipo_id, t.nome as tipo, d.nome_arquivo, d.mime, t.exige_assinatura, d.assinaturas, d.campos, d.arquivo_excluido_em

@@ -270,6 +270,17 @@ export default async function Manual() {
       </>,
     },
     {
+      id: "mapas", titulo: "Mapas de devolução", para: ["admin", "interno", "consulta"], conteudo: <>
+        <p>Os <B>Mapas de devolução</B> (devoluções de material dos CAM) têm trâmite próprio, separado das NF: seguem o mesmo caminho de etapas, mas <B>sem a exigência de documentos</B>, ID de PA, assinaturas e pacote final (a arrecadação e a armazenagem continuam valendo).</p>
+        <Lista>
+          <li><B>Cadastrar</B>: menu <Ir href="/mapas/novo">Cadastrar mapa</Ir> (número do mapa, CAM que devolveu, data e observação; o PDF do mapa é opcional). É diferente do Cadastrar NF.</li>
+          <li><B>Tramitar</B>: em <B>Minha fila</B>, use o botão discreto <B>NF | Mapas de devolução</B> no alto da página para trocar de trâmite. O número ao lado de “Mapas de devolução” mostra quantos mapas esperam nas suas etapas.</li>
+          <li><B>Consultar</B>: <Ir href="/mapas">Mapas de devolução</Ir> lista os mapas em trâmite e concluídos. Os mapas não aparecem na pesquisa de NF, no Gerencial nem no Relatório mensal, para não afetar as metas das NF.</li>
+          <li><B>Administrador geral</B>: na fila de NF, selecione os registros que são mapas e use <B>É Mapa de devolução</B> (eles mantêm a etapa e o histórico). Na fila de mapas, <B>É NF</B> faz o caminho de volta.</li>
+        </Lista>
+      </>,
+    },
+    {
       id: "cadastro", titulo: "Cadastrar notas fiscais", para: ["admin", "interno"], conteudo: <>
         <p>Em <Ir href="/notas/nova">Cadastrar NF</Ir>, arraste um ou vários arquivos. O sistema lê emitente, valor, itens, empenho e OC automaticamente e mostra uma prévia antes de gravar.</p>
         <p className="mt-3 font-semibold text-slate-900">Com o PDF da DANFE (forma padrão)</p>

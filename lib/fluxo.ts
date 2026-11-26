@@ -135,7 +135,9 @@ export type OpcoesAcao = { obs?: string; visual?: string; laboratorial?: string;
 export async function executarAcao(u: Usuario, notaId: number, acao: Acao, op: OpcoesAcao = {}): Promise<void> {
   let finalizou = false;
   await sql.begin(async (tx) => {
-    const [nota] = await tx<NotaMov[]>`select id, numero, status, etapa_id, arrecadada_em, armazenada_em, id_pa, exige_id_pa from notas where id = ${notaId} for update`;
+    const [nota] = await tx<(NotaMov & { categoria: string })[]>`select id, numero, status, etapa_id, arrecadada_em, armazenada_em, id_pa, exige_id_pa, categoria from notas where id = ${notaId} for update`;
+    // Mapa de devolução: mesmo caminho, sem exigência de documentos, ID de PA nem pacote final
+    const mapa = nota?.categoria === "mapa";
     if (!nota) throw new Error("NF não encontrada.");
     const etapas = await etapasAtivas(tx);
     if (!acoesPermitidas(u, nota, etapas).includes(acao)) {
@@ -149,9 +151,9 @@ export async function executarAcao(u: Usuario, notaId: number, acao: Acao, op: O
     const de = nota.status === "reprovada" ? "Reprovada" : atual?.nome ?? NOME_STATUS_FINAL[nota.status] ?? "—";
     const base = { nota_id: nota.id, usuario: u, de_nome: de, texto: op.obs, comentario: !!op.comentario };
 
-    if (acao === "avancar" && atual?.edita_id_pa && nota.exige_id_pa && !nota.id_pa)
+    if (!mapa && acao === "avancar" && atual?.edita_id_pa && nota.exige_id_pa && !nota.id_pa)
       throw new Error(`NF ${nota.numero}: informe o ID de PA antes de enviar para a próxima etapa.`);
-    if (acao === "avancar") {
+    if (acao === "avancar" && !mapa) {
       const { pendencias } = await import("./documentos");
       const { faltando } = await pendencias(tx, nota.id, nota.etapa_id);
       if (faltando.length)
@@ -166,7 +168,7 @@ export async function executarAcao(u: Usuario, notaId: number, acao: Acao, op: O
         } else {
           // última etapa: só finaliza com o pacote final (documentos assinados + histórico) baixado e conferido
           const { bloqueioFinalizacao } = await import("./pacote");
-          const bloqueio = await bloqueioFinalizacao(tx, nota);
+          const bloqueio = mapa ? null : await bloqueioFinalizacao(tx, nota);
           if (bloqueio) throw new Error(bloqueio);
           await tx`update notas set status = 'finalizada', etapa_desde = now(), concluida_em = now() where id = ${nota.id}`;
           await registrarEvento(tx, { ...base, tipo: "finalizacao", movimento: true, para_status: "finalizada", para_nome: "Finalizada" });
@@ -199,7 +201,7 @@ export async function executarAcao(u: Usuario, notaId: number, acao: Acao, op: O
       case "armazenar": {
         // só armazena com todas as UZ alocadas no WMS (quando a exigência estiver ligada)
         const [n] = await tx`select numero, id_pa from notas where id = ${nota.id}`;
-        const bloqueio = await bloqueioArmazenagem(n as { numero: string; id_pa: string | null });
+        const bloqueio = mapa ? null : await bloqueioArmazenagem(n as { numero: string; id_pa: string | null });
         if (bloqueio) throw new Error(bloqueio);
         await tx`update notas set armazenada_em = now() where id = ${nota.id}`;
         await registrarEvento(tx, { ...base, de_nome: null, tipo: "armazenagem", texto: op.obs });

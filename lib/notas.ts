@@ -12,7 +12,7 @@ export type NotaLista = {
   id: number; chave: string | null; numero: string; serie: string | null; emit_cnpj: string; emit_nome: string; valor: string;
   oc: string | null; status: string; etapa_id: number | null; etapa_nome: string | null; prazo_dias: number | null;
   recebida_em: Date; concluida_em: Date | null; etapa_desde: Date; arrecadada_em: Date | null; armazenada_em: Date | null;
-  tem_xml: boolean; fonte: string | null; sob_medida: boolean; dias_etapa: number; dias_arrecadada: number | null; dias_total: number; ultima_obs: string | null; obs_oc: string | null; n_comentarios?: number; n_docs?: number; docs_faltando?: string | null; id_pa: string | null; exige_id_pa: boolean; indicacao_reprovacao: "pericia" | "tecnica" | null; tipo_nf: TipoNF; tipo_nf_motivo: string | null; parcial: boolean; parcial_motivo: string | null;
+  tem_xml: boolean; fonte: string | null; sob_medida: boolean; dias_etapa: number; dias_arrecadada: number | null; dias_total: number; ultima_obs: string | null; obs_oc: string | null; n_comentarios?: number; n_docs?: number; docs_faltando?: string | null; id_pa: string | null; exige_id_pa: boolean; indicacao_reprovacao: "pericia" | "tecnica" | null; tipo_nf: TipoNF; tipo_nf_motivo: string | null; parcial: boolean; parcial_motivo: string | null; categoria: Categoria;
 };
 
 export type Nota = NotaLista & {
@@ -27,7 +27,7 @@ export function visivel(u: Usuario) {
 
 const COLUNAS = sql`
   n.id, n.chave, n.numero, n.serie, n.emit_cnpj, n.emit_nome, n.valor, n.oc, n.status, n.etapa_id, e.nome as etapa_nome,
-  e.prazo_dias, n.recebida_em, n.concluida_em, n.etapa_desde, n.arrecadada_em, n.armazenada_em, n.tem_xml, n.fonte, n.sob_medida, n.obs_oc, n.id_pa, n.exige_id_pa, n.indicacao_reprovacao, n.tipo_nf, n.tipo_nf_motivo, n.parcial, n.parcial_motivo,
+  e.prazo_dias, n.recebida_em, n.concluida_em, n.etapa_desde, n.arrecadada_em, n.armazenada_em, n.tem_xml, n.fonte, n.sob_medida, n.obs_oc, n.id_pa, n.exige_id_pa, n.indicacao_reprovacao, n.tipo_nf, n.tipo_nf_motivo, n.parcial, n.parcial_motivo, n.categoria,
   extract(epoch from (now() - n.etapa_desde)) / 86400 as dias_etapa,
   extract(epoch from (now() - n.arrecadada_em)) / 86400 as dias_arrecadada,
   extract(epoch from (coalesce(n.concluida_em, now()) - n.recebida_em)) / 86400 as dias_total`;
@@ -37,15 +37,20 @@ const ULTIMA_OBS = sql`(select ev.texto from eventos ev where ev.nota_id = n.id 
 
 export type Filtros = {
   q?: string; situacao?: string; cnpj?: string; de?: string; ate?: string; vmin?: string; vmax?: string;
-  atrasadas?: string; xml?: string; pagina?: string;
+  atrasadas?: string; xml?: string; pagina?: string; categoria?: string;
 };
+
+/** NF ou Mapa de devolução (devolução de material dos CAM, com trâmite separado). */
+export type Categoria = "nf" | "mapa";
+export const categoriaValida = (v: unknown): Categoria => (v === "mapa" ? "mapa" : "nf");
 
 export const POR_PAGINA = 50;
 const dataValida = (s?: string) => (s && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null);
 const numValido = (s?: string) => (s && !isNaN(Number(s.replace(",", "."))) ? Number(s.replace(",", ".")) : null);
 
 function condicoes(u: Usuario, f: Filtros, prazoReprov: number) {
-  const c = [visivel(u)];
+  // a pesquisa de notas é só de NF; os mapas de devolução têm a lista própria
+  const c = [visivel(u), sql`n.categoria = ${f.categoria === "mapa" ? "mapa" : "nf"}`];
   for (const termo of (f.q ?? "").toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6)) {
     const t = "%" + termo.replace(/[\\%_]/g, "\\$&") + "%";
     const d = soDigitos(termo);
@@ -83,11 +88,12 @@ export async function buscarNotas(u: Usuario, f: Filtros, prazoReprov: number, t
 }
 
 /** Fila de trabalho: NF em uma etapa, as reprovadas, ou as que aguardam armazenagem. */
-export async function fila(tipo: { etapa: number } | "reprovadas" | "armazenar") {
-  const onde =
+export async function fila(tipo: { etapa: number } | "reprovadas" | "armazenar", categoria: Categoria = "nf") {
+  const onde0 =
     tipo === "reprovadas" ? sql`n.status = 'reprovada'`
     : tipo === "armazenar" ? sql`n.arrecadada_em is not null and n.armazenada_em is null and n.status in ('em_tramite','finalizada')`
     : sql`n.status = 'em_tramite' and n.etapa_id = ${tipo.etapa}`;
+  const onde = sql`${onde0} and n.categoria = ${categoria}`;
   return sql<NotaLista[]>`select ${COLUNAS}, ${ULTIMA_OBS},
       (select count(*)::int from eventos ev where ev.nota_id = n.id and ev.comentario) as n_comentarios,
       (select count(*)::int from documentos d where d.nota_id = n.id and d.removido_em is null) as n_docs,
@@ -99,11 +105,11 @@ export async function fila(tipo: { etapa: number } | "reprovadas" | "armazenar")
       where ${onde} order by n.recebida_em asc, n.id asc limit 1000`; // ordem de chegada: quem chegou primeiro é atendido primeiro em todas as etapas
 }
 
-export async function contagemFilas() {
+export async function contagemFilas(categoria: Categoria = "nf") {
   const linhas = await sql`
-    select 'e' || etapa_id as k, count(*)::int as n from notas where status = 'em_tramite' group by etapa_id
-    union all select 'reprovadas', count(*)::int from notas where status = 'reprovada'
-    union all select 'armazenar', count(*)::int from notas where arrecadada_em is not null and armazenada_em is null and status in ('em_tramite','finalizada')`;
+    select 'e' || etapa_id as k, count(*)::int as n from notas where status = 'em_tramite' and categoria = ${categoria} group by etapa_id
+    union all select 'reprovadas', count(*)::int from notas where status = 'reprovada' and categoria = ${categoria}
+    union all select 'armazenar', count(*)::int from notas where arrecadada_em is not null and armazenada_em is null and status in ('em_tramite','finalizada') and categoria = ${categoria}`;
   return Object.fromEntries(linhas.map((l) => [l.k, l.n])) as Record<string, number>;
 }
 
@@ -246,4 +252,37 @@ export async function cadastrarManual(
     await registrarEvento(tx, { nota_id: n.id, tipo: "cadastro", movimento: true, de_nome: "Cadastro", para_etapa_id: etapa.id, para_status: "em_tramite", para_nome: etapa.nome, usuario: u, texto: d.obs, comentario: true });
     return n.id as number;
   });
+}
+
+// ------------------------------------------------------------------ Mapas de devolução
+
+/** Cadastra um Mapa de devolução (devolução de material de um CAM): entra na primeira etapa, no trâmite dos mapas. */
+export async function cadastrarMapa(u: Usuario, d: { numero: string; cam: string; data: string; obs?: string }) {
+  if (!podeCadastrar(u)) throw new Error("Seu perfil não permite cadastrar.");
+  const numero = d.numero.trim().slice(0, 40), cam = d.cam.trim().slice(0, 200);
+  if (!numero) throw new Error("Informe o número do mapa de devolução.");
+  if (!cam) throw new Error("Informe o CAM (OM) que devolveu o material.");
+  const dataMapa = /^\d{4}-\d{2}-\d{2}$/.test(d.data) ? new Date(`${d.data}T12:00:00-03:00`) : null;
+  const [dup] = await sql`select id from notas where categoria = 'mapa' and numero = ${numero} and upper(emit_nome) = upper(${cam}) limit 1`;
+  if (dup) throw new Error(`O mapa de devolução nº ${numero} do ${cam} já está cadastrado.`);
+  const etapa = await etapaInicial(false);
+  return sql.begin(async (tx) => {
+    const [n] = await tx`insert into notas (numero, emit_cnpj, emit_nome, valor, data_emissao, status, etapa_id, busca, criado_por, categoria)
+        values (${numero}, '', ${cam}, 0, ${dataMapa}, 'em_tramite', ${etapa.id}, ${`${numero} ${cam}`.toLowerCase()}, ${u.id}, 'mapa') returning id`;
+    await registrarEvento(tx, { nota_id: n.id, tipo: "cadastro", movimento: true, de_nome: "Cadastro", para_etapa_id: etapa.id, para_status: "em_tramite",
+      para_nome: etapa.nome, usuario: u, texto: d.obs?.trim() || null, comentario: !!d.obs?.trim() });
+    return n.id as number;
+  });
+}
+
+/** Lista dos mapas de devolução (em trâmite e concluídos), com pesquisa por número ou CAM. */
+export async function listarMapas(f: { q?: string; situacao?: string }) {
+  const c = [sql`n.categoria = 'mapa'`];
+  for (const termo of (f.q ?? "").toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6))
+    c.push(sql`n.busca like ${"%" + termo.replace(/[\\%_]/g, "\\$&") + "%"}`);
+  if (f.situacao === "abertos") c.push(sql`n.status in ('em_tramite', 'reprovada')`);
+  else if (f.situacao === "concluidos") c.push(sql`n.status not in ('em_tramite', 'reprovada')`);
+  const onde = c.reduce((a, b) => sql`${a} and ${b}`);
+  return sql<NotaLista[]>`select ${COLUNAS}, ${ULTIMA_OBS} from notas n left join etapas e on e.id = n.etapa_id where ${onde}
+                          order by (n.status in ('em_tramite','reprovada')) desc, n.recebida_em desc, n.id desc limit 500`;
 }

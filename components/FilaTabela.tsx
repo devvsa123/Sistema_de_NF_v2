@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
-import { acaoFinalizarAdmin, acaoTramitar } from "@/app/acoes/notas";
+import { acaoFinalizarAdmin, acaoReclassificar, acaoTramitar } from "@/app/acoes/notas";
 import { linkNota } from "@/lib/format";
 import type { Acao } from "@/lib/fluxo";
 import { ComentariosNota } from "./ComentariosNota";
@@ -18,7 +18,7 @@ export type BotaoFila = { acao: Acao; rotulo: string; estilo?: "principal" | "se
 
 const COR = { verde: "bg-emerald-500", amarelo: "bg-amber-400", vermelho: "bg-red-500" };
 
-export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, docsRecebimento = false, minutaTav = false, finalizarAdmin = false, volta }: { linhas: LinhaFila[]; botoes: BotaoFila[]; mostrarArrecadacao: boolean; laudo?: boolean; docsRecebimento?: boolean; minutaTav?: boolean; finalizarAdmin?: boolean; volta?: string }) {
+export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, docsRecebimento = false, minutaTav = false, finalizarAdmin = false, reclassificar, mapas = false, volta }: { linhas: LinhaFila[]; botoes: BotaoFila[]; mostrarArrecadacao: boolean; laudo?: boolean; docsRecebimento?: boolean; minutaTav?: boolean; finalizarAdmin?: boolean; reclassificar?: "nf" | "mapa"; mapas?: boolean; volta?: string }) {
   const [sel, setSel] = useState<Set<number>>(new Set());
   const [filtro, setFiltro] = useState("");
   const [obs, setObs] = useState("");
@@ -59,6 +59,18 @@ export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, 
     });
   }
 
+  function reclassificarSel() {
+    const ids = linhas.filter((l) => sel.has(l.id)).map((l) => l.id);
+    if (!ids.length || !reclassificar) return;
+    const alvo = reclassificar === "mapa" ? "Mapa de devolução" : "NF";
+    if (!window.confirm(`Reclassificar ${ids.length} registro(s) como ${alvo}?${reclassificar === "mapa" ? "\n\nEles saem do trâmite e das metas das NF e passam para o trâmite de Mapas de devolução, na mesma etapa." : ""}`)) return;
+    iniciar(async () => {
+      const r = await acaoReclassificar(ids, reclassificar);
+      setRetorno(r);
+      if (r.feitas) setSel(new Set());
+    });
+  }
+
   function finalizarDireto() {
     const ids = linhas.filter((l) => sel.has(l.id)).map((l) => l.id);
     if (!ids.length) return;
@@ -75,7 +87,7 @@ export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, 
     <div className="space-y-3">
       <div className="cartao overflow-hidden">
         <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 px-3 py-2">
-          <input className="campo max-w-xs" placeholder="Filtrar por número, empresa ou OC…" value={filtro} onChange={(e) => setFiltro(e.target.value)} />
+          <input className="campo max-w-xs" placeholder={mapas ? "Filtrar por número do mapa ou CAM…" : "Filtrar por número, empresa ou OC…"} value={filtro} onChange={(e) => setFiltro(e.target.value)} />
           <span className="text-sm text-slate-500">{sel.size ? `${sel.size} selecionada(s)` : `${visiveis.length} nota(s)`}</span>
         </div>
         <div className="overflow-x-auto">
@@ -88,7 +100,7 @@ export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, 
                     onChange={() => setSel(todasMarcadas ? new Set() : new Set(visiveis.map((l) => l.id)))}
                   />
                 </th>
-                <th>NF</th><th>Empresa</th><th className="text-right">Valor</th><th>OC</th><th>ID de PA</th><th title="A fila segue a ordem de chegada da NF ao depósito">Chegada</th><th>Na etapa há</th><th>Observações</th>
+                {mapas ? <><th>Mapa</th><th>CAM</th></> : <><th>NF</th><th>Empresa</th><th className="text-right">Valor</th><th>OC</th><th>ID de PA</th></>}<th title="A fila segue a ordem de chegada da NF ao depósito">Chegada</th><th>Na etapa há</th><th>Observações</th>
               </tr>
             </thead>
             <tbody>
@@ -119,9 +131,11 @@ export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, 
                     )}
                   </td>
                   <td className="min-w-40 max-w-56">{l.empresa}</td>
-                  <td className="whitespace-nowrap text-right tabular-nums">{l.valor}</td>
-                  <td className="whitespace-nowrap">{l.oc}</td>
-                  <td className="whitespace-nowrap"><CampoIdPa id={l.id} numero={l.numero} valor={l.idPa} editavel={l.editaIdPa} exigido={l.exigeIdPa} /></td>
+                  {!mapas && <>
+                    <td className="whitespace-nowrap text-right tabular-nums">{l.valor}</td>
+                    <td className="whitespace-nowrap">{l.oc}</td>
+                    <td className="whitespace-nowrap"><CampoIdPa id={l.id} numero={l.numero} valor={l.idPa} editavel={l.editaIdPa} exigido={l.exigeIdPa} /></td>
+                  </>}
                   <td className="whitespace-nowrap">
                     {l.recebida}
                     <span className="block text-xs text-slate-500">{l.total} no total</span>
@@ -184,6 +198,12 @@ export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, 
               </button>
             ))
           )}
+          {reclassificar && !reprovando && (
+            <button className="botao-sec" onClick={reclassificarSel} disabled={pendente || !sel.size}
+              title="Somente o administrador geral: muda o registro de trâmite (NF ↔ Mapa de devolução), mantendo a etapa e o histórico.">
+              {reclassificar === "mapa" ? "É Mapa de devolução" : "É NF"}
+            </button>
+          )}
           {finalizarAdmin && !reprovando && (
             <button className="botao-perigo" onClick={finalizarDireto} disabled={pendente || !sel.size}
               title="Somente o administrador geral: finaliza as NF selecionadas sem exigir documentos, assinaturas nem pacote final (NF do trâmite antigo, com os documentos nas pastas da rede). A observação ao lado vira o motivo no histórico.">
@@ -193,7 +213,7 @@ export function FilaTabela({ linhas, botoes, mostrarArrecadacao, laudo = false, 
         </div>
         {retorno && (
           <div className="text-sm" role="status">
-            {retorno.feitas > 0 && <p className="text-emerald-700">{retorno.feitas} NF atualizada(s) com sucesso.</p>}
+            {retorno.feitas > 0 && <p className="text-emerald-700">{retorno.feitas} {mapas ? "mapa(s)" : "NF"} atualizada(s) com sucesso.</p>}
             {retorno.erros.map((e, i) => <p key={i} className="text-red-700">{e}</p>)}
           </div>
         )}

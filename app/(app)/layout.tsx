@@ -20,6 +20,12 @@ export default async function LayoutApp({ children }: LayoutProps<"/">) {
       ],
     },
     ...(u.papel !== "empresa"
+      ? [{ titulo: "Mapas de devolução", itens: [
+          { href: "/mapas", rotulo: "Mapas de devolução", icone: "notas" },
+          ...(podeCadastrar(u) ? [{ href: "/mapas/novo", rotulo: "Cadastrar mapa", icone: "novo" }] : []),
+        ] }]
+      : []),
+    ...(u.papel !== "empresa"
       ? [{ titulo: "Análises", itens: [{ href: "/gerencial", rotulo: "Gerencial", icone: "grafico" }, { href: "/relatorios", rotulo: "Relatório mensal", icone: "relatorio" }] }]
       : []),
     ...(u.papel === "admin"

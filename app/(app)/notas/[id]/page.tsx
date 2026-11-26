@@ -38,10 +38,11 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
   if (!nota) notFound();
   const volta = destinoVolta((await searchParams).volta);
   const interno = ehInterno(u);
+  const mapa = nota.categoria === "mapa"; // Mapa de devolução: trâmite próprio, sem as exigências de documentos das NF
   const [eventos, etapas, prazoReprov, laudos, docsReceb] = await Promise.all([interno ? eventosDaNota(nota.id) : Promise.resolve([] as Evento[]), etapasAtivas(), prazoReprovada(), interno ? laudosDaNota(nota.id) : [], interno ? docsDaNota(nota.id) : []]);
   const perito = podeEmitirLaudo(u, etapas);
-  const recebedor = podeEmitirRecebimento(u, etapas, nota);
-  const minuta = podeMinutaTav(u, etapas, nota);
+  const recebedor = !mapa && podeEmitirRecebimento(u, etapas, nota);
+  const minuta = !mapa && podeMinutaTav(u, etapas, nota);
 
   // Tempo em cada etapa, a partir do histórico de movimentações
   const movs = eventos.filter((e) => e.movimento);
@@ -58,7 +59,7 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
   const permitidas = acoesPermitidas(u, nota, etapas);
   const { anterior, proxima, atual: etapaAtual } = vizinhos(etapas, nota.etapa_id);
   // última etapa: pacote final (documentos assinados + histórico) antes de finalizar
-  const pacoteFinal = interno && nota.status === "em_tramite" && !!etapaAtual && !proxima
+  const pacoteFinal = interno && !mapa && nota.status === "em_tramite" && !!etapaAtual && !proxima
     && (u.papel === "admin" || (u.papel === "interno" && u.etapas.includes(etapaAtual.id)));
   const ROTULOS: Record<Acao, BotaoFila> = {
     retornar: { acao: "retornar", rotulo: `← Devolver para ${anterior?.nome}`, estilo: "sec" },
@@ -79,23 +80,24 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
 
   return (
     <div className="space-y-4">
-      <Voltar href={volta?.href ?? "/notas"}>{volta?.rotulo ?? "Notas fiscais"}</Voltar>
+      <Voltar href={volta?.href ?? (mapa ? "/mapas" : "/notas")}>{volta?.rotulo ?? (mapa ? "Mapas de devolução" : "Notas fiscais")}</Voltar>
 
       <div className="cartao p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-bold text-slate-800">NF {nota.numero}{nota.serie ? <span className="text-base font-medium text-slate-400"> / série {nota.serie}</span> : null}</h1>
+              <h1 className="text-2xl font-bold text-slate-800">{mapa ? `Mapa de devolução nº ${nota.numero}` : <>NF {nota.numero}{nota.serie ? <span className="text-base font-medium text-slate-400"> / série {nota.serie}</span> : null}</>}</h1>
+              {mapa && <span className="rounded-full bg-teal-600 px-2.5 py-0.5 text-xs font-bold uppercase text-white">Mapa de devolução</span>}
               <Selo nota={nota} paraEmpresa={!interno} />
               {interno && nota.status === "em_tramite" && nota.indicacao_reprovacao && <span className="rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-bold uppercase text-white">{nota.indicacao_reprovacao === "tecnica" ? "Reprovação indicada pela Técnica" : "Reprovada na perícia — aguarda resolução do Diretor"}</span>}
               {interno && nota.parcial && <span title={nota.parcial_motivo ?? undefined} className="rounded-full bg-orange-500 px-2.5 py-0.5 text-xs font-bold uppercase text-white">NF Parcial — recebida a menor</span>}
               {nota.sob_medida && <span className="rounded-full bg-violet-50 px-2.5 py-0.5 text-xs font-semibold text-violet-700 ring-1 ring-inset ring-violet-200">Sob medida</span>}
-              {interno && <span title={descreverMotivo(nota.tipo_nf_motivo) || undefined} className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${nota.tipo_nf === "servico" ? "bg-teal-50 text-teal-800 ring-teal-200" : "bg-slate-50 text-slate-600 ring-slate-200"}`}>NF de {nota.tipo_nf === "servico" ? "serviço" : "material"}</span>}
+              {interno && !mapa && <span title={descreverMotivo(nota.tipo_nf_motivo) || undefined} className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${nota.tipo_nf === "servico" ? "bg-teal-50 text-teal-800 ring-teal-200" : "bg-slate-50 text-slate-600 ring-slate-200"}`}>NF de {nota.tipo_nf === "servico" ? "serviço" : "material"}</span>}
             </div>
-            <p className="mt-1 text-slate-700">{nota.emit_nome} <span className="text-sm text-slate-400">· {cnpj(nota.emit_cnpj)}</span></p>
+            <p className="mt-1 text-slate-700">{mapa ? <>CAM: {nota.emit_nome}</> : <>{nota.emit_nome} <span className="text-sm text-slate-400">· {cnpj(nota.emit_cnpj)}</span></>}</p>
           </div>
           <div className="text-right">
-            <p className="text-2xl font-bold text-marinha">{moeda(nota.valor)}</p>
+            {!mapa && <p className="text-2xl font-bold text-marinha">{moeda(nota.valor)}</p>}
             {nota.tem_xml && <a href={`/api/notas/${nota.id}/xml`} className="text-sm font-medium text-marinha hover:underline">Baixar XML</a>}
           </div>
         </div>
@@ -205,7 +207,7 @@ export default async function DetalheNota({ params, searchParams }: PageProps<"/
       {/* amostragem da perícia: aberta para quem é da Perícia com a NF na etapa dela; recolhida para os demais */}
       {interno && <AmostragemPericia nota={nota} aberto={perito && /per[ií]cia/i.test(`${etapaAtual?.nome ?? ""} ${etapaAtual?.setor ?? ""}`)} />}
 
-      {(perito || laudos.length > 0) && (
+      {!mapa && (perito || laudos.length > 0) && (
         <div className="cartao flex flex-wrap items-start justify-between gap-4 p-5">
           <div>
             <h2 className="text-[15px] font-semibold text-slate-900">Parecer da Divisão Técnica</h2>

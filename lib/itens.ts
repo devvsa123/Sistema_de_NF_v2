@@ -33,7 +33,7 @@ const dataValida = (s?: string) => (s && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : nul
 
 function base(u: Usuario, f: FiltrosItens) {
   const lista = termos(f.q ?? "");
-  const conds = [visivel(u)];
+  const conds = [visivel(u), sql`n.categoria = 'nf'`];
   const s = f.situacao ?? "";
   if (s === "em_aberto") conds.push(sql`n.status in ('em_tramite','reprovada')`);
   else if (["em_tramite", "reprovada", "finalizada", "retirada"].includes(s)) conds.push(sql`n.status = ${s}`);
@@ -89,6 +89,6 @@ export async function buscarItens(u: Usuario, f: FiltrosItens, todos = false) {
 
 export async function contarNotasSemItens(u: Usuario) {
   const [r] = await sql`select count(*) filter (where n.itens is null or jsonb_array_length(case when jsonb_typeof(n.itens) = 'array' then n.itens else '[]'::jsonb end) = 0)::int as sem,
-                               count(*)::int as total from notas n where ${visivel(u)}`;
+                               count(*)::int as total from notas n where ${visivel(u)} and n.categoria = 'nf'`;
   return r as { sem: number; total: number };
 }

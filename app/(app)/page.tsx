@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { pendenciasAteAgora } from "@/lib/documentos";
+import { pendenciasAteAgora, type PendenciaFila } from "@/lib/documentos";
 import { etapaPreRecebimento } from "@/lib/recebimento";
 import { redirect } from "next/navigation";
 import { exigirUsuario } from "@/lib/auth";
 import { etapasAtivas, etapasDoUsuario, podeArmazenar, podeEditarIdPa, podeTratarReprovadas, prazoReprovada, vizinhos } from "@/lib/fluxo";
-import { contagemFilas, fila } from "@/lib/notas";
+import { categoriaValida, contagemFilas, fila } from "@/lib/notas";
 import { dias, farol, moeda, data } from "@/lib/format";
 import { podeEmitirLaudo } from "@/lib/laudo";
 import { FilaTabela, type BotaoFila, type LinhaFila } from "@/components/FilaTabela";
@@ -14,7 +14,12 @@ export default async function MinhaFila({ searchParams }: PageProps<"/">) {
   const u = await exigirUsuario();
   if (u.papel !== "admin" && u.papel !== "interno") redirect("/notas");
 
-  const [etapas, contagem, prazoReprov] = await Promise.all([etapasAtivas(), contagemFilas(), prazoReprovada()]);
+  const sp = await searchParams;
+  // NF ou Mapas de devolução: o mesmo caminho, em trâmites separados (botão discreto no topo da fila)
+  const categoria = categoriaValida(sp.cat);
+  const mapa = categoria === "mapa";
+  const [etapas, contagem, contagemOutra, prazoReprov] = await Promise.all([etapasAtivas(), contagemFilas(categoria), contagemFilas(mapa ? "nf" : "mapa"), prazoReprovada()]);
+  const q = (aba: string) => `/?${mapa ? "cat=mapa&" : ""}aba=${aba}`;
   const perito = podeEmitirLaudo(u, etapas);
   const abas = [
     ...etapasDoUsuario(u, etapas).map((e) => ({ chave: `e${e.id}`, nome: e.nome })),
@@ -24,10 +29,11 @@ export default async function MinhaFila({ searchParams }: PageProps<"/">) {
   if (!abas.length)
     return <Vazio>Seu usuário ainda não está associado a nenhuma etapa do caminho. Procure o administrador do sistema.</Vazio>;
 
-  const pedida = String((await searchParams).aba ?? "");
+  const pedida = String(sp.aba ?? "");
   const aba = abas.find((a) => a.chave === pedida) ?? abas[0];
   const etapa = aba.chave.startsWith("e") ? etapas.find((e) => `e${e.id}` === aba.chave)! : null;
-  const notas = await fila(etapa ? { etapa: etapa.id } : (aba.chave as "reprovadas" | "armazenar"));
+  const notas = await fila(etapa ? { etapa: etapa.id } : (aba.chave as "reprovadas" | "armazenar"), categoria);
+  const totalOutra = abas.reduce((s, a) => s + (contagemOutra[a.chave] ?? 0), 0);
   const prazo = etapa ? etapa.prazo_dias : aba.chave === "reprovadas" ? prazoReprov : null;
 
   const botoes: BotaoFila[] = [];
@@ -45,15 +51,15 @@ export default async function MinhaFila({ searchParams }: PageProps<"/">) {
   } else botoes.push({ acao: "armazenar", rotulo: "Marcar como armazenada" });
 
   // o que falta até a etapa atual (documentos e assinaturas), acumulado das etapas anteriores
-  const pend = await pendenciasAteAgora(notas);
+  const pend = mapa ? new Map<number, PendenciaFila>() : await pendenciasAteAgora(notas);
   const linhas: LinhaFila[] = notas.map((n) => ({
     id: n.id, numero: n.numero, empresa: n.emit_nome, valor: moeda(n.valor), oc: n.oc ?? "", recebida: data(n.recebida_em), total: dias(n.dias_total),
     dias: aba.chave === "armazenar" ? dias(n.dias_arrecadada) : dias(n.dias_etapa),
     farol: prazo !== null ? farol(Number(n.dias_etapa), prazo) : null,
     obs: n.ultima_obs ?? "", comentarios: n.n_comentarios ?? 0, docs: n.n_docs ?? 0, docsFaltando: [...(pend.get(n.id)?.documentos ?? []), ...(pend.get(n.id)?.assinaturas ?? []).map((a) => `assinatura ${a}`)].join(", "),
     faltaDocs: pend.get(n.id)?.documentos ?? [], faltaAssinaturas: pend.get(n.id)?.assinaturas ?? [], sobMedida: !!n.sob_medida, servico: n.tipo_nf === "servico", parcial: !!n.parcial, parcialMotivo: n.parcial_motivo ?? "", reprovacao: n.status === "em_tramite" ? (n.indicacao_reprovacao ?? "") : "",
-    idPa: n.id_pa ?? "", editaIdPa: podeEditarIdPa(u, etapas, n),
-    exigeIdPa: !!n.exige_id_pa && n.status === "em_tramite" && !!etapas.find((x) => x.id === n.etapa_id)?.edita_id_pa, obsOc: n.obs_oc ?? "", arrecadada: !!n.arrecadada_em,
+    idPa: n.id_pa ?? "", editaIdPa: !mapa && podeEditarIdPa(u, etapas, n),
+    exigeIdPa: !mapa && !!n.exige_id_pa && n.status === "em_tramite" && !!etapas.find((x) => x.id === n.etapa_id)?.edita_id_pa, obsOc: n.obs_oc ?? "", arrecadada: !!n.arrecadada_em,
     situacao: aba.chave === "reprovadas" ? `Reprovada em ${n.etapa_nome ?? "—"}` : undefined,
   }));
   const atrasadas = prazo !== null ? notas.filter((n) => Number(n.dias_etapa) > prazo).length : 0;
@@ -62,12 +68,22 @@ export default async function MinhaFila({ searchParams }: PageProps<"/">) {
 
   return (
     <div className="space-y-4">
-      <Cabecalho titulo="Minha fila" descricao="Notas fiscais aguardando ação nas etapas em que você atua, na ordem de chegada (a que chegou primeiro ao depósito fica no topo). Selecione as NF e use os botões no fim da lista para tramitar." />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <Cabecalho titulo={mapa ? "Minha fila · Mapas de devolução" : "Minha fila"} descricao={mapa
+          ? "Mapas de devolução dos CAM aguardando ação nas etapas em que você atua, na ordem de chegada. Mesmo caminho das NF, sem a exigência de documentos."
+          : "Notas fiscais aguardando ação nas etapas em que você atua, na ordem de chegada (a que chegou primeiro ao depósito fica no topo). Selecione as NF e use os botões no fim da lista para tramitar."} />
+        <div className="inline-flex shrink-0 rounded-lg bg-slate-100 p-0.5 text-xs font-semibold" role="group" aria-label="Trâmite">
+          <Link href="/" className={`rounded-md px-3 py-1.5 ${!mapa ? "bg-white text-marinha shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>NF</Link>
+          <Link href="/?cat=mapa" className={`rounded-md px-3 py-1.5 ${mapa ? "bg-white text-teal-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+            Mapas de devolução{!mapa && totalOutra > 0 && <span className="ml-1 rounded-full bg-teal-600 px-1.5 text-[10px] text-white">{totalOutra}</span>}
+          </Link>
+        </div>
+      </div>
       <div className="flex flex-wrap gap-1.5">
         {abas.map((a) => (
           <Link
             key={a.chave}
-            href={`/?aba=${a.chave}`}
+            href={q(a.chave)}
             className={`rounded-full px-3.5 py-1.5 text-sm font-semibold ring-1 ring-inset transition ${
               a.chave === aba.chave ? "bg-marinha text-white ring-marinha" : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50"
             }`}
@@ -81,8 +97,8 @@ export default async function MinhaFila({ searchParams }: PageProps<"/">) {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Indicador titulo="Notas na fila" valor={notas.length} />
-        <Indicador titulo="Valor total" valor={moeda(valorTotal)} />
+        <Indicador titulo={mapa ? "Mapas na fila" : "Notas na fila"} valor={notas.length} />
+        {!mapa && <Indicador titulo="Valor total" valor={moeda(valorTotal)} />}
         {prazo !== null && (
           <>
             <Indicador titulo={`Acima do prazo (${prazo} dias)`} valor={atrasadas} cor={atrasadas ? "text-red-600" : "text-emerald-600"} />
@@ -95,11 +111,13 @@ export default async function MinhaFila({ searchParams }: PageProps<"/">) {
       </div>
 
       {notas.length === 0 ? (
-        <Vazio>Nenhuma nota fiscal nesta fila. 🎉</Vazio>
+        <Vazio>{mapa ? "Nenhum mapa de devolução nesta fila." : "Nenhuma nota fiscal nesta fila."} 🎉</Vazio>
       ) : (
-        <FilaTabela key={aba.chave} linhas={linhas} botoes={botoes} mostrarArrecadacao={!!etapa?.exige_arrecadacao} laudo={perito && (!!etapa?.emite_laudo || aba.chave === "reprovadas")} docsRecebimento={(u.papel === "interno" || u.papel === "admin") && !!etapa?.emite_docs_recebimento}
+        <FilaTabela key={`${categoria}-${aba.chave}`} linhas={linhas} botoes={botoes} mostrarArrecadacao={!!etapa?.exige_arrecadacao}
+          laudo={!mapa && perito && (!!etapa?.emite_laudo || aba.chave === "reprovadas")} docsRecebimento={!mapa && (u.papel === "interno" || u.papel === "admin") && !!etapa?.emite_docs_recebimento}
           finalizarAdmin={u.papel === "admin" && !!etapa}
-          minutaTav={!!etapa && etapa.id === etapaPreRecebimento(etapas)?.id && (u.papel === "admin" || (u.papel === "interno" && u.etapas.includes(etapa.id)))} volta={`/?aba=${aba.chave}`} />
+          reclassificar={u.papel === "admin" ? (mapa ? "nf" : "mapa") : undefined} mapas={mapa}
+          minutaTav={!mapa && !!etapa && etapa.id === etapaPreRecebimento(etapas)?.id && (u.papel === "admin" || (u.papel === "interno" && u.etapas.includes(etapa.id)))} volta={q(aba.chave)} />
       )}
     </div>
   );

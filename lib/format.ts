@@ -88,7 +88,8 @@ export function nomeMes(ym: string) {
  * Só aceita páginas internas do sistema.
  */
 export function destinoVolta(v: unknown): { href: string; rotulo: string } | null {
-  if (typeof v !== "string" || v.length > 1500 || !/^\/(notas(\/itens)?|gerencial|relatorios)?(\?[^#\s]*)?$/.test(v)) return null;
+  if (typeof v !== "string" || v.length > 1500 || !/^\/(notas(\/itens)?|gerencial|relatorios|mapas)?(\?[^#\s]*)?$/.test(v)) return null;
+  if (v.startsWith("/mapas")) return { href: v, rotulo: "Voltar para os mapas de devolução" };
   if (v.startsWith("/notas/itens")) return { href: v, rotulo: "Voltar para a pesquisa de itens" };
   if (v.startsWith("/notas")) return { href: v, rotulo: "Voltar para a pesquisa" };
   if (v.startsWith("/gerencial")) return { href: v, rotulo: "Voltar para o Gerencial" };

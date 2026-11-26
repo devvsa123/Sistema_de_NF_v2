@@ -6,7 +6,7 @@ import { soDigitos } from "./format";
 import type { ItemNF } from "./nfe";
 
 /** NF "entrando": em tramitação, ou finalizadas e arrecadadas que ainda não foram armazenadas. */
-const ENTRANDO = sql`(n.status = 'em_tramite' or (n.status = 'finalizada' and n.arrecadada_em is not null and n.armazenada_em is null))`;
+const ENTRANDO = sql`(n.categoria = 'nf' and (n.status = 'em_tramite' or (n.status = 'finalizada' and n.arrecadada_em is not null and n.armazenada_em is null)))`;
 
 export type FiltrosEntrando = { q?: string; etapa?: string; cnpj?: string; ordem?: string; correlacao?: string };
 

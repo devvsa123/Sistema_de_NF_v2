@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { exigirUsuario, podeCadastrar } from "@/lib/auth";
 import { ajustarComoAdmin, definirIdPa, etapasAtivas, executarAcao, podeEditarIdPa, registrarEvento, type Acao, type OpcoesAcao } from "@/lib/fluxo";
-import { analisarDocumento, cadastrarManual, cadastrarPorDocumento, obterNota, type Documento } from "@/lib/notas";
+import { analisarDocumento, cadastrarManual, cadastrarMapa, cadastrarPorDocumento, obterNota, type Documento } from "@/lib/notas";
 import { textoBusca } from "@/lib/nfe";
 import { enviarDocumento, TIPO_NF } from "@/lib/documentos";
 import { classificarNF, NOME_TIPO_NF } from "@/lib/tipo-nf";
@@ -61,6 +61,47 @@ export async function acaoFinalizarAdmin(ids: number[], motivo: string) {
   }
   revalidatePath("/", "layout");
   return { feitas, erros };
+}
+
+/** Administrador geral: reclassifica NF como Mapa de devolução (ou volta para NF). Registrado no histórico. */
+export async function acaoReclassificar(ids: number[], para: string) {
+  const u = await exigirUsuario();
+  if (u.papel !== "admin") return { feitas: 0, erros: ["Somente o administrador geral pode reclassificar."] };
+  const destino = para === "mapa" ? "mapa" : "nf";
+  if (!Array.isArray(ids) || !ids.length || ids.length > 500) return { feitas: 0, erros: ["Selecione as NF."] };
+  let feitas = 0;
+  for (const id of ids) {
+    await sql.begin(async (tx) => {
+      const [n] = await tx`update notas set categoria = ${destino} where id = ${Number(id)} and categoria <> ${destino} returning id`;
+      if (n) {
+        await registrarEvento(tx, { nota_id: n.id as number, tipo: "edicao", usuario: u,
+          texto: destino === "mapa" ? "Reclassificada como Mapa de devolução (sai do trâmite e das metas das NF)." : "Reclassificada como NF (volta ao trâmite das NF)." });
+        feitas++;
+      }
+    });
+  }
+  revalidatePath("/", "layout");
+  return { feitas, erros: [] as string[] };
+}
+
+/** Cadastro de Mapa de devolução (com o PDF do mapa, opcional). */
+export async function acaoCadastrarMapa(_: Estado, f: FormData): Promise<Estado> {
+  const u = await exigirUsuario();
+  let id: number;
+  try {
+    id = await cadastrarMapa(u, { numero: campo(f, "numero"), cam: campo(f, "cam"), data: campo(f, "data"), obs: campo(f, "obs") });
+  } catch (e) {
+    return { erro: msg(e) };
+  }
+  const arquivo = f.get("arquivo");
+  if (arquivo instanceof File && arquivo.size) {
+    try {
+      const [t] = await sql`select id from tipos_documento where nome = 'Mapa de devolução' and ativo`;
+      await enviarDocumento(u, id, (t?.id as number) ?? 0, arquivo);
+    } catch { /* o mapa fica cadastrado; o PDF pode ser anexado depois na página do mapa */ }
+  }
+  revalidatePath("/", "layout");
+  redirect(`/notas/${id}`);
 }
 
 export async function acaoObservacao(_: Estado, f: FormData): Promise<Estado> {

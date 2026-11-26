@@ -14,7 +14,7 @@ const desdeDias = (dias: number) => sql`now() - make_interval(days => ${dias})`;
 const MOV = sql`
   select ev.nota_id, ev.tipo, ev.criado_em, ev.para_etapa_id, ev.para_status, ev.usuario_nome,
          lag(ev.para_etapa_id) over w as de_etapa, lag(ev.para_status) over w as de_status
-  from eventos ev where ev.movimento
+  from eventos_nf ev where ev.movimento
   window w as (partition by ev.nota_id order by ev.criado_em, ev.id)`;
 
 /**
@@ -44,7 +44,7 @@ export async function salvarToleranciaFila(padrao: number, porEtapa: Record<numb
 }
 
 /** Passagens pelas etapas em trâmite (sem os períodos como reprovada). */
-const PASS = sql`select nota_id, etapa_id, entrada, saida from permanencias where status = 'em_tramite' and etapa_id is not null`;
+const PASS = sql`select nota_id, etapa_id, entrada, saida from permanencias_nf where status = 'em_tramite' and etapa_id is not null`;
 
 // ---------------------------------------------------------------- Fluxo e gargalos
 
@@ -64,7 +64,7 @@ export async function balanco(dias: number) {
             from m where de_status = 'em_tramite' and criado_em >= ${desdeDias(dias)} group by 1),
     ini as (select etapa_id as id, count(*)::int as n from (${PASS}) p
             where entrada < ${desdeDias(dias)} and (saida is null or saida >= ${desdeDias(dias)}) group by 1),
-    agora as (select etapa_id as id, count(*)::int as n from notas where status = 'em_tramite' group by 1)
+    agora as (select etapa_id as id, count(*)::int as n from notas_nf where status = 'em_tramite' group by 1)
     select e.id as etapa_id, coalesce(ent.n, 0) as entradas, coalesce(sai.saidas, 0) as saidas, coalesce(sai.despachadas, 0) as despachadas,
            coalesce(sai.devolvidas, 0) as devolvidas, coalesce(agora.n, 0) as wip, coalesce(ini.n, 0) as wip_inicio
     from etapas e left join ent on ent.id = e.id left join sai on sai.id = e.id left join ini on ini.id = e.id left join agora on agora.id = e.id
@@ -76,7 +76,7 @@ export async function estoqueDiario(de: string, ate: string) {
   return sql<{ dia: string; chave: number; n: number }[]>`
     with d as (select gs::date as dia, ((gs::date + 1)::timestamp at time zone ${TZ}) as fim
                from generate_series(${de}::date, ${ate}::date, interval '1 day') gs),
-    p as (select nota_id, etapa_id, status, entrada, saida from permanencias
+    p as (select nota_id, etapa_id, status, entrada, saida from permanencias_nf
           where status in ('em_tramite','reprovada') and (saida is null or saida >= (${de}::date)::timestamp at time zone ${TZ}))
     select to_char(d.dia, 'YYYY-MM-DD') as dia, case when p.status = 'reprovada' then 0 else p.etapa_id end as chave, count(*)::int as n
     from d join p on p.entrada < d.fim and (p.saida is null or p.saida >= d.fim)
@@ -90,9 +90,9 @@ export async function fluxoSemanal(semanas: number) {
       select gs::date as ini, ((gs::date)::timestamp at time zone ${TZ}) as t0, ((gs::date + 7)::timestamp at time zone ${TZ}) as t1
       from generate_series(date_trunc('week', now() at time zone ${TZ})::date - (${semanas - 1} * 7), date_trunc('week', now() at time zone ${TZ})::date, interval '7 days') gs)
     select to_char(s.ini, 'YYYY-MM-DD') as semana,
-      (select count(*)::int from notas where recebida_em >= s.t0 and recebida_em < s.t1) as chegadas,
-      (select count(*)::int from notas where status in ('finalizada','retirada','arquivada') and concluida_em >= s.t0 and concluida_em < s.t1) as saidas,
-      (select count(*)::int from notas where recebida_em < least(s.t1, now()) and (concluida_em is null or concluida_em >= least(s.t1, now()))
+      (select count(*)::int from notas_nf where recebida_em >= s.t0 and recebida_em < s.t1) as chegadas,
+      (select count(*)::int from notas_nf where status in ('finalizada','retirada','arquivada') and concluida_em >= s.t0 and concluida_em < s.t1) as saidas,
+      (select count(*)::int from notas_nf where recebida_em < least(s.t1, now()) and (concluida_em is null or concluida_em >= least(s.t1, now()))
                                          and status <> 'arquivada') as estoque
     from s order by s.ini`;
 }
@@ -106,7 +106,7 @@ export async function fluxoSemanal(semanas: number) {
 export async function aderenciaFifo(dias: number) {
   return sql<{ etapa_id: number; saidas: number; fora: number }[]>`
     with p as (${PASS}), tol as (${TOL}),
-    s as (select p.*, n.sob_medida, tol.t from p join notas n on n.id = p.nota_id join tol on tol.etapa_id = p.etapa_id where p.saida >= ${desdeDias(dias)})
+    s as (select p.*, n.sob_medida, tol.t from p join notas_nf n on n.id = p.nota_id join tol on tol.etapa_id = p.etapa_id where p.saida >= ${desdeDias(dias)})
     select s.etapa_id, count(*)::int as saidas,
            count(*) filter (where not s.sob_medida and exists (
              select 1 from p q where q.etapa_id = s.etapa_id and q.nota_id <> s.nota_id
@@ -137,10 +137,10 @@ export async function furaramFila(dias: number) {
       where q.etapa_id = s.etapa_id and q.nota_id <> s.nota_id
         and q.entrada < s.entrada - s.t and (q.saida is null or q.saida > s.saida + interval '1 hour')
     ) x on x.passou > 0
-    join notas n on n.id = s.nota_id and not n.sob_medida
+    join notas_nf n on n.id = s.nota_id and not n.sob_medida
     join etapas e on e.id = s.etapa_id
     left join lateral (
-      select usuario_nome, para_nome, tipo from eventos where nota_id = s.nota_id and movimento and criado_em = s.saida order by id limit 1
+      select usuario_nome, para_nome, tipo from eventos_nf where nota_id = s.nota_id and movimento and criado_em = s.saida order by id limit 1
     ) ev on true
     order by s.saida desc`;
 }
@@ -151,15 +151,15 @@ export type Ultrapassada = { id: number; numero: string; emit_nome: string; etap
 export async function ultrapassadas() {
   return sql<Ultrapassada[]>`
     with p as (${PASS}), tol as (${TOL}),
-    atual as (select p.*, tol.t from p join notas n on n.id = p.nota_id and n.status = 'em_tramite' and n.etapa_id = p.etapa_id
+    atual as (select p.*, tol.t from p join notas_nf n on n.id = p.nota_id and n.status = 'em_tramite' and n.etapa_id = p.etapa_id
               join tol on tol.etapa_id = p.etapa_id where p.saida is null)
     select n.id, n.numero, n.emit_nome, a.etapa_id, e.nome as etapa, a.entrada,
            extract(epoch from now() - a.entrada) / 86400 as dias, count(o.nota_id)::int as vezes
     from atual a
-    join notas n on n.id = a.nota_id
+    join notas_nf n on n.id = a.nota_id
     join etapas e on e.id = a.etapa_id
     join p o on o.etapa_id = a.etapa_id and o.nota_id <> a.nota_id and o.entrada > a.entrada + a.t and o.saida is not null
-      and not exists (select 1 from notas sm where sm.id = o.nota_id and sm.sob_medida)
+      and not exists (select 1 from notas_nf sm where sm.id = o.nota_id and sm.sob_medida)
     group by n.id, a.etapa_id, e.nome, e.ordem, a.entrada
     order by vezes desc, a.entrada`;
 }
@@ -172,7 +172,7 @@ export async function envelhecimento() {
     select case when status = 'reprovada' then 0 else etapa_id end as chave,
            case ${FAIXAS_IDADE.map(([a, b], i) => sql`when d > ${a} and d <= ${b} then ${i} `).reduce((x, y) => sql`${x} ${y}`)} else 0 end as faixa,
            count(*)::int as n
-    from (select status, etapa_id, extract(epoch from now() - etapa_desde) / 86400 as d from notas where status in ('em_tramite','reprovada')) x
+    from (select status, etapa_id, extract(epoch from now() - etapa_desde) / 86400 as d from notas_nf where status in ('em_tramite','reprovada')) x
     group by 1, 2`;
 }
 
@@ -187,16 +187,16 @@ export async function retrabalho(dias: number) {
              count(*) filter (where tipo = 'reprovacao')::int as reprovadas
       from m where de_status = 'em_tramite' and criado_em >= ${desdeDias(dias)} group by 1`,
     sql`select count(*)::int as finalizadas,
-               count(*) filter (where not exists (select 1 from eventos ev where ev.nota_id = n.id and ev.tipo in ('retorno','reprovacao')))::int as de_primeira
-        from notas n where n.status = 'finalizada' and n.concluida_em >= ${desdeDias(dias)}`,
+               count(*) filter (where not exists (select 1 from eventos_nf ev where ev.nota_id = n.id and ev.tipo in ('retorno','reprovacao')))::int as de_primeira
+        from notas_nf n where n.status = 'finalizada' and n.concluida_em >= ${desdeDias(dias)}`,
     sql<{ id: number; numero: string; emit_nome: string; status: string; etapa_nome: string | null; devolucoes: number; reprovacoes: number; caminho: string }[]>`
       select n.id, n.numero, n.emit_nome, n.status, e.nome as etapa_nome,
              count(*) filter (where ev.tipo = 'retorno')::int as devolucoes,
              count(*) filter (where ev.tipo = 'reprovacao')::int as reprovacoes,
              string_agg(ev.para_nome, ' → ' order by ev.criado_em, ev.id) as caminho
-      from notas n left join etapas e on e.id = n.etapa_id
-      join eventos ev on ev.nota_id = n.id and ev.movimento
-      where n.id in (select nota_id from eventos where tipo in ('retorno','reprovacao') and criado_em >= ${desdeDias(dias)})
+      from notas_nf n left join etapas e on e.id = n.etapa_id
+      join eventos_nf ev on ev.nota_id = n.id and ev.movimento
+      where n.id in (select nota_id from eventos_nf where tipo in ('retorno','reprovacao') and criado_em >= ${desdeDias(dias)})
       group by n.id, e.nome
       having count(*) filter (where ev.tipo in ('retorno','reprovacao')) >= 2
       order by count(*) filter (where ev.tipo in ('retorno','reprovacao')) desc, n.id desc
@@ -217,7 +217,7 @@ async function medianas() {
   const r = await sql<{ etapa_id: number; mediana: number; n: number }[]>`
     select etapa_id, percentile_cont(0.5) within group (order by dur) as mediana, count(*)::int as n from (
       select nota_id, etapa_id, sum(extract(epoch from saida - entrada)) / 86400 as dur
-      from permanencias where status = 'em_tramite' and saida is not null and etapa_id is not null
+      from permanencias_nf where status = 'em_tramite' and saida is not null and etapa_id is not null
       group by 1, 2 having max(saida) >= now() - interval '180 days') x
     group by 1`;
   return new Map(r.map((x) => [x.etapa_id, Number(x.mediana)]));
@@ -230,7 +230,7 @@ export async function previsoes(etapas: Etapa[]) {
     sql<{ id: number; numero: string; emit_nome: string; valor: string; etapa_id: number; dias_etapa: number; dias_total: number }[]>`
       select id, numero, emit_nome, valor, etapa_id, extract(epoch from now() - etapa_desde) / 86400 as dias_etapa,
              extract(epoch from now() - recebida_em) / 86400 as dias_total
-      from notas where status = 'em_tramite' and etapa_id is not null`,
+      from notas_nf where status = 'em_tramite' and etapa_id is not null`,
   ]);
   const prazoTotal = etapas.reduce((s, e) => s + e.prazo_dias, 0);
   const tipico = (e: Etapa) => med.get(e.id) ?? e.prazo_dias;
@@ -260,19 +260,19 @@ export async function alertas(prazoReprov: number, etapas: Etapa[]): Promise<Ale
   const [dobro, reprov, armazenar, idas, ultra, bal14, prev] = await Promise.all([
     sql<(NFAlerta & { d: number; etapa: string; prazo: number })[]>`
       select n.id, n.numero, n.emit_nome, e.nome as etapa, e.prazo_dias as prazo, extract(epoch from now() - n.etapa_desde) / 86400 as d, '' as detalhe
-      from notas n join etapas e on e.id = n.etapa_id
+      from notas_nf n join etapas e on e.id = n.etapa_id
       where n.status = 'em_tramite' and now() - n.etapa_desde > make_interval(days => e.prazo_dias * 2)
       order by now() - n.etapa_desde desc`,
     sql<(NFAlerta & { d: number })[]>`
       select id, numero, emit_nome, extract(epoch from now() - etapa_desde) / 86400 as d, '' as detalhe
-      from notas where status = 'reprovada' and now() - etapa_desde > make_interval(days => ${prazoReprov}) order by etapa_desde`,
+      from notas_nf where status = 'reprovada' and now() - etapa_desde > make_interval(days => ${prazoReprov}) order by etapa_desde`,
     sql<(NFAlerta & { d: number })[]>`
       select id, numero, emit_nome, extract(epoch from now() - arrecadada_em) / 86400 as d, '' as detalhe
-      from notas where arrecadada_em is not null and armazenada_em is null and status in ('em_tramite','finalizada')
+      from notas_nf where arrecadada_em is not null and armazenada_em is null and status in ('em_tramite','finalizada')
         and now() - arrecadada_em > interval '7 days' order by arrecadada_em`,
     sql<(NFAlerta & { voltas: number; etapa: string | null })[]>`
       select n.id, n.numero, n.emit_nome, e.nome as etapa, count(*)::int as voltas, '' as detalhe
-      from notas n left join etapas e on e.id = n.etapa_id join eventos ev on ev.nota_id = n.id and ev.tipo in ('retorno','reprovacao')
+      from notas_nf n left join etapas e on e.id = n.etapa_id join eventos_nf ev on ev.nota_id = n.id and ev.tipo in ('retorno','reprovacao')
       where n.status in ('em_tramite','reprovada') group by n.id, e.nome having count(*) >= 2 order by voltas desc`,
     ultrapassadas(),
     balanco(14),
